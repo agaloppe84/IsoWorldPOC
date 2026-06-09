@@ -117,26 +117,21 @@ final class EngineCoreTests: XCTestCase {
     }
 
     func testTerrainSamplerReturnsExactGridHeights() {
-        let heightmap = rampHeightmap()
-        let sampler = TerrainSampler(heightmap: heightmap, horizontalScale: 1, verticalScale: 1)
+        let sampler = TerrainSampler(geometry: rampGeometry(horizontalScale: 1, verticalScale: 1))
 
         XCTAssertEqual(sampler.heightAt(x: 0, z: 0), 0, accuracy: 0.0001)
         XCTAssertEqual(sampler.heightAt(x: 3, z: 4), 22, accuracy: 0.0001)
     }
 
     func testTerrainSamplerBilinearlyInterpolatesBetweenGridHeights() {
-        let heightmap = rampHeightmap()
-        let sampler = TerrainSampler(heightmap: heightmap, horizontalScale: 1, verticalScale: 1)
+        let sampler = TerrainSampler(geometry: rampGeometry(horizontalScale: 1, verticalScale: 1))
 
         XCTAssertEqual(sampler.heightAt(x: 0.5, z: 0.5), 3, accuracy: 0.0001)
     }
 
     func testTerrainSamplerAppliesScaleAndOrigin() {
-        let heightmap = rampHeightmap()
         let sampler = TerrainSampler(
-            heightmap: heightmap,
-            horizontalScale: 0.5,
-            verticalScale: 2,
+            geometry: rampGeometry(horizontalScale: 0.5, verticalScale: 2),
             originX: -10,
             originZ: 5
         )
@@ -145,15 +140,13 @@ final class EngineCoreTests: XCTestCase {
     }
 
     func testTerrainSamplerReportsFlatSlopeAsZero() {
-        let heightmap = flatHeightmap(height: 3)
-        let sampler = TerrainSampler(heightmap: heightmap, horizontalScale: 1, verticalScale: 1)
+        let sampler = TerrainSampler(geometry: flatGeometry(height: 3, horizontalScale: 1))
 
         XCTAssertEqual(sampler.slopeAt(x: 20, z: 20), 0, accuracy: 0.0001)
     }
 
     func testTerrainSamplerReportsSlopeForRamps() {
-        let heightmap = rampHeightmap()
-        let sampler = TerrainSampler(heightmap: heightmap, horizontalScale: 1, verticalScale: 1)
+        let sampler = TerrainSampler(geometry: rampGeometry(horizontalScale: 1, verticalScale: 1))
         let sample = sampler.sampleAt(x: 20, z: 20)
 
         XCTAssertEqual(sample.height, 120, accuracy: 0.0001)
@@ -200,5 +193,49 @@ final class EngineCoreTests: XCTestCase {
         }
 
         return ChunkHeightmap(seed: WorldSeed(1), coordinate: .origin, samples: samples)
+    }
+
+    private func flatGeometry(height: Float, horizontalScale: Float) -> TerrainGeometryBuffers {
+        TerrainGeometryBuffers(
+            resolution: ChunkHeightmap.resolution,
+            positions: terrainPositions(horizontalScale: horizontalScale) { _, _ in height },
+            normals: [],
+            textureCoordinates: [],
+            indices: []
+        )
+    }
+
+    private func rampGeometry(horizontalScale: Float, verticalScale: Float) -> TerrainGeometryBuffers {
+        TerrainGeometryBuffers(
+            resolution: ChunkHeightmap.resolution,
+            positions: terrainPositions(horizontalScale: horizontalScale) { localX, localZ in
+                Float(localX * 2 + localZ * 4) * verticalScale
+            },
+            normals: [],
+            textureCoordinates: [],
+            indices: []
+        )
+    }
+
+    private func terrainPositions(
+        horizontalScale: Float,
+        height: (_ localX: Int, _ localZ: Int) -> Float
+    ) -> [TerrainGeometryBuffers.Position] {
+        var positions: [TerrainGeometryBuffers.Position] = []
+        positions.reserveCapacity(ChunkHeightmap.sampleCount)
+
+        for localZ in 0..<ChunkHeightmap.resolution {
+            for localX in 0..<ChunkHeightmap.resolution {
+                positions.append(
+                    TerrainGeometryBuffers.Position(
+                        x: Float(localX) * horizontalScale,
+                        y: height(localX, localZ),
+                        z: Float(localZ) * horizontalScale
+                    )
+                )
+            }
+        }
+
+        return positions
     }
 }

@@ -78,22 +78,6 @@ public struct TerrainSampler: Sendable {
     private let heights: [Float]
 
     public init(
-        heightmap: ChunkHeightmap,
-        horizontalScale: Float,
-        verticalScale: Float,
-        originX: Float = 0,
-        originZ: Float = 0
-    ) {
-        precondition(horizontalScale > 0, "horizontalScale must be positive.")
-
-        self.resolution = ChunkHeightmap.resolution
-        self.horizontalScale = horizontalScale
-        self.originX = originX
-        self.originZ = originZ
-        self.heights = heightmap.samples.map { $0.height * verticalScale }
-    }
-
-    public init(
         geometry: TerrainGeometryBuffers,
         originX: Float = 0,
         originZ: Float = 0
