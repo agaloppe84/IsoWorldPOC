@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  GameRootView.swift
 //  IsoWorldPOC
 //
 //  Created by Work on 09/06/2026.
@@ -7,8 +7,9 @@
 
 import SwiftUI
 
-struct ContentView: View {
+struct GameRootView: View {
     var body: some View {
-        GameRootView()
+        Text("EngineCore OK")
     }
 }
+
