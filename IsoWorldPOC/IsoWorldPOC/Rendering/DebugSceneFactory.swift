@@ -7,6 +7,7 @@
 
 import AppKit
 import RealityKit
+import simd
 
 @MainActor
 enum DebugSceneFactory {
@@ -27,6 +28,14 @@ enum DebugSceneFactory {
         capsule.position = [0, 0.48, 0]
 
         player.addChild(capsule)
+        player.addChild(
+            makePhysicsDebugBox(
+                name: "PhysicsDebug_PlayerBody",
+                size: [0.50, 1.00, 0.50],
+                color: .init(calibratedRed: 1.0, green: 0.0, blue: 1.0, alpha: 1.0),
+                center: [0, 0.50, 0]
+            )
+        )
 
         return player
     }
@@ -117,5 +126,71 @@ enum DebugSceneFactory {
         light.light.intensity = 1800
         light.look(at: .zero, from: [2, 4, 3], relativeTo: nil)
         return light
+    }
+
+    private static func makePhysicsDebugBox(
+        name: String,
+        size: SIMD3<Float>,
+        color: NSColor,
+        center: SIMD3<Float>
+    ) -> Entity {
+        let box = Entity()
+        box.name = name
+        box.position = center
+
+        let material = SimpleMaterial(color: color, roughness: 0.35, isMetallic: false)
+        let thickness: Float = 0.018
+        let halfX = size.x * 0.5
+        let halfY = size.y * 0.5
+        let halfZ = size.z * 0.5
+
+        for y in [-halfY, halfY] {
+            for z in [-halfZ, halfZ] {
+                box.addChild(
+                    makeDebugBar(
+                        size: [size.x, thickness, thickness],
+                        position: [0, y, z],
+                        material: material
+                    )
+                )
+            }
+        }
+
+        for x in [-halfX, halfX] {
+            for z in [-halfZ, halfZ] {
+                box.addChild(
+                    makeDebugBar(
+                        size: [thickness, size.y, thickness],
+                        position: [x, 0, z],
+                        material: material
+                    )
+                )
+            }
+        }
+
+        for x in [-halfX, halfX] {
+            for y in [-halfY, halfY] {
+                box.addChild(
+                    makeDebugBar(
+                        size: [thickness, thickness, size.z],
+                        position: [x, y, 0],
+                        material: material
+                    )
+                )
+            }
+        }
+
+        return box
+    }
+
+    private static func makeDebugBar(
+        size: SIMD3<Float>,
+        position: SIMD3<Float>,
+        material: SimpleMaterial
+    ) -> ModelEntity {
+        let bar = ModelEntity(mesh: .generateBox(size: size), materials: [material])
+        bar.position = position
+
+        return bar
     }
 }

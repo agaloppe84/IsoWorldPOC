@@ -150,6 +150,16 @@ enum ProceduralTerrainFactory {
             prop.addChild(makeCrystalEntity())
         }
 
+        let debugSize = physicsDebugSize(for: placement.type)
+        prop.addChild(
+            makePhysicsDebugBox(
+                name: "PhysicsDebug_\(placement.type.rawValue)",
+                size: debugSize,
+                color: physicsDebugColor(for: placement.type),
+                center: [0, debugSize.y * 0.5, 0]
+            )
+        )
+
         return prop
     }
 
@@ -203,6 +213,94 @@ enum ProceduralTerrainFactory {
         crystal.orientation = simd_quatf(angle: Float.pi * 0.25, axis: [0, 0, 1])
 
         return crystal
+    }
+
+    private static func physicsDebugSize(for type: PropType) -> SIMD3<Float> {
+        switch type {
+        case .rock:
+            return [0.44, 0.30, 0.40]
+        case .treePlaceholder:
+            return [0.58, 1.02, 0.58]
+        case .crystalPlaceholder:
+            return [0.30, 0.62, 0.30]
+        }
+    }
+
+    private static func physicsDebugColor(for type: PropType) -> NSColor {
+        switch type {
+        case .rock:
+            return .systemOrange
+        case .treePlaceholder:
+            return .systemGreen
+        case .crystalPlaceholder:
+            return .systemCyan
+        }
+    }
+
+    private static func makePhysicsDebugBox(
+        name: String,
+        size: SIMD3<Float>,
+        color: NSColor,
+        center: SIMD3<Float>
+    ) -> Entity {
+        let box = Entity()
+        box.name = name
+        box.position = center
+
+        let material = SimpleMaterial(color: color, roughness: 0.35, isMetallic: false)
+        let thickness: Float = 0.014
+        let halfX = size.x * 0.5
+        let halfY = size.y * 0.5
+        let halfZ = size.z * 0.5
+
+        for y in [-halfY, halfY] {
+            for z in [-halfZ, halfZ] {
+                box.addChild(
+                    makeDebugBar(
+                        size: [size.x, thickness, thickness],
+                        position: [0, y, z],
+                        material: material
+                    )
+                )
+            }
+        }
+
+        for x in [-halfX, halfX] {
+            for z in [-halfZ, halfZ] {
+                box.addChild(
+                    makeDebugBar(
+                        size: [thickness, size.y, thickness],
+                        position: [x, 0, z],
+                        material: material
+                    )
+                )
+            }
+        }
+
+        for x in [-halfX, halfX] {
+            for y in [-halfY, halfY] {
+                box.addChild(
+                    makeDebugBar(
+                        size: [thickness, thickness, size.z],
+                        position: [x, y, 0],
+                        material: material
+                    )
+                )
+            }
+        }
+
+        return box
+    }
+
+    private static func makeDebugBar(
+        size: SIMD3<Float>,
+        position: SIMD3<Float>,
+        material: SimpleMaterial
+    ) -> ModelEntity {
+        let bar = ModelEntity(mesh: .generateBox(size: size), materials: [material])
+        bar.position = position
+
+        return bar
     }
 
     private static func currentTimeMilliseconds() -> Double {
