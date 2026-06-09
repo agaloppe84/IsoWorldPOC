@@ -1,0 +1,121 @@
+//
+//  DebugSceneFactory.swift
+//  IsoWorldPOC
+//
+//  Created by Work on 09/06/2026.
+//
+
+import AppKit
+import RealityKit
+
+@MainActor
+enum DebugSceneFactory {
+    static func makePlayerEntity() -> Entity {
+        let player = Entity()
+        player.name = "PlayerCapsule"
+
+        let material = SimpleMaterial(
+            color: .systemYellow,
+            roughness: 0.35,
+            isMetallic: false
+        )
+
+        let capsule = ModelEntity(
+            mesh: .generateBox(size: [0.42, 0.95, 0.42], cornerRadius: 0.2),
+            materials: [material]
+        )
+        capsule.position = [0, 0.48, 0]
+
+        player.addChild(capsule)
+
+        return player
+    }
+
+    static func makeReferenceFloor() -> Entity {
+        let floor = Entity()
+        floor.name = "DebugReferenceFloor"
+
+        let floorMaterial = SimpleMaterial(
+            color: .init(red: 0.12, green: 0.13, blue: 0.14, alpha: 1),
+            roughness: 0.8,
+            isMetallic: false
+        )
+        let floorEntity = ModelEntity(
+            mesh: .generateBox(size: [14, 0.02, 14]),
+            materials: [floorMaterial]
+        )
+        floorEntity.position = [0, -0.02, 0]
+        floor.addChild(floorEntity)
+
+        let minorLineMaterial = SimpleMaterial(
+            color: .init(red: 0.32, green: 0.34, blue: 0.36, alpha: 1),
+            roughness: 0.7,
+            isMetallic: false
+        )
+        let majorLineMaterial = SimpleMaterial(
+            color: .init(red: 0.50, green: 0.52, blue: 0.55, alpha: 1),
+            roughness: 0.7,
+            isMetallic: false
+        )
+
+        let halfLineCount = 7
+        let length: Float = 14
+        let minorThickness: Float = 0.018
+        let majorThickness: Float = 0.034
+
+        for index in -halfLineCount...halfLineCount {
+            let offset = Float(index)
+            let isMajorLine = index == 0 || index.isMultiple(of: 2)
+            let thickness = isMajorLine ? majorThickness : minorThickness
+            let material = isMajorLine ? majorLineMaterial : minorLineMaterial
+
+            let xLine = ModelEntity(
+                mesh: .generateBox(size: [length, 0.012, thickness]),
+                materials: [material]
+            )
+            xLine.position = [0, 0.006, offset]
+            floor.addChild(xLine)
+
+            let zLine = ModelEntity(
+                mesh: .generateBox(size: [thickness, 0.012, length]),
+                materials: [material]
+            )
+            zLine.position = [offset, 0.007, 0]
+            floor.addChild(zLine)
+        }
+
+        return floor
+    }
+
+    static func makeAxisMarkers() -> Entity {
+        let axes = Entity()
+        axes.name = "DebugAxisMarkers"
+
+        let xMaterial = SimpleMaterial(color: .systemRed, roughness: 0.45, isMetallic: false)
+        let zMaterial = SimpleMaterial(color: .systemBlue, roughness: 0.45, isMetallic: false)
+
+        let xAxis = ModelEntity(
+            mesh: .generateBox(size: [3.2, 0.06, 0.06]),
+            materials: [xMaterial]
+        )
+        xAxis.position = [1.6, 0.06, 0]
+        axes.addChild(xAxis)
+
+        let zAxis = ModelEntity(
+            mesh: .generateBox(size: [0.06, 0.06, 3.2]),
+            materials: [zMaterial]
+        )
+        zAxis.position = [0, 0.08, 1.6]
+        axes.addChild(zAxis)
+
+        return axes
+    }
+
+    static func makeLight() -> DirectionalLight {
+        let light = DirectionalLight()
+        light.light.color = .white
+        light.light.intensity = 1800
+        light.look(at: .zero, from: [2, 4, 3], relativeTo: nil)
+        return light
+    }
+}
