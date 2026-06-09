@@ -9,7 +9,7 @@ import SwiftUI
 
 struct GameRootView: View {
     var body: some View {
-        Text("EngineCore OK")
+        RealityKitGameView()
+            .ignoresSafeArea()
     }
 }
-
