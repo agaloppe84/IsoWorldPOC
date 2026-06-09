@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		96B3DF1A2FD8A6950023BD54 /* EngineCore in Frameworks */ = {isa = PBXBuildFile; productRef = 96B3DF192FD8A6950023BD54 /* EngineCore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		96B3DEFC2FD89DD20023BD54 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				96B3DF1A2FD8A6950023BD54 /* EngineCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = IsoWorldPOC;
 			packageProductDependencies = (
+				96B3DF192FD8A6950023BD54 /* EngineCore */,
 			);
 			productName = IsoWorldPOC;
 			productReference = 96B3DEEA2FD89DD00023BD54 /* IsoWorldPOC.app */;
@@ -195,6 +201,9 @@
 			);
 			mainGroup = 96B3DEE12FD89DD00023BD54;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				96B3DF182FD8A6950023BD54 /* XCLocalSwiftPackageReference "../EngineCore" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 96B3DEEB2FD89DD00023BD54 /* Products */;
 			projectDirPath = "";
@@ -541,6 +550,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		96B3DF182FD8A6950023BD54 /* XCLocalSwiftPackageReference "../EngineCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../EngineCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		96B3DF192FD8A6950023BD54 /* EngineCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EngineCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 96B3DEE22FD89DD00023BD54 /* Project object */;
 }
