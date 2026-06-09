@@ -11,18 +11,26 @@ import RealityKit
 import simd
 
 struct ProceduralTerrainChunk {
+    let coordinate: ChunkCoordinate
     let entity: Entity
     let sampler: TerrainSampler
 }
 
 @MainActor
 enum ProceduralTerrainFactory {
+    static let horizontalScale: Float = 0.18
+    static let verticalScale: Float = 0.08
+    static let activeSeed = WorldSeed(12_345)
+    static let chunkResolution = 64
+    static let chunkWorldSize = Float(chunkResolution - 1) * horizontalScale
+
     static func makeInitialChunk() -> ProceduralTerrainChunk? {
-        let horizontalScale: Float = 0.18
-        let verticalScale: Float = 0.08
-        let coordinate = ChunkCoordinate(x: 0, y: 0, z: 0)
+        makeChunk(coordinate: .origin)
+    }
+
+    static func makeChunk(coordinate: ChunkCoordinate) -> ProceduralTerrainChunk? {
         let terrainGeometry = coordinate.makeTerrainGeometry(
-            seed: WorldSeed(12_345),
+            seed: activeSeed,
             horizontalScale: horizontalScale,
             verticalScale: verticalScale
         )
@@ -40,21 +48,25 @@ enum ProceduralTerrainFactory {
                 isMetallic: false
             )
             let entity = ModelEntity(mesh: meshResource, materials: [material])
-            let halfExtent = Float(terrainGeometry.resolution - 1) * horizontalScale * 0.5
-            let originX = -halfExtent
-            let originZ = -halfExtent
+            let halfExtent = chunkWorldSize * 0.5
+            let originX = Float(coordinate.x) * chunkWorldSize - halfExtent
+            let originZ = Float(coordinate.z) * chunkWorldSize - halfExtent
             let sampler = TerrainSampler(
                 geometry: terrainGeometry,
                 originX: originX,
                 originZ: originZ
             )
 
-            entity.name = "ProceduralTerrainChunk_0_0"
+            entity.name = "ProceduralTerrainChunk_\(coordinate.x)_\(coordinate.z)"
             entity.position = [originX, 0, originZ]
 
-            return ProceduralTerrainChunk(entity: entity, sampler: sampler)
+            return ProceduralTerrainChunk(
+                coordinate: coordinate,
+                entity: entity,
+                sampler: sampler
+            )
         } catch {
-            print("Failed to build procedural terrain chunk: \(error)")
+            print("Failed to build procedural terrain chunk \(coordinate): \(error)")
             return nil
         }
     }

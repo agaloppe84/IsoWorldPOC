@@ -44,7 +44,7 @@ struct RealityKitGameView: NSViewRepresentable {
         private var playerController = PlayerController()
         private let cameraController = CameraController()
         private var playerEntity: Entity?
-        private var terrainSampler: TerrainSampler?
+        private var terrainManager: ChunkTerrainManager?
         private var updateSubscription: (any Cancellable)?
 
         init(debugMetrics: DebugMetrics) {
@@ -56,15 +56,16 @@ struct RealityKitGameView: NSViewRepresentable {
 
             let worldAnchor = AnchorEntity(world: .zero)
             let playerEntity = DebugSceneFactory.makePlayerEntity()
-            self.playerEntity = playerEntity
+            let terrainManager = ChunkTerrainManager(anchor: worldAnchor)
 
-            if let terrainChunk = ProceduralTerrainFactory.makeInitialChunk() {
-                terrainSampler = terrainChunk.sampler
-                worldAnchor.addChild(terrainChunk.entity)
-            } else {
-                terrainSampler = nil
+            self.playerEntity = playerEntity
+            self.terrainManager = terrainManager
+            terrainManager.update(around: .zero)
+
+            if terrainManager.activeChunkCount == 0 {
                 worldAnchor.addChild(DebugSceneFactory.makeReferenceFloor())
             }
+
             worldAnchor.addChild(DebugSceneFactory.makeAxisMarkers())
             worldAnchor.addChild(playerEntity)
             worldAnchor.addChild(DebugSceneFactory.makeLight())
@@ -79,7 +80,9 @@ struct RealityKitGameView: NSViewRepresentable {
 
         private func update(deltaTime: Float) {
             let horizontalPosition = playerController.update(deltaTime: deltaTime, input: inputManager.state)
-            let terrainSample = terrainSampler?.sampleAt(x: horizontalPosition.x, z: horizontalPosition.z)
+            terrainManager?.update(around: horizontalPosition)
+
+            let terrainSample = terrainManager?.terrainSample(at: horizontalPosition)
             let position = playerController.followTerrain(height: terrainSample?.height)
 
             playerEntity?.position = position
@@ -89,6 +92,9 @@ struct RealityKitGameView: NSViewRepresentable {
             debugMetrics.playerPosition = position
             debugMetrics.terrainHeightUnderPlayer = terrainSample?.height
             debugMetrics.terrainSlopeUnderPlayer = terrainSample?.slope
+            debugMetrics.currentChunk = terrainManager?.currentChunk ?? .origin
+            debugMetrics.activeChunkCount = terrainManager?.activeChunkCount ?? 0
+            debugMetrics.generatedChunkCount = terrainManager?.generatedChunkCount ?? 0
         }
     }
 }

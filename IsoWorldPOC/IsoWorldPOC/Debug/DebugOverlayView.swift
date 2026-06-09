@@ -32,6 +32,10 @@ struct DebugOverlayView: View {
             Text("terrainHeightUnderPlayer: \(format(metrics.terrainHeightUnderPlayer))")
             Text("playerY: \(format(metrics.playerPosition.y))")
             Text("slope: \(format(metrics.terrainSlopeUnderPlayer))")
+            Divider().overlay(.white.opacity(0.35))
+            Text("currentChunk x/y/z: \(metrics.currentChunk.x) / \(metrics.currentChunk.y) / \(metrics.currentChunk.z)")
+            Text("activeChunkCount: \(metrics.activeChunkCount)")
+            Text("generatedChunkCount: \(metrics.generatedChunkCount)")
         }
         .font(.system(size: 12, weight: .medium, design: .monospaced))
         .foregroundStyle(.white)

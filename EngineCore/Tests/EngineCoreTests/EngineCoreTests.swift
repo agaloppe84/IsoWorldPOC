@@ -81,6 +81,64 @@ final class EngineCoreTests: XCTestCase {
         )
     }
 
+    func testChunkStreamingRadiusOneRequiresNineChunks() {
+        let planner = ChunkStreamingPlanner(activeRadius: 1)
+        let requiredChunks = planner.requiredChunks(around: .origin)
+
+        XCTAssertEqual(requiredChunks.count, 9)
+        XCTAssertTrue(requiredChunks.contains(ChunkCoordinate(x: -1, y: 0, z: -1)))
+        XCTAssertTrue(requiredChunks.contains(.origin))
+        XCTAssertTrue(requiredChunks.contains(ChunkCoordinate(x: 1, y: 0, z: 1)))
+    }
+
+    func testChunkStreamingPlanLoadsMissingChunks() {
+        let planner = ChunkStreamingPlanner(activeRadius: 1)
+        let loadedChunks: Set<ChunkCoordinate> = [.origin]
+        let plan = planner.plan(currentChunk: .origin, loadedChunks: loadedChunks)
+
+        XCTAssertEqual(plan.requiredChunks.count, 9)
+        XCTAssertEqual(plan.chunksToLoad.count, 8)
+        XCTAssertEqual(plan.chunksToKeep, loadedChunks)
+        XCTAssertTrue(plan.chunksToUnload.isEmpty)
+    }
+
+    func testChunkStreamingPlanDoesNothingWhenChunkSetIsAlreadyCurrent() {
+        let planner = ChunkStreamingPlanner(activeRadius: 1)
+        let loadedChunks = planner.requiredChunks(around: .origin)
+        let plan = planner.plan(currentChunk: .origin, loadedChunks: loadedChunks)
+
+        XCTAssertTrue(plan.chunksToLoad.isEmpty)
+        XCTAssertTrue(plan.chunksToUnload.isEmpty)
+        XCTAssertEqual(plan.chunksToKeep, loadedChunks)
+    }
+
+    func testChunkStreamingPlanMovesOneChunkEast() {
+        let planner = ChunkStreamingPlanner(activeRadius: 1)
+        let oldChunks = planner.requiredChunks(around: .origin)
+        let newCenter = ChunkCoordinate(x: 1, y: 0, z: 0)
+        let plan = planner.plan(currentChunk: newCenter, loadedChunks: oldChunks)
+
+        XCTAssertEqual(plan.chunksToLoad.count, 3)
+        XCTAssertEqual(plan.chunksToUnload.count, 3)
+        XCTAssertTrue(plan.chunksToLoad.contains(ChunkCoordinate(x: 2, y: 0, z: -1)))
+        XCTAssertTrue(plan.chunksToLoad.contains(ChunkCoordinate(x: 2, y: 0, z: 0)))
+        XCTAssertTrue(plan.chunksToLoad.contains(ChunkCoordinate(x: 2, y: 0, z: 1)))
+        XCTAssertTrue(plan.chunksToUnload.contains(ChunkCoordinate(x: -1, y: 0, z: -1)))
+        XCTAssertTrue(plan.chunksToUnload.contains(ChunkCoordinate(x: -1, y: 0, z: 0)))
+        XCTAssertTrue(plan.chunksToUnload.contains(ChunkCoordinate(x: -1, y: 0, z: 1)))
+    }
+
+    func testChunkStreamingPlanSupportsNegativeChunkCoordinates() {
+        let planner = ChunkStreamingPlanner(activeRadius: 1)
+        let currentChunk = ChunkCoordinate(x: -2, y: 0, z: -3)
+        let requiredChunks = planner.requiredChunks(around: currentChunk)
+
+        XCTAssertEqual(requiredChunks.count, 9)
+        XCTAssertTrue(requiredChunks.contains(ChunkCoordinate(x: -3, y: 0, z: -4)))
+        XCTAssertTrue(requiredChunks.contains(currentChunk))
+        XCTAssertTrue(requiredChunks.contains(ChunkCoordinate(x: -1, y: 0, z: -2)))
+    }
+
     func testSeededRandomIsDeterministicForSameSeed() {
         var first = SeededRandom(seed: WorldSeed(123_456))
         var second = SeededRandom(seed: WorldSeed(123_456))
