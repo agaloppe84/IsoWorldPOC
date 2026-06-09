@@ -9,11 +9,24 @@ Ce document definit les regles a respecter par Codex ou tout agent automatique i
 - Ne jamais utiliser `brew update`, `brew upgrade` ou `brew install`.
 - Ne jamais utiliser `gem install`, `gem update`, `bundle update`.
 - Ne jamais modifier `~/.zshrc`, `~/.bashrc`, `~/.profile`, `~/.rbenv`, `~/.rvm`, `~/.asdf`, `/opt/homebrew`, `/usr/local`, `/Library/Developer`.
-- Toujours compiler avec:
+- Ne jamais utiliser `swift test --package-path EngineCore`.
+- Toujours tester `EngineCore` avec:
+
+```sh
+./scripts/swift-test-engine-safe.sh
+```
+
+- Toujours compiler l'app Xcode avec:
 
 ```sh
 ./scripts/xcodebuild-safe.sh -project IsoWorldPOC/IsoWorldPOC.xcodeproj -scheme IsoWorldPOC -destination 'platform=macOS' build
 ```
+
+## Raison des scripts safe
+
+La commande brute `swift test --package-path EngineCore` echoue volontairement sur cette machine parce que `xcode-select` reste pointe vers CommandLineTools afin de proteger l'environnement Ruby/Rails existant.
+
+Les scripts locaux utilisent Xcode complet uniquement via `DEVELOPER_DIR`, sans modifier l'environnement global, sans changer `xcode-select` et sans toucher aux outils Ruby/Rails.
 
 ## Perimetre du repo
 
@@ -38,4 +51,3 @@ Ce document definit les regles a respecter par Codex ou tout agent automatique i
 - Ne pas installer de dependances globales.
 - Preferer des changements petits, lisibles et testables.
 - Verifier les chemins imbriques avant toute commande Xcode.
-
