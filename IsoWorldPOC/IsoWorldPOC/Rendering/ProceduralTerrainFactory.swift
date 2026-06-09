@@ -12,8 +12,22 @@ import RealityKit
 import simd
 
 struct ProceduralChunkBuildMetrics {
-    let chunkGenerationTimeMs: Float
+    let chunkDataGenerationTimeMs: Float
     let terrainMeshBuildTimeMs: Float
+}
+
+struct ProceduralChunkData: Sendable {
+    let coordinate: ChunkCoordinate
+    let biome: Biome
+    let terrainGeometry: TerrainGeometryBuffers
+    let meshPositions: [SIMD3<Float>]
+    let meshNormals: [SIMD3<Float>]
+    let meshTextureCoordinates: [SIMD2<Float>]
+    let meshIndices: [UInt32]
+    let propPlacements: [PropPlacement]
+    let originX: Float
+    let originZ: Float
+    let dataGenerationTimeMs: Float
 }
 
 struct ProceduralTerrainChunk {
@@ -25,7 +39,6 @@ struct ProceduralTerrainChunk {
     let buildMetrics: ProceduralChunkBuildMetrics
 }
 
-@MainActor
 enum ProceduralTerrainFactory {
     static let horizontalScale: Float = 0.18
     static let verticalScale: Float = 0.08
@@ -36,12 +49,8 @@ enum ProceduralTerrainFactory {
     static let biomeSampler = BiomeSampler(seed: activeSeed)
     static let propGenerator = PropPlacementGenerator(seed: activeSeed, maxPropsPerChunk: 18)
 
-    static func makeInitialChunk() -> ProceduralTerrainChunk? {
-        makeChunk(coordinate: .origin)
-    }
-
-    static func makeChunk(coordinate: ChunkCoordinate) -> ProceduralTerrainChunk? {
-        let chunkBuildStart = currentTimeMilliseconds()
+    static func makeChunkData(coordinate: ChunkCoordinate) -> ProceduralChunkData {
+        let dataGenerationStart = currentTimeMilliseconds()
         let terrainGeometry = coordinate.makeTerrainGeometry(
             seed: activeSeed,
             horizontalScale: horizontalScale,
@@ -56,64 +65,92 @@ enum ProceduralTerrainFactory {
             biome: biome,
             samplesPerChunk: chunkResolution
         )
+        let halfExtent = chunkWorldSize * 0.5
+        let originX = Float(coordinate.x) * chunkWorldSize - halfExtent
+        let originZ = Float(coordinate.z) * chunkWorldSize - halfExtent
 
+        return ProceduralChunkData(
+            coordinate: coordinate,
+            biome: biome,
+            terrainGeometry: terrainGeometry,
+            meshPositions: terrainGeometry.positions.map { SIMD3<Float>($0.x, $0.y, $0.z) },
+            meshNormals: terrainGeometry.normals.map { SIMD3<Float>($0.x, $0.y, $0.z) },
+            meshTextureCoordinates: terrainGeometry.textureCoordinates.map { SIMD2<Float>($0.u, $0.v) },
+            meshIndices: terrainGeometry.indices,
+            propPlacements: propPlacements,
+            originX: originX,
+            originZ: originZ,
+            dataGenerationTimeMs: Float(currentTimeMilliseconds() - dataGenerationStart)
+        )
+    }
+
+    @MainActor
+    static func makeInitialChunk() -> ProceduralTerrainChunk? {
+        makeChunk(coordinate: .origin)
+    }
+
+    @MainActor
+    static func makeChunk(coordinate: ChunkCoordinate) -> ProceduralTerrainChunk? {
+        makeChunk(from: makeChunkData(coordinate: coordinate))
+    }
+
+    @MainActor
+    static func makeChunk(from data: ProceduralChunkData) -> ProceduralTerrainChunk? {
         do {
             let meshBuildStart = currentTimeMilliseconds()
             let meshResource = try RealityKitTerrainAdapter.makeMeshResource(
-                positions: terrainGeometry.positions.map { SIMD3<Float>($0.x, $0.y, $0.z) },
-                normals: terrainGeometry.normals.map { SIMD3<Float>($0.x, $0.y, $0.z) },
-                textureCoordinates: terrainGeometry.textureCoordinates.map { SIMD2<Float>($0.u, $0.v) },
-                indices: terrainGeometry.indices
+                positions: data.meshPositions,
+                normals: data.meshNormals,
+                textureCoordinates: data.meshTextureCoordinates,
+                indices: data.meshIndices
             )
             let terrainMeshBuildTimeMs = Float(currentTimeMilliseconds() - meshBuildStart)
             let material = SimpleMaterial(
-                color: color(for: biome),
+                color: color(for: data.biome),
                 roughness: 0.85,
                 isMetallic: false
             )
             let entity = ModelEntity(mesh: meshResource, materials: [material])
-            let halfExtent = chunkWorldSize * 0.5
-            let originX = Float(coordinate.x) * chunkWorldSize - halfExtent
-            let originZ = Float(coordinate.z) * chunkWorldSize - halfExtent
             let sampler = TerrainSampler(
-                geometry: terrainGeometry,
-                originX: originX,
-                originZ: originZ
+                geometry: data.terrainGeometry,
+                originX: data.originX,
+                originZ: data.originZ
             )
 
-            entity.name = "ProceduralTerrainChunk_\(coordinate.x)_\(coordinate.z)"
-            entity.position = [originX, 0, originZ]
+            entity.name = "ProceduralTerrainChunk_\(data.coordinate.x)_\(data.coordinate.z)"
+            entity.position = [data.originX, 0, data.originZ]
 
-            for placement in propPlacements {
+            for placement in data.propPlacements {
                 entity.addChild(
                     makePropEntity(
                         for: placement,
                         sampler: sampler,
-                        originX: originX,
-                        originZ: originZ
+                        originX: data.originX,
+                        originZ: data.originZ
                     )
                 )
             }
 
             let buildMetrics = ProceduralChunkBuildMetrics(
-                chunkGenerationTimeMs: Float(currentTimeMilliseconds() - chunkBuildStart),
+                chunkDataGenerationTimeMs: data.dataGenerationTimeMs,
                 terrainMeshBuildTimeMs: terrainMeshBuildTimeMs
             )
 
             return ProceduralTerrainChunk(
-                coordinate: coordinate,
-                biome: biome,
+                coordinate: data.coordinate,
+                biome: data.biome,
                 entity: entity,
                 sampler: sampler,
-                propCount: propPlacements.count,
+                propCount: data.propPlacements.count,
                 buildMetrics: buildMetrics
             )
         } catch {
-            print("Failed to build procedural terrain chunk \(coordinate): \(error)")
+            print("Failed to build procedural terrain chunk \(data.coordinate): \(error)")
             return nil
         }
     }
 
+    @MainActor
     private static func color(for biome: Biome) -> NSColor {
         NSColor(
             calibratedRed: CGFloat(biome.placeholderColor.red),
@@ -123,6 +160,7 @@ enum ProceduralTerrainFactory {
         )
     }
 
+    @MainActor
     private static func makePropEntity(
         for placement: PropPlacement,
         sampler: TerrainSampler,
@@ -163,6 +201,7 @@ enum ProceduralTerrainFactory {
         return prop
     }
 
+    @MainActor
     private static func makeRockEntity() -> Entity {
         let material = SimpleMaterial(color: .systemGray, roughness: 0.9, isMetallic: false)
         let rock = ModelEntity(
@@ -173,6 +212,7 @@ enum ProceduralTerrainFactory {
         return rock
     }
 
+    @MainActor
     private static func makeTreeEntity() -> Entity {
         let tree = Entity()
         let trunkMaterial = SimpleMaterial(
@@ -202,6 +242,7 @@ enum ProceduralTerrainFactory {
         return tree
     }
 
+    @MainActor
     private static func makeCrystalEntity() -> Entity {
         let material = SimpleMaterial(color: .systemCyan, roughness: 0.35, isMetallic: false)
         let crystal = ModelEntity(
@@ -215,6 +256,7 @@ enum ProceduralTerrainFactory {
         return crystal
     }
 
+    @MainActor
     private static func physicsDebugSize(for type: PropType) -> SIMD3<Float> {
         switch type {
         case .rock:
@@ -226,6 +268,7 @@ enum ProceduralTerrainFactory {
         }
     }
 
+    @MainActor
     private static func physicsDebugColor(for type: PropType) -> NSColor {
         switch type {
         case .rock:
@@ -237,70 +280,27 @@ enum ProceduralTerrainFactory {
         }
     }
 
+    @MainActor
     private static func makePhysicsDebugBox(
         name: String,
         size: SIMD3<Float>,
         color: NSColor,
         center: SIMD3<Float>
     ) -> Entity {
-        let box = Entity()
+        let box = ModelEntity(
+            mesh: .generateBox(size: size, cornerRadius: 0.02),
+            materials: [
+                SimpleMaterial(
+                    color: color.withAlphaComponent(0.18),
+                    roughness: 0.35,
+                    isMetallic: false
+                )
+            ]
+        )
         box.name = name
         box.position = center
 
-        let material = SimpleMaterial(color: color, roughness: 0.35, isMetallic: false)
-        let thickness: Float = 0.014
-        let halfX = size.x * 0.5
-        let halfY = size.y * 0.5
-        let halfZ = size.z * 0.5
-
-        for y in [-halfY, halfY] {
-            for z in [-halfZ, halfZ] {
-                box.addChild(
-                    makeDebugBar(
-                        size: [size.x, thickness, thickness],
-                        position: [0, y, z],
-                        material: material
-                    )
-                )
-            }
-        }
-
-        for x in [-halfX, halfX] {
-            for z in [-halfZ, halfZ] {
-                box.addChild(
-                    makeDebugBar(
-                        size: [thickness, size.y, thickness],
-                        position: [x, 0, z],
-                        material: material
-                    )
-                )
-            }
-        }
-
-        for x in [-halfX, halfX] {
-            for y in [-halfY, halfY] {
-                box.addChild(
-                    makeDebugBar(
-                        size: [thickness, thickness, size.z],
-                        position: [x, y, 0],
-                        material: material
-                    )
-                )
-            }
-        }
-
         return box
-    }
-
-    private static func makeDebugBar(
-        size: SIMD3<Float>,
-        position: SIMD3<Float>,
-        material: SimpleMaterial
-    ) -> ModelEntity {
-        let bar = ModelEntity(mesh: .generateBox(size: size), materials: [material])
-        bar.position = position
-
-        return bar
     }
 
     private static func currentTimeMilliseconds() -> Double {

@@ -27,4 +27,10 @@ final class DebugMetrics: ObservableObject {
     @Published var approximatePropCount = 0
     @Published var averageChunkGenerationTimeMs: Float?
     @Published var averageTerrainMeshBuildTimeMs: Float?
+    @Published var chunkJobsQueued = 0
+    @Published var chunkJobsGenerating = 0
+    @Published var chunksReadyForUpload = 0
+    @Published var chunkUploadsThisFrame = 0
+    @Published var averageChunkDataGenerationMs: Float?
+    @Published var averageChunkUploadMs: Float?
 }

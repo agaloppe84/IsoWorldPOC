@@ -63,7 +63,9 @@ struct RealityKitGameView: NSViewRepresentable {
             self.terrainManager = terrainManager
             terrainManager.update(around: .zero)
 
-            if terrainManager.activeChunkCount == 0 {
+            if terrainManager.activeChunkCount == 0 &&
+                terrainManager.chunkJobsQueued == 0 &&
+                terrainManager.chunkJobsGenerating == 0 {
                 worldAnchor.addChild(DebugSceneFactory.makeReferenceFloor())
             }
 
@@ -104,6 +106,12 @@ struct RealityKitGameView: NSViewRepresentable {
             debugMetrics.approximatePropCount = terrainManager?.approximatePropCount ?? 0
             debugMetrics.averageChunkGenerationTimeMs = terrainManager?.averageChunkGenerationTimeMs
             debugMetrics.averageTerrainMeshBuildTimeMs = terrainManager?.averageTerrainMeshBuildTimeMs
+            debugMetrics.chunkJobsQueued = terrainManager?.chunkJobsQueued ?? 0
+            debugMetrics.chunkJobsGenerating = terrainManager?.chunkJobsGenerating ?? 0
+            debugMetrics.chunksReadyForUpload = terrainManager?.chunksReadyForUpload ?? 0
+            debugMetrics.chunkUploadsThisFrame = terrainManager?.chunkUploadsThisFrame ?? 0
+            debugMetrics.averageChunkDataGenerationMs = terrainManager?.averageChunkDataGenerationMs
+            debugMetrics.averageChunkUploadMs = terrainManager?.averageChunkUploadMs
         }
 
         private func updatePerformanceMetrics(deltaTime: Float) {
