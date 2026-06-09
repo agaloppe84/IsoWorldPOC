@@ -12,6 +12,7 @@ final class GamepadInput: NSObject {
     private var activeController: GCController?
     private var leftShoulderSprintPressed = false
     private var leftThumbstickSprintPressed = false
+    private(set) var controllerName = "None"
 
     private(set) var state = PlayerInputState() {
         didSet {
@@ -76,6 +77,7 @@ final class GamepadInput: NSObject {
         guard let controller = GCController.controllers().first else {
             leftShoulderSprintPressed = false
             leftThumbstickSprintPressed = false
+            controllerName = "None"
             state = PlayerInputState(isGamepadConnected: false)
             return
         }
@@ -90,6 +92,7 @@ final class GamepadInput: NSObject {
         }
 
         activeController = controller
+        controllerName = Self.displayName(for: controller)
         leftShoulderSprintPressed = false
         leftThumbstickSprintPressed = false
         state = PlayerInputState(isGamepadConnected: true)
@@ -142,8 +145,11 @@ final class GamepadInput: NSObject {
     }
 
     private func logConnectedController(_ controller: GCController) {
-        let name = controller.vendorName ?? controller.productCategory
-        print("Gamepad connected: \(name)")
+        print("Gamepad connected: \(Self.displayName(for: controller))")
+    }
+
+    private static func displayName(for controller: GCController) -> String {
+        controller.vendorName ?? controller.productCategory
     }
 
     private func updateSprintPressed() {

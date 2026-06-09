@@ -21,6 +21,10 @@ final class InputManager {
 
     var onStateChanged: ((PlayerInputState) -> Void)?
 
+    var controllerName: String {
+        gamepadInput.controllerName
+    }
+
     init(gamepadInput: GamepadInput = GamepadInput()) {
         self.gamepadInput = gamepadInput
 
@@ -71,4 +75,3 @@ final class InputManager {
         preferred == 0 ? fallback : preferred
     }
 }
-
