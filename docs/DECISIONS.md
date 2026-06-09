@@ -58,3 +58,12 @@ Raison: proteger les projets Ruby/Rails existants sur la machine.
 
 Consequence: les scripts et commandes doivent rester locaux au repo.
 
+## 008 - Budget initial chunks et instrumentation
+
+Decision: mesurer avant d'optimiser avec un budget initial de 9 chunks actifs.
+
+Raison: `activeRadius = 1` charge le chunk joueur et ses 8 voisins, ce qui suffit pour valider terrain, biomes, props et suivi joueur avant la physique.
+
+Consequence: les metriques debug exposent chunks actifs/visibles, triangles approximatifs, props approximatifs, frame time et moyennes de generation de chunk/mesh.
+
+Limites connues: generation synchrone, pas encore de LOD, pas encore de culling fin, pas encore de cache persistant; `visibleChunkCount` est actuellement equivalent aux chunks charges.

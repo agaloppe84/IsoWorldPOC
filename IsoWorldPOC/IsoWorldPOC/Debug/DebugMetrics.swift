@@ -20,8 +20,11 @@ final class DebugMetrics: ObservableObject {
     @Published var terrainSlopeUnderPlayer: Float?
     @Published var currentChunk = ChunkCoordinate.origin
     @Published var activeChunkCount = 0
+    @Published var visibleChunkCount = 0
     @Published var generatedChunkCount = 0
     @Published var cachedChunkCount = 0
     @Published var approximateTriangleCount = 0
     @Published var approximatePropCount = 0
+    @Published var averageChunkGenerationTimeMs: Float?
+    @Published var averageTerrainMeshBuildTimeMs: Float?
 }

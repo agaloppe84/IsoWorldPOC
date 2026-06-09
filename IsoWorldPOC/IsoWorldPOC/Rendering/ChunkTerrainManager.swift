@@ -14,6 +14,9 @@ final class ChunkTerrainManager {
     private let anchor: Entity
     private let activeRadiusValue = 1
     private var chunks: [ChunkCoordinate: ProceduralTerrainChunk] = [:]
+    private var chunkBuildSampleCount = 0
+    private var totalChunkGenerationTimeMs: Float = 0
+    private var totalTerrainMeshBuildTimeMs: Float = 0
 
     private(set) var currentChunk = ChunkCoordinate.origin
     private(set) var generatedChunkCount = 0
@@ -23,6 +26,10 @@ final class ChunkTerrainManager {
     }
 
     var activeChunkCount: Int {
+        chunks.count
+    }
+
+    var visibleChunkCount: Int {
         chunks.count
     }
 
@@ -38,6 +45,14 @@ final class ChunkTerrainManager {
         chunks.values.reduce(0) { total, chunk in
             total + chunk.propCount
         }
+    }
+
+    var averageChunkGenerationTimeMs: Float? {
+        average(totalChunkGenerationTimeMs)
+    }
+
+    var averageTerrainMeshBuildTimeMs: Float? {
+        average(totalTerrainMeshBuildTimeMs)
     }
 
     init(anchor: Entity) {
@@ -65,6 +80,7 @@ final class ChunkTerrainManager {
             anchor.addChild(chunk.entity)
             chunks[coordinate] = chunk
             generatedChunkCount += 1
+            recordBuildMetrics(chunk.buildMetrics)
         }
     }
 
@@ -107,6 +123,20 @@ final class ChunkTerrainManager {
 
     private func chunkIndex(for value: Float) -> Int {
         Int((value / ProceduralTerrainFactory.chunkWorldSize).rounded(.down))
+    }
+
+    private func recordBuildMetrics(_ metrics: ProceduralChunkBuildMetrics) {
+        chunkBuildSampleCount += 1
+        totalChunkGenerationTimeMs += metrics.chunkGenerationTimeMs
+        totalTerrainMeshBuildTimeMs += metrics.terrainMeshBuildTimeMs
+    }
+
+    private func average(_ total: Float) -> Float? {
+        guard chunkBuildSampleCount > 0 else {
+            return nil
+        }
+
+        return total / Float(chunkBuildSampleCount)
     }
 
     private func sorted(_ coordinates: Set<ChunkCoordinate>) -> [ChunkCoordinate] {

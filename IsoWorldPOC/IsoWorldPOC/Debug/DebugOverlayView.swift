@@ -19,6 +19,8 @@ struct DebugOverlayView: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("PERF")
             Text("fps / frame: \(format(metrics.framesPerSecond)) / \(format(metrics.frameTimeMilliseconds)) ms")
+            Text("chunk gen avg: \(format(metrics.averageChunkGenerationTimeMs)) ms")
+            Text("mesh build avg: \(format(metrics.averageTerrainMeshBuildTimeMs)) ms")
 
             Divider().overlay(.white.opacity(0.35))
 
@@ -31,7 +33,7 @@ struct DebugOverlayView: View {
             Divider().overlay(.white.opacity(0.35))
 
             sectionTitle("CHUNKS")
-            Text("active / cached: \(metrics.activeChunkCount) / \(metrics.cachedChunkCount)")
+            Text("active / visible / cached: \(metrics.activeChunkCount) / \(metrics.visibleChunkCount) / \(metrics.cachedChunkCount)")
             Text("generated: \(metrics.generatedChunkCount)")
             Text("triangles approx: \(metrics.approximateTriangleCount)")
             Text("props approx: \(metrics.approximatePropCount)")

@@ -97,10 +97,13 @@ struct RealityKitGameView: NSViewRepresentable {
             debugMetrics.terrainSlopeUnderPlayer = terrainSample?.slope
             debugMetrics.currentChunk = terrainManager?.currentChunk ?? .origin
             debugMetrics.activeChunkCount = terrainManager?.activeChunkCount ?? 0
+            debugMetrics.visibleChunkCount = terrainManager?.visibleChunkCount ?? 0
             debugMetrics.generatedChunkCount = terrainManager?.generatedChunkCount ?? 0
             debugMetrics.cachedChunkCount = terrainManager?.cachedChunkCount ?? 0
             debugMetrics.approximateTriangleCount = terrainManager?.approximateTriangleCount ?? 0
             debugMetrics.approximatePropCount = terrainManager?.approximatePropCount ?? 0
+            debugMetrics.averageChunkGenerationTimeMs = terrainManager?.averageChunkGenerationTimeMs
+            debugMetrics.averageTerrainMeshBuildTimeMs = terrainManager?.averageTerrainMeshBuildTimeMs
         }
 
         private func updatePerformanceMetrics(deltaTime: Float) {

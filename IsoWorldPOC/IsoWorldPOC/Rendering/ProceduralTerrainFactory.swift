@@ -7,8 +7,14 @@
 
 import AppKit
 import EngineCore
+import Foundation
 import RealityKit
 import simd
+
+struct ProceduralChunkBuildMetrics {
+    let chunkGenerationTimeMs: Float
+    let terrainMeshBuildTimeMs: Float
+}
 
 struct ProceduralTerrainChunk {
     let coordinate: ChunkCoordinate
@@ -16,6 +22,7 @@ struct ProceduralTerrainChunk {
     let entity: Entity
     let sampler: TerrainSampler
     let propCount: Int
+    let buildMetrics: ProceduralChunkBuildMetrics
 }
 
 @MainActor
@@ -34,6 +41,7 @@ enum ProceduralTerrainFactory {
     }
 
     static func makeChunk(coordinate: ChunkCoordinate) -> ProceduralTerrainChunk? {
+        let chunkBuildStart = currentTimeMilliseconds()
         let terrainGeometry = coordinate.makeTerrainGeometry(
             seed: activeSeed,
             horizontalScale: horizontalScale,
@@ -50,12 +58,14 @@ enum ProceduralTerrainFactory {
         )
 
         do {
+            let meshBuildStart = currentTimeMilliseconds()
             let meshResource = try RealityKitTerrainAdapter.makeMeshResource(
                 positions: terrainGeometry.positions.map { SIMD3<Float>($0.x, $0.y, $0.z) },
                 normals: terrainGeometry.normals.map { SIMD3<Float>($0.x, $0.y, $0.z) },
                 textureCoordinates: terrainGeometry.textureCoordinates.map { SIMD2<Float>($0.u, $0.v) },
                 indices: terrainGeometry.indices
             )
+            let terrainMeshBuildTimeMs = Float(currentTimeMilliseconds() - meshBuildStart)
             let material = SimpleMaterial(
                 color: color(for: biome),
                 roughness: 0.85,
@@ -85,12 +95,18 @@ enum ProceduralTerrainFactory {
                 )
             }
 
+            let buildMetrics = ProceduralChunkBuildMetrics(
+                chunkGenerationTimeMs: Float(currentTimeMilliseconds() - chunkBuildStart),
+                terrainMeshBuildTimeMs: terrainMeshBuildTimeMs
+            )
+
             return ProceduralTerrainChunk(
                 coordinate: coordinate,
                 biome: biome,
                 entity: entity,
                 sampler: sampler,
-                propCount: propPlacements.count
+                propCount: propPlacements.count,
+                buildMetrics: buildMetrics
             )
         } catch {
             print("Failed to build procedural terrain chunk \(coordinate): \(error)")
@@ -187,5 +203,9 @@ enum ProceduralTerrainFactory {
         crystal.orientation = simd_quatf(angle: Float.pi * 0.25, axis: [0, 0, 1])
 
         return crystal
+    }
+
+    private static func currentTimeMilliseconds() -> Double {
+        ProcessInfo.processInfo.systemUptime * 1_000
     }
 }
