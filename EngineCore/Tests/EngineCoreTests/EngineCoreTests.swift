@@ -260,6 +260,69 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(dominant, sampler.biome(for: coordinate, localX: 32, localZ: 32))
     }
 
+    func testPropPlacementGeneratorIsDeterministicForSameSeedAndChunk() {
+        let coordinate = ChunkCoordinate(x: 2, y: 0, z: -3)
+        let biome = Biome.definition(for: .forest)
+        let first = PropPlacementGenerator(seed: WorldSeed(42)).placements(for: coordinate, biome: biome)
+        let second = PropPlacementGenerator(seed: WorldSeed(42)).placements(for: coordinate, biome: biome)
+
+        XCTAssertEqual(first, second)
+    }
+
+    func testPropPlacementGeneratorDiffersForDifferentChunks() {
+        let generator = PropPlacementGenerator(seed: WorldSeed(42))
+        let biome = Biome.definition(for: .rocky)
+        let first = generator.placements(for: ChunkCoordinate(x: 0, y: 0, z: 0), biome: biome)
+        let second = generator.placements(for: ChunkCoordinate(x: 1, y: 0, z: 0), biome: biome)
+
+        XCTAssertNotEqual(first, second)
+    }
+
+    func testPropPlacementGeneratorDiffersForDifferentSeeds() {
+        let coordinate = ChunkCoordinate(x: -1, y: 0, z: 2)
+        let biome = Biome.definition(for: .highlands)
+        let first = PropPlacementGenerator(seed: WorldSeed(1)).placements(for: coordinate, biome: biome)
+        let second = PropPlacementGenerator(seed: WorldSeed(2)).placements(for: coordinate, biome: biome)
+
+        XCTAssertNotEqual(first, second)
+    }
+
+    func testPropPlacementGeneratorHonorsMaxPropsPerChunk() {
+        let generator = PropPlacementGenerator(seed: WorldSeed(42), maxPropsPerChunk: 3)
+        let props = generator.placements(for: .origin, biome: Biome.definition(for: .forest))
+
+        XCTAssertEqual(props.count, 3)
+    }
+
+    func testPropPlacementDensityIsInfluencedByBiome() {
+        let generator = PropPlacementGenerator(seed: WorldSeed(42), maxPropsPerChunk: 64)
+        let coordinate = ChunkCoordinate(x: 0, y: 0, z: 0)
+        let plainProps = generator.placements(for: coordinate, biome: Biome.definition(for: .plain))
+        let forestProps = generator.placements(for: coordinate, biome: Biome.definition(for: .forest))
+
+        XCTAssertGreaterThan(forestProps.count, plainProps.count)
+    }
+
+    func testPropPlacementsStayInsideChunk() {
+        let generator = PropPlacementGenerator(seed: WorldSeed(42))
+        let props = generator.placements(
+            for: ChunkCoordinate(x: -2, y: 0, z: 3),
+            biome: Biome.definition(for: .rocky)
+        )
+        let maxLocalPosition = Float(ChunkHeightmap.resolution - 1)
+
+        XCTAssertFalse(props.isEmpty)
+
+        for prop in props {
+            XCTAssertGreaterThanOrEqual(prop.localX, 0)
+            XCTAssertLessThanOrEqual(prop.localX, maxLocalPosition)
+            XCTAssertGreaterThanOrEqual(prop.localZ, 0)
+            XCTAssertLessThanOrEqual(prop.localZ, maxLocalPosition)
+            XCTAssertTrue(prop.rotationRadians.isFinite)
+            XCTAssertGreaterThan(prop.scale, 0)
+        }
+    }
+
     func testTerrainMeshBuilderProducesOneVertexPerHeightmapSample() {
         let heightmap = ChunkGenerator(seed: WorldSeed(42)).generateHeightmap(for: .origin)
         let mesh = TerrainMeshBuilder.build(from: heightmap, horizontalScale: 1, verticalScale: 1)

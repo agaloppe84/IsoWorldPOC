@@ -34,6 +34,12 @@ final class ChunkTerrainManager {
         activeChunkCount * ProceduralTerrainFactory.triangleCountPerChunk
     }
 
+    var approximatePropCount: Int {
+        chunks.values.reduce(0) { total, chunk in
+            total + chunk.propCount
+        }
+    }
+
     init(anchor: Entity) {
         self.anchor = anchor
     }

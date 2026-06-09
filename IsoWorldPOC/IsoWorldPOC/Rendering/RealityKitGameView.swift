@@ -100,6 +100,7 @@ struct RealityKitGameView: NSViewRepresentable {
             debugMetrics.generatedChunkCount = terrainManager?.generatedChunkCount ?? 0
             debugMetrics.cachedChunkCount = terrainManager?.cachedChunkCount ?? 0
             debugMetrics.approximateTriangleCount = terrainManager?.approximateTriangleCount ?? 0
+            debugMetrics.approximatePropCount = terrainManager?.approximatePropCount ?? 0
         }
 
         private func updatePerformanceMetrics(deltaTime: Float) {

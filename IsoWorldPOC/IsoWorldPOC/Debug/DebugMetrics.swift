@@ -23,4 +23,5 @@ final class DebugMetrics: ObservableObject {
     @Published var generatedChunkCount = 0
     @Published var cachedChunkCount = 0
     @Published var approximateTriangleCount = 0
+    @Published var approximatePropCount = 0
 }

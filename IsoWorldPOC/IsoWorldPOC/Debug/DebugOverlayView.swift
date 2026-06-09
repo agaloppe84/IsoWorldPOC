@@ -34,6 +34,7 @@ struct DebugOverlayView: View {
             Text("active / cached: \(metrics.activeChunkCount) / \(metrics.cachedChunkCount)")
             Text("generated: \(metrics.generatedChunkCount)")
             Text("triangles approx: \(metrics.approximateTriangleCount)")
+            Text("props approx: \(metrics.approximatePropCount)")
 
             Divider().overlay(.white.opacity(0.35))
 
