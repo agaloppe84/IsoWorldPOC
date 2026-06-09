@@ -11,6 +11,8 @@ import simd
 
 @MainActor
 final class DebugMetrics: ObservableObject {
+    @Published var framesPerSecond: Float = 0
+    @Published var frameTimeMilliseconds: Float = 0
     @Published var inputState = PlayerInputState()
     @Published var controllerName = "None"
     @Published var playerPosition = SIMD3<Float>(0, 0, 0)
@@ -19,4 +21,6 @@ final class DebugMetrics: ObservableObject {
     @Published var currentChunk = ChunkCoordinate.origin
     @Published var activeChunkCount = 0
     @Published var generatedChunkCount = 0
+    @Published var cachedChunkCount = 0
+    @Published var approximateTriangleCount = 0
 }

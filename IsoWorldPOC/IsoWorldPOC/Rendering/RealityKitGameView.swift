@@ -46,6 +46,7 @@ struct RealityKitGameView: NSViewRepresentable {
         private var playerEntity: Entity?
         private var terrainManager: ChunkTerrainManager?
         private var updateSubscription: (any Cancellable)?
+        private var smoothedFrameTime: Float?
 
         init(debugMetrics: DebugMetrics) {
             self.debugMetrics = debugMetrics
@@ -79,6 +80,8 @@ struct RealityKitGameView: NSViewRepresentable {
         }
 
         private func update(deltaTime: Float) {
+            updatePerformanceMetrics(deltaTime: deltaTime)
+
             let horizontalPosition = playerController.update(deltaTime: deltaTime, input: inputManager.state)
             terrainManager?.update(around: horizontalPosition)
 
@@ -95,6 +98,27 @@ struct RealityKitGameView: NSViewRepresentable {
             debugMetrics.currentChunk = terrainManager?.currentChunk ?? .origin
             debugMetrics.activeChunkCount = terrainManager?.activeChunkCount ?? 0
             debugMetrics.generatedChunkCount = terrainManager?.generatedChunkCount ?? 0
+            debugMetrics.cachedChunkCount = terrainManager?.cachedChunkCount ?? 0
+            debugMetrics.approximateTriangleCount = terrainManager?.approximateTriangleCount ?? 0
+        }
+
+        private func updatePerformanceMetrics(deltaTime: Float) {
+            guard deltaTime > 0 else {
+                return
+            }
+
+            if let previous = smoothedFrameTime {
+                smoothedFrameTime = previous * 0.9 + deltaTime * 0.1
+            } else {
+                smoothedFrameTime = deltaTime
+            }
+
+            guard let smoothedFrameTime else {
+                return
+            }
+
+            debugMetrics.frameTimeMilliseconds = smoothedFrameTime * 1_000
+            debugMetrics.framesPerSecond = 1 / smoothedFrameTime
         }
     }
 }

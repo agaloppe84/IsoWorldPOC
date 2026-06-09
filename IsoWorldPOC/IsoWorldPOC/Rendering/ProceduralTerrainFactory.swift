@@ -23,6 +23,7 @@ enum ProceduralTerrainFactory {
     static let activeSeed = WorldSeed(12_345)
     static let chunkResolution = 64
     static let chunkWorldSize = Float(chunkResolution - 1) * horizontalScale
+    static let triangleCountPerChunk = (chunkResolution - 1) * (chunkResolution - 1) * 2
 
     static func makeInitialChunk() -> ProceduralTerrainChunk? {
         makeChunk(coordinate: .origin)
