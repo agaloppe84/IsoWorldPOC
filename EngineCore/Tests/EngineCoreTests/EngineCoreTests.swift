@@ -20,6 +20,67 @@ final class EngineCoreTests: XCTestCase {
         )
     }
 
+    func testPositiveWorldPositionStaysInOriginChunk() {
+        let position = WorldPosition(x: 4.25, y: 2.0, z: 15.75)
+        let chunk = ChunkCoordinate.containing(position, chunkSize: 16)
+        let local = chunk.localCoordinate(for: position, chunkSize: 16)
+
+        XCTAssertEqual(chunk, ChunkCoordinate(x: 0, y: 0, z: 0))
+        XCTAssertEqual(local.x, 4.25, accuracy: 0.0001)
+        XCTAssertEqual(local.y, 2.0, accuracy: 0.0001)
+        XCTAssertEqual(local.z, 15.75, accuracy: 0.0001)
+    }
+
+    func testWorldPositionBeyondOneChunkMapsToExpectedChunk() {
+        let position = WorldPosition(x: 18.5, y: 41.0, z: 63.99)
+        let chunk = ChunkCoordinate.containing(position, chunkSize: 16)
+        let local = chunk.localCoordinate(for: position, chunkSize: 16)
+
+        XCTAssertEqual(chunk, ChunkCoordinate(x: 1, y: 2, z: 3))
+        XCTAssertEqual(local.x, 2.5, accuracy: 0.0001)
+        XCTAssertEqual(local.y, 9.0, accuracy: 0.0001)
+        XCTAssertEqual(local.z, 15.99, accuracy: 0.0001)
+    }
+
+    func testNegativeWorldPositionUsesFloorChunkCoordinates() {
+        let position = WorldPosition(x: -0.25, y: -16.25, z: -32.0)
+        let chunk = ChunkCoordinate.containing(position, chunkSize: 16)
+        let local = chunk.localCoordinate(for: position, chunkSize: 16)
+
+        XCTAssertEqual(chunk, ChunkCoordinate(x: -1, y: -2, z: -2))
+        XCTAssertEqual(local.x, 15.75, accuracy: 0.0001)
+        XCTAssertEqual(local.y, 15.75, accuracy: 0.0001)
+        XCTAssertEqual(local.z, 0.0, accuracy: 0.0001)
+    }
+
+    func testWorldPositionExactlyOnChunkBoundary() {
+        let position = WorldPosition(x: 16.0, y: -16.0, z: 0.0)
+        let chunk = ChunkCoordinate.containing(position, chunkSize: 16)
+        let local = chunk.localCoordinate(for: position, chunkSize: 16)
+
+        XCTAssertEqual(chunk, ChunkCoordinate(x: 1, y: -1, z: 0))
+        XCTAssertEqual(local.x, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(local.y, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(local.z, 0.0, accuracy: 0.0001)
+    }
+
+    func testWorldPositionChunkConversionsAreStable() {
+        let position = WorldPosition(x: -18.25, y: 5.5, z: 32.5)
+        let chunk = ChunkCoordinate.containing(position, chunkSize: 16)
+        let local = chunk.localCoordinate(for: position, chunkSize: 16)
+        let reconstructed = chunk.worldPosition(for: local, chunkSize: 16)
+
+        XCTAssertEqual(chunk, ChunkCoordinate(x: -2, y: 0, z: 2))
+        XCTAssertEqual(reconstructed.x, position.x, accuracy: 0.0001)
+        XCTAssertEqual(reconstructed.y, position.y, accuracy: 0.0001)
+        XCTAssertEqual(reconstructed.z, position.z, accuracy: 0.0001)
+        XCTAssertEqual(ChunkCoordinate.containing(reconstructed, chunkSize: 16), chunk)
+        XCTAssertEqual(
+            ChunkCoordinate.localCoordinate(for: reconstructed, chunkSize: 16),
+            local
+        )
+    }
+
     func testSeededRandomIsDeterministicForSameSeed() {
         var first = SeededRandom(seed: WorldSeed(123_456))
         var second = SeededRandom(seed: WorldSeed(123_456))

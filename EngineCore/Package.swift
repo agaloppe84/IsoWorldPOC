@@ -13,17 +13,7 @@ let package = Package(
     targets: [
         .target(
             name: "EngineCore",
-            path: "Sources/EngineCore",
-            sources: [
-                "ChunkCoordinate.swift",
-                "SeededRandom.swift",
-                "WorldSeed.swift",
-                "Terrain/TerrainMesh.swift",
-                "Terrain/TerrainMeshBuilder.swift",
-                "WorldGen/ChunkGenerator.swift",
-                "WorldGen/ChunkHeightmap.swift",
-                "WorldGen/TerrainSample.swift",
-            ]
+            path: "Sources/EngineCore"
         ),
         .testTarget(
             name: "EngineCoreTests",
