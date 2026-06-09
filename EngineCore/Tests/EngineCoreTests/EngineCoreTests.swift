@@ -194,6 +194,72 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertNotEqual(first.stableHash, second.stableHash)
     }
 
+    func testBiomeDefinitionsExposePlaceholderMaterialData() {
+        for type in BiomeType.allCases {
+            let biome = Biome.definition(for: type)
+
+            XCTAssertEqual(biome.type, type)
+            XCTAssertFalse(biome.materialIdentifier.isEmpty)
+            XCTAssertGreaterThanOrEqual(biome.placeholderColor.red, 0)
+            XCTAssertLessThanOrEqual(biome.placeholderColor.red, 1)
+            XCTAssertGreaterThanOrEqual(biome.placeholderColor.green, 0)
+            XCTAssertLessThanOrEqual(biome.placeholderColor.green, 1)
+            XCTAssertGreaterThanOrEqual(biome.placeholderColor.blue, 0)
+            XCTAssertLessThanOrEqual(biome.placeholderColor.blue, 1)
+            XCTAssertGreaterThan(biome.ruggednessMultiplier, 0)
+        }
+    }
+
+    func testBiomeSamplerIsDeterministicForSameSeedAndPosition() {
+        let position = WorldPosition(x: 125.25, y: 0, z: -61.75)
+        let first = BiomeSampler(seed: WorldSeed(42)).biome(at: position)
+        let second = BiomeSampler(seed: WorldSeed(42)).biome(at: position)
+
+        XCTAssertEqual(first, second)
+    }
+
+    func testBiomeSamplerChangesAcrossWorldPositions() {
+        let sampler = BiomeSampler(seed: WorldSeed(42))
+        let sampledTypes = biomeTypes(
+            sampler: sampler,
+            positions: [
+                WorldPosition(x: -512, y: 0, z: -512),
+                WorldPosition(x: -128, y: 0, z: 256),
+                WorldPosition(x: 0, y: 0, z: 0),
+                WorldPosition(x: 192, y: 0, z: -320),
+                WorldPosition(x: 512, y: 0, z: 384),
+                WorldPosition(x: 896, y: 0, z: -640),
+            ]
+        )
+
+        XCTAssertGreaterThan(sampledTypes.count, 1)
+    }
+
+    func testBiomeSamplerChangesAcrossSeeds() {
+        let positions = [
+            WorldPosition(x: -384, y: 0, z: -384),
+            WorldPosition(x: -192, y: 0, z: 128),
+            WorldPosition(x: 96, y: 0, z: -256),
+            WorldPosition(x: 384, y: 0, z: 448),
+            WorldPosition(x: 704, y: 0, z: -96),
+        ]
+        let first = biomeTypes(sampler: BiomeSampler(seed: WorldSeed(1)), positions: positions)
+        let second = biomeTypes(sampler: BiomeSampler(seed: WorldSeed(2)), positions: positions)
+
+        XCTAssertNotEqual(first, second)
+    }
+
+    func testBiomeSamplerIsStableForChunkLocalCoordinates() {
+        let sampler = BiomeSampler(seed: WorldSeed(99))
+        let coordinate = ChunkCoordinate(x: -3, y: 0, z: 4)
+        let first = sampler.biome(for: coordinate, localX: 12, localZ: 48)
+        let second = sampler.biome(for: coordinate, localX: 12, localZ: 48)
+        let dominant = sampler.dominantBiome(for: coordinate)
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(dominant, sampler.biome(for: coordinate, localX: 32, localZ: 32))
+    }
+
     func testTerrainMeshBuilderProducesOneVertexPerHeightmapSample() {
         let heightmap = ChunkGenerator(seed: WorldSeed(42)).generateHeightmap(for: .origin)
         let mesh = TerrainMeshBuilder.build(from: heightmap, horizontalScale: 1, verticalScale: 1)
@@ -356,5 +422,12 @@ final class EngineCoreTests: XCTestCase {
         }
 
         return positions
+    }
+
+    private func biomeTypes(
+        sampler: BiomeSampler,
+        positions: [WorldPosition]
+    ) -> Set<BiomeType> {
+        Set(positions.map { sampler.biome(at: $0).type })
     }
 }

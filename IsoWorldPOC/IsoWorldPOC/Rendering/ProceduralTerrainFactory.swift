@@ -12,6 +12,7 @@ import simd
 
 struct ProceduralTerrainChunk {
     let coordinate: ChunkCoordinate
+    let biome: Biome
     let entity: Entity
     let sampler: TerrainSampler
 }
@@ -24,6 +25,7 @@ enum ProceduralTerrainFactory {
     static let chunkResolution = 64
     static let chunkWorldSize = Float(chunkResolution - 1) * horizontalScale
     static let triangleCountPerChunk = (chunkResolution - 1) * (chunkResolution - 1) * 2
+    static let biomeSampler = BiomeSampler(seed: activeSeed)
 
     static func makeInitialChunk() -> ProceduralTerrainChunk? {
         makeChunk(coordinate: .origin)
@@ -35,6 +37,10 @@ enum ProceduralTerrainFactory {
             horizontalScale: horizontalScale,
             verticalScale: verticalScale
         )
+        let biome = biomeSampler.dominantBiome(
+            for: coordinate,
+            samplesPerChunk: chunkResolution
+        )
 
         do {
             let meshResource = try RealityKitTerrainAdapter.makeMeshResource(
@@ -44,7 +50,7 @@ enum ProceduralTerrainFactory {
                 indices: terrainGeometry.indices
             )
             let material = SimpleMaterial(
-                color: .init(red: 0.20, green: 0.48, blue: 0.25, alpha: 1.0),
+                color: color(for: biome),
                 roughness: 0.85,
                 isMetallic: false
             )
@@ -63,6 +69,7 @@ enum ProceduralTerrainFactory {
 
             return ProceduralTerrainChunk(
                 coordinate: coordinate,
+                biome: biome,
                 entity: entity,
                 sampler: sampler
             )
@@ -70,5 +77,14 @@ enum ProceduralTerrainFactory {
             print("Failed to build procedural terrain chunk \(coordinate): \(error)")
             return nil
         }
+    }
+
+    private static func color(for biome: Biome) -> NSColor {
+        NSColor(
+            calibratedRed: CGFloat(biome.placeholderColor.red),
+            green: CGFloat(biome.placeholderColor.green),
+            blue: CGFloat(biome.placeholderColor.blue),
+            alpha: 1.0
+        )
     }
 }
