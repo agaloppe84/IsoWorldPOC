@@ -56,7 +56,11 @@ struct RealityKitGameView: NSViewRepresentable {
             let playerEntity = DebugSceneFactory.makePlayerEntity()
             self.playerEntity = playerEntity
 
-            worldAnchor.addChild(DebugSceneFactory.makeReferenceFloor())
+            if let terrainEntity = ProceduralTerrainFactory.makeInitialChunkEntity() {
+                worldAnchor.addChild(terrainEntity)
+            } else {
+                worldAnchor.addChild(DebugSceneFactory.makeReferenceFloor())
+            }
             worldAnchor.addChild(DebugSceneFactory.makeAxisMarkers())
             worldAnchor.addChild(playerEntity)
             worldAnchor.addChild(DebugSceneFactory.makeLight())
