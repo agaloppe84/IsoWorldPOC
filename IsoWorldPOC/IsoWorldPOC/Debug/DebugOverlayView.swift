@@ -29,6 +29,9 @@ struct DebugOverlayView: View {
             Text("sprintPressed: \(format(input.sprintPressed))")
             Divider().overlay(.white.opacity(0.35))
             Text("player x/y/z: \(format(metrics.playerPosition.x)) / \(format(metrics.playerPosition.y)) / \(format(metrics.playerPosition.z))")
+            Text("terrainHeightUnderPlayer: \(format(metrics.terrainHeightUnderPlayer))")
+            Text("playerY: \(format(metrics.playerPosition.y))")
+            Text("slope: \(format(metrics.terrainSlopeUnderPlayer))")
         }
         .font(.system(size: 12, weight: .medium, design: .monospaced))
         .foregroundStyle(.white)
@@ -41,6 +44,14 @@ struct DebugOverlayView: View {
 
     private func format(_ value: Float) -> String {
         String(format: "%.2f", value)
+    }
+
+    private func format(_ value: Float?) -> String {
+        guard let value else {
+            return "n/a"
+        }
+
+        return format(value)
     }
 
     private func format(_ value: Bool) -> String {

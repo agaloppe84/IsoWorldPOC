@@ -13,6 +13,7 @@ struct PlayerController {
     var walkSpeed: Float = 2.2
     var sprintMultiplier: Float = 1.6
     var inputDeadZone: Float = 0.08
+    var terrainSurfaceOffset: Float = 0.02
 
     mutating func update(deltaTime: Float, input: PlayerInputState) -> SIMD3<Float> {
         var movement = SIMD2<Float>(input.moveX, input.moveY)
@@ -29,5 +30,14 @@ struct PlayerController {
 
         return position
     }
-}
 
+    mutating func followTerrain(height: Float?) -> SIMD3<Float> {
+        if let height {
+            position.y = height + terrainSurfaceOffset
+        } else {
+            position.y = 0
+        }
+
+        return position
+    }
+}

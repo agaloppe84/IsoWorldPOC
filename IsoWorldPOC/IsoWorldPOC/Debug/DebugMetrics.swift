@@ -13,4 +13,6 @@ final class DebugMetrics: ObservableObject {
     @Published var inputState = PlayerInputState()
     @Published var controllerName = "None"
     @Published var playerPosition = SIMD3<Float>(0, 0, 0)
+    @Published var terrainHeightUnderPlayer: Float?
+    @Published var terrainSlopeUnderPlayer: Float?
 }

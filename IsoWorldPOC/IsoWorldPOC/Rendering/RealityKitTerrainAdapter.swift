@@ -5,24 +5,22 @@
 //  Created by Work on 09/06/2026.
 //
 
-import EngineCore
 import RealityKit
 import simd
 
 @MainActor
 enum RealityKitTerrainAdapter {
-    static func makeMeshResource(from terrainMesh: TerrainMesh) throws -> MeshResource {
+    static func makeMeshResource(
+        positions: [SIMD3<Float>],
+        normals: [SIMD3<Float>],
+        textureCoordinates: [SIMD2<Float>],
+        indices: [UInt32]
+    ) throws -> MeshResource {
         var descriptor = MeshDescriptor(name: "ProceduralTerrain")
-        descriptor.positions = MeshBuffers.Positions(
-            terrainMesh.vertices.map { SIMD3<Float>($0.x, $0.y, $0.z) }
-        )
-        descriptor.normals = MeshBuffers.Normals(
-            terrainMesh.normals.map { SIMD3<Float>($0.x, $0.y, $0.z) }
-        )
-        descriptor.textureCoordinates = MeshBuffers.TextureCoordinates(
-            terrainMesh.uvs.map { SIMD2<Float>($0.u, $0.v) }
-        )
-        descriptor.primitives = .triangles(terrainMesh.indices)
+        descriptor.positions = MeshBuffers.Positions(positions)
+        descriptor.normals = MeshBuffers.Normals(normals)
+        descriptor.textureCoordinates = MeshBuffers.TextureCoordinates(textureCoordinates)
+        descriptor.primitives = .triangles(indices)
 
         return try MeshResource.generate(from: [descriptor])
     }

@@ -7,6 +7,7 @@
 
 import AppKit
 import Combine
+import EngineCore
 import RealityKit
 import SwiftUI
 
@@ -43,6 +44,7 @@ struct RealityKitGameView: NSViewRepresentable {
         private var playerController = PlayerController()
         private let cameraController = CameraController()
         private var playerEntity: Entity?
+        private var terrainSampler: TerrainSampler?
         private var updateSubscription: (any Cancellable)?
 
         init(debugMetrics: DebugMetrics) {
@@ -56,9 +58,11 @@ struct RealityKitGameView: NSViewRepresentable {
             let playerEntity = DebugSceneFactory.makePlayerEntity()
             self.playerEntity = playerEntity
 
-            if let terrainEntity = ProceduralTerrainFactory.makeInitialChunkEntity() {
-                worldAnchor.addChild(terrainEntity)
+            if let terrainChunk = ProceduralTerrainFactory.makeInitialChunk() {
+                terrainSampler = terrainChunk.sampler
+                worldAnchor.addChild(terrainChunk.entity)
             } else {
+                terrainSampler = nil
                 worldAnchor.addChild(DebugSceneFactory.makeReferenceFloor())
             }
             worldAnchor.addChild(DebugSceneFactory.makeAxisMarkers())
@@ -74,12 +78,17 @@ struct RealityKitGameView: NSViewRepresentable {
         }
 
         private func update(deltaTime: Float) {
-            let position = playerController.update(deltaTime: deltaTime, input: inputManager.state)
+            let horizontalPosition = playerController.update(deltaTime: deltaTime, input: inputManager.state)
+            let terrainSample = terrainSampler?.sampleAt(x: horizontalPosition.x, z: horizontalPosition.z)
+            let position = playerController.followTerrain(height: terrainSample?.height)
+
             playerEntity?.position = position
             cameraController.update(following: position)
             debugMetrics.inputState = inputManager.state
             debugMetrics.controllerName = inputManager.controllerName
             debugMetrics.playerPosition = position
+            debugMetrics.terrainHeightUnderPlayer = terrainSample?.height
+            debugMetrics.terrainSlopeUnderPlayer = terrainSample?.slope
         }
     }
 }
