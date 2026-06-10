@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import EngineCore
 import SwiftUI
 
 struct DebugOverlayView: View {
@@ -28,8 +29,10 @@ struct DebugOverlayView: View {
             sectionTitle("PLAYER")
             Text("position x/y/z: \(format(metrics.playerPosition.x)) / \(format(metrics.playerPosition.y)) / \(format(metrics.playerPosition.z))")
             Text("currentChunk x/y/z: \(metrics.currentChunk.x) / \(metrics.currentChunk.y) / \(metrics.currentChunk.z)")
+            Text("groundChunk x/y/z: \(format(metrics.currentGroundChunk))")
+            Text("grounded: \(format(metrics.playerGrounded))")
             Text("terrainHeight: \(format(metrics.terrainHeightUnderPlayer))")
-            Text("slope: \(format(metrics.terrainSlopeUnderPlayer))")
+            Text("slope / max: \(format(metrics.slopeUnderPlayer)) / \(format(metrics.maxWalkableSlope))")
 
             Divider().overlay(.white.opacity(0.35))
 
@@ -40,6 +43,8 @@ struct DebugOverlayView: View {
             Text("props approx: \(metrics.approximatePropCount)")
             Text("jobs queued / gen / ready: \(metrics.chunkJobsQueued) / \(metrics.chunkJobsGenerating) / \(metrics.chunksReadyForUpload)")
             Text("uploads this frame: \(metrics.chunkUploadsThisFrame)")
+            Toggle("showChunkBounds", isOn: $metrics.showChunkBounds)
+            Toggle("showChunkLabels", isOn: $metrics.showChunkLabels)
 
             Divider().overlay(.white.opacity(0.35))
 
@@ -55,6 +60,7 @@ struct DebugOverlayView: View {
         }
         .font(.system(size: 12, weight: .medium, design: .monospaced))
         .foregroundStyle(.white)
+        .toggleStyle(.checkbox)
         .padding(12)
         .background(.black.opacity(0.72))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -82,5 +88,13 @@ struct DebugOverlayView: View {
 
     private func format(_ value: Bool) -> String {
         value ? "true" : "false"
+    }
+
+    private func format(_ coordinate: ChunkCoordinate?) -> String {
+        guard let coordinate else {
+            return "n/a"
+        }
+
+        return "\(coordinate.x) / \(coordinate.y) / \(coordinate.z)"
     }
 }

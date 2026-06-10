@@ -1,5 +1,6 @@
 public struct ChunkHeightmap: Equatable, Codable, Sendable {
     public static let resolution = 64
+    public static let gridStride = resolution - 1
     public static let sampleCount = resolution * resolution
 
     public let seed: WorldSeed

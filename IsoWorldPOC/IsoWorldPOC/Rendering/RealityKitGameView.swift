@@ -42,6 +42,7 @@ struct RealityKitGameView: NSViewRepresentable {
 
         private let debugMetrics: DebugMetrics
         private var playerController = PlayerController()
+        private let playerGrounding = PlayerGrounding()
         private let cameraController = CameraController()
         private var playerEntity: Entity?
         private var terrainManager: ChunkTerrainManager?
@@ -84,19 +85,40 @@ struct RealityKitGameView: NSViewRepresentable {
         private func update(deltaTime: Float) {
             updatePerformanceMetrics(deltaTime: deltaTime)
 
-            let horizontalPosition = playerController.update(deltaTime: deltaTime, input: inputManager.state)
-            terrainManager?.update(around: horizontalPosition)
+            terrainManager?.setDebugOptions(
+                showChunkBounds: debugMetrics.showChunkBounds,
+                showChunkLabels: debugMetrics.showChunkLabels
+            )
+            terrainManager?.update(around: playerController.position)
 
-            let terrainSample = terrainManager?.terrainSample(at: horizontalPosition)
-            let position = playerController.followTerrain(height: terrainSample?.height)
+            let previousPosition = playerController.position
+            let proposedPosition = playerController.proposedHorizontalPosition(
+                deltaTime: deltaTime,
+                input: inputManager.state
+            )
+            let previousGround = terrainManager?.terrainGroundSample(at: previousPosition)
+            let proposedGround = terrainManager?.terrainGroundSample(at: proposedPosition)
+            let grounding = playerGrounding.resolve(
+                previousPosition: previousPosition,
+                proposedPosition: proposedPosition,
+                proposedGround: proposedGround,
+                previousGround: previousGround
+            )
+            let position = playerController.applyGroundedPosition(grounding.position)
+
+            terrainManager?.updateActiveVisibility(around: position)
 
             playerEntity?.position = position
             cameraController.update(following: position)
             debugMetrics.inputState = inputManager.state
             debugMetrics.controllerName = inputManager.controllerName
             debugMetrics.playerPosition = position
-            debugMetrics.terrainHeightUnderPlayer = terrainSample?.height
-            debugMetrics.terrainSlopeUnderPlayer = terrainSample?.slope
+            debugMetrics.terrainHeightUnderPlayer = grounding.terrainHeight
+            debugMetrics.terrainSlopeUnderPlayer = grounding.slopeUnderPlayer
+            debugMetrics.slopeUnderPlayer = grounding.slopeUnderPlayer
+            debugMetrics.playerGrounded = grounding.playerGrounded
+            debugMetrics.maxWalkableSlope = playerGrounding.maxWalkableSlope
+            debugMetrics.currentGroundChunk = grounding.currentGroundChunk
             debugMetrics.currentChunk = terrainManager?.currentChunk ?? .origin
             debugMetrics.activeChunkCount = terrainManager?.activeChunkCount ?? 0
             debugMetrics.visibleChunkCount = terrainManager?.visibleChunkCount ?? 0

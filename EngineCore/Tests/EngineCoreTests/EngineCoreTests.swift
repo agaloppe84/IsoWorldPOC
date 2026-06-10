@@ -194,6 +194,39 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertNotEqual(first.stableHash, second.stableHash)
     }
 
+    func testChunkGeneratorSharesBorderSamplesBetweenAdjacentChunks() {
+        let generator = ChunkGenerator(seed: WorldSeed(99))
+        let left = generator.generateHeightmap(for: .origin)
+        let right = generator.generateHeightmap(for: ChunkCoordinate(x: 1, y: 0, z: 0))
+        let back = generator.generateHeightmap(for: ChunkCoordinate(x: 0, y: 0, z: 1))
+        let negativeLeft = generator.generateHeightmap(for: ChunkCoordinate(x: -2, y: 0, z: -3))
+        let negativeRight = generator.generateHeightmap(for: ChunkCoordinate(x: -1, y: 0, z: -3))
+
+        for localZ in [0, 17, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                left.height(localX: ChunkHeightmap.resolution - 1, localZ: localZ),
+                right.height(localX: 0, localZ: localZ),
+                accuracy: 0.0001
+            )
+        }
+
+        for localX in [0, 23, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                left.height(localX: localX, localZ: ChunkHeightmap.resolution - 1),
+                back.height(localX: localX, localZ: 0),
+                accuracy: 0.0001
+            )
+        }
+
+        for localZ in [0, 29, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                negativeLeft.height(localX: ChunkHeightmap.resolution - 1, localZ: localZ),
+                negativeRight.height(localX: 0, localZ: localZ),
+                accuracy: 0.0001
+            )
+        }
+    }
+
     func testBiomeDefinitionsExposePlaceholderMaterialData() {
         for type in BiomeType.allCases {
             let biome = Biome.definition(for: type)
@@ -401,6 +434,117 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertGreaterThan(sample.slope, 0)
     }
 
+    func testTerrainSamplerReportsWalkabilityFromSlope() {
+        let flatSampler = TerrainSampler(geometry: flatGeometry(height: 3, horizontalScale: 1))
+        let rampSampler = TerrainSampler(geometry: rampGeometry(horizontalScale: 1, verticalScale: 1))
+        let rampSample = rampSampler.sampleAt(x: 20, z: 20)
+
+        XCTAssertTrue(flatSampler.isWalkableAt(x: 20, z: 20, maxSlope: 0))
+        XCTAssertFalse(rampSample.isWalkable(maxSlope: 1))
+        XCTAssertTrue(rampSample.isWalkable(maxSlope: 5))
+    }
+
+    func testTerrainGeometrySharesBorderHeightsBetweenAdjacentChunks() {
+        let left = ChunkCoordinate.origin.makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+        let right = ChunkCoordinate(x: 1, y: 0, z: 0).makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+        let back = ChunkCoordinate(x: 0, y: 0, z: 1).makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+        let negativeLeft = ChunkCoordinate(x: -2, y: 0, z: -3).makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+        let negativeRight = ChunkCoordinate(x: -1, y: 0, z: -3).makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+
+        for localZ in [0, 17, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                terrainGeometryHeight(left, localX: ChunkHeightmap.resolution - 1, localZ: localZ),
+                terrainGeometryHeight(right, localX: 0, localZ: localZ),
+                accuracy: 0.0001
+            )
+        }
+
+        for localX in [0, 23, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                terrainGeometryHeight(left, localX: localX, localZ: ChunkHeightmap.resolution - 1),
+                terrainGeometryHeight(back, localX: localX, localZ: 0),
+                accuracy: 0.0001
+            )
+        }
+
+        for localZ in [0, 29, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                terrainGeometryHeight(negativeLeft, localX: ChunkHeightmap.resolution - 1, localZ: localZ),
+                terrainGeometryHeight(negativeRight, localX: 0, localZ: localZ),
+                accuracy: 0.0001
+            )
+        }
+    }
+
+    func testTerrainGeometrySharesBorderNormalsBetweenAdjacentChunks() {
+        let left = ChunkCoordinate.origin.makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+        let right = ChunkCoordinate(x: 1, y: 0, z: 0).makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+        let back = ChunkCoordinate(x: 0, y: 0, z: 1).makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+        let negativeLeft = ChunkCoordinate(x: -2, y: 0, z: -3).makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+        let negativeRight = ChunkCoordinate(x: -1, y: 0, z: -3).makeTerrainGeometry(
+            seed: WorldSeed(99),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+
+        for localZ in [0, 17, ChunkHeightmap.resolution - 1] {
+            assertNormalsEqual(
+                terrainGeometryNormal(left, localX: ChunkHeightmap.resolution - 1, localZ: localZ),
+                terrainGeometryNormal(right, localX: 0, localZ: localZ)
+            )
+        }
+
+        for localX in [0, 23, ChunkHeightmap.resolution - 1] {
+            assertNormalsEqual(
+                terrainGeometryNormal(left, localX: localX, localZ: ChunkHeightmap.resolution - 1),
+                terrainGeometryNormal(back, localX: localX, localZ: 0)
+            )
+        }
+
+        for localZ in [0, 29, ChunkHeightmap.resolution - 1] {
+            assertNormalsEqual(
+                terrainGeometryNormal(negativeLeft, localX: ChunkHeightmap.resolution - 1, localZ: localZ),
+                terrainGeometryNormal(negativeRight, localX: 0, localZ: localZ)
+            )
+        }
+    }
+
     private func flatHeightmap(height: Float) -> ChunkHeightmap {
         var samples: [TerrainSample] = []
         samples.reserveCapacity(ChunkHeightmap.sampleCount)
@@ -485,6 +629,33 @@ final class EngineCoreTests: XCTestCase {
         }
 
         return positions
+    }
+
+    private func terrainGeometryHeight(
+        _ geometry: TerrainGeometryBuffers,
+        localX: Int,
+        localZ: Int
+    ) -> Float {
+        geometry.positions[localZ * geometry.resolution + localX].y
+    }
+
+    private func terrainGeometryNormal(
+        _ geometry: TerrainGeometryBuffers,
+        localX: Int,
+        localZ: Int
+    ) -> TerrainGeometryBuffers.Normal {
+        geometry.normals[localZ * geometry.resolution + localX]
+    }
+
+    private func assertNormalsEqual(
+        _ first: TerrainGeometryBuffers.Normal,
+        _ second: TerrainGeometryBuffers.Normal,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(first.x, second.x, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(first.y, second.y, accuracy: 0.0001, file: file, line: line)
+        XCTAssertEqual(first.z, second.z, accuracy: 0.0001, file: file, line: line)
     }
 
     private func biomeTypes(

@@ -68,6 +68,12 @@ public struct TerrainSampler: Sendable {
             self.height = height
             self.slope = slope
         }
+
+        public func isWalkable(maxSlope: Float) -> Bool {
+            precondition(maxSlope >= 0, "maxSlope must be non-negative.")
+
+            return slope <= maxSlope
+        }
     }
 
     public let resolution: Int
@@ -100,6 +106,10 @@ public struct TerrainSampler: Sendable {
             height: heightAt(x: x, z: z),
             slope: slopeAt(x: x, z: z)
         )
+    }
+
+    public func isWalkableAt(x: Float, z: Float, maxSlope: Float) -> Bool {
+        sampleAt(x: x, z: z).isWalkable(maxSlope: maxSlope)
     }
 
     public func heightAt(x: Float, z: Float) -> Float {
@@ -178,22 +188,32 @@ public extension ChunkCoordinate {
 }
 
 private struct TerrainGeometryBufferBuilder {
-    private static let resolution = 64
+    private static let resolution = ChunkHeightmap.resolution
     private static let sampleCount = resolution * resolution
 
-    let seed: WorldSeed
     let coordinate: ChunkCoordinate
     let horizontalScale: Float
     let verticalScale: Float
+    let heightFunction: TerrainHeightFunction
+
+    init(
+        seed: WorldSeed,
+        coordinate: ChunkCoordinate,
+        horizontalScale: Float,
+        verticalScale: Float
+    ) {
+        self.coordinate = coordinate
+        self.horizontalScale = horizontalScale
+        self.verticalScale = verticalScale
+        self.heightFunction = TerrainHeightFunction(seed: seed)
+    }
 
     func build() -> TerrainGeometryBuffers {
-        var heights: [Float] = []
         var positions: [TerrainGeometryBuffers.Position] = []
         var normals: [TerrainGeometryBuffers.Normal] = []
         var textureCoordinates: [TerrainGeometryBuffers.TextureCoordinate] = []
         var indices: [UInt32] = []
 
-        heights.reserveCapacity(Self.sampleCount)
         positions.reserveCapacity(Self.sampleCount)
         normals.reserveCapacity(Self.sampleCount)
         textureCoordinates.reserveCapacity(Self.sampleCount)
@@ -202,7 +222,6 @@ private struct TerrainGeometryBufferBuilder {
         for localZ in 0..<Self.resolution {
             for localX in 0..<Self.resolution {
                 let height = height(localX: localX, localZ: localZ)
-                heights.append(height)
                 positions.append(
                     TerrainGeometryBuffers.Position(
                         x: Float(localX) * horizontalScale,
@@ -221,7 +240,7 @@ private struct TerrainGeometryBufferBuilder {
 
         for localZ in 0..<Self.resolution {
             for localX in 0..<Self.resolution {
-                normals.append(normal(localX: localX, localZ: localZ, heights: heights))
+                normals.append(normal(localX: localX, localZ: localZ))
             }
         }
 
@@ -250,16 +269,13 @@ private struct TerrainGeometryBufferBuilder {
         )
     }
 
-    private func normal(localX: Int, localZ: Int, heights: [Float]) -> TerrainGeometryBuffers.Normal {
-        let leftX = max(localX - 1, 0)
-        let rightX = min(localX + 1, Self.resolution - 1)
-        let backZ = max(localZ - 1, 0)
-        let forwardZ = min(localZ + 1, Self.resolution - 1)
-
-        let left = heights[Int(vertexIndex(localX: leftX, localZ: localZ))] * verticalScale
-        let right = heights[Int(vertexIndex(localX: rightX, localZ: localZ))] * verticalScale
-        let back = heights[Int(vertexIndex(localX: localX, localZ: backZ))] * verticalScale
-        let forward = heights[Int(vertexIndex(localX: localX, localZ: forwardZ))] * verticalScale
+    private func normal(localX: Int, localZ: Int) -> TerrainGeometryBuffers.Normal {
+        let centerWorldX = worldX(localX: localX)
+        let centerWorldZ = worldZ(localZ: localZ)
+        let left = heightAtWorld(worldX: centerWorldX - 1, worldZ: centerWorldZ) * verticalScale
+        let right = heightAtWorld(worldX: centerWorldX + 1, worldZ: centerWorldZ) * verticalScale
+        let back = heightAtWorld(worldX: centerWorldX, worldZ: centerWorldZ - 1) * verticalScale
+        let forward = heightAtWorld(worldX: centerWorldX, worldZ: centerWorldZ + 1) * verticalScale
 
         return normalizedNormal(x: left - right, y: horizontalScale * 2.0, z: back - forward)
     }
@@ -279,88 +295,19 @@ private struct TerrainGeometryBufferBuilder {
     }
 
     private func height(localX: Int, localZ: Int) -> Float {
-        let worldX = coordinate.x * Self.resolution + localX
-        let worldZ = coordinate.z * Self.resolution + localZ
-        let broad = valueNoise(worldX: worldX, worldZ: worldZ, cellSize: 32, salt: 0xA11C_E001) * 5.0
-        let medium = valueNoise(worldX: worldX, worldZ: worldZ, cellSize: 16, salt: 0xB22D_E002) * 2.0
-        let detail = valueNoise(worldX: worldX, worldZ: worldZ, cellSize: 8, salt: 0xC33E_D003) * 0.75
-        let verticalOffset = Float(coordinate.y) * 6.0
-
-        return broad + medium + detail + verticalOffset
+        heightAtWorld(worldX: worldX(localX: localX), worldZ: worldZ(localZ: localZ))
     }
 
-    private func valueNoise(worldX: Int, worldZ: Int, cellSize: Int, salt: UInt64) -> Float {
-        let cellX = floorDiv(worldX, by: cellSize)
-        let cellZ = floorDiv(worldZ, by: cellSize)
-        let fractionX = Float(positiveRemainder(worldX, by: cellSize)) / Float(cellSize)
-        let fractionZ = Float(positiveRemainder(worldZ, by: cellSize)) / Float(cellSize)
-
-        let v00 = latticeValue(cellX: cellX, cellZ: cellZ, salt: salt)
-        let v10 = latticeValue(cellX: cellX + 1, cellZ: cellZ, salt: salt)
-        let v01 = latticeValue(cellX: cellX, cellZ: cellZ + 1, salt: salt)
-        let v11 = latticeValue(cellX: cellX + 1, cellZ: cellZ + 1, salt: salt)
-        let smoothX = smoothStep(fractionX)
-        let smoothZ = smoothStep(fractionZ)
-
-        return lerp(
-            lerp(v00, v10, smoothX),
-            lerp(v01, v11, smoothX),
-            smoothZ
-        )
+    private func heightAtWorld(worldX: Int, worldZ: Int) -> Float {
+        heightFunction.heightAt(worldX: worldX, worldZ: worldZ, verticalChunk: coordinate.y)
     }
 
-    private func latticeValue(cellX: Int, cellZ: Int, salt: UInt64) -> Float {
-        var random = SeededRandom(seedValue: latticeSeed(cellX: cellX, cellZ: cellZ, salt: salt))
-        let value = random.next() >> 40
-        let unit = Float(value) / Float(0x00ff_ffff)
-
-        return unit * 2.0 - 1.0
+    private func worldX(localX: Int) -> Int {
+        coordinate.x * ChunkHeightmap.gridStride + localX
     }
 
-    private func latticeSeed(cellX: Int, cellZ: Int, salt: UInt64) -> UInt64 {
-        var value = seed.value ^ salt
-        value = mix(value, with: cellX)
-        value = mix(value, with: cellZ)
-        return value
-    }
-
-    private func mix(_ current: UInt64, with value: Int) -> UInt64 {
-        var mixed = current ^ UInt64(bitPattern: Int64(value))
-        mixed &*= 0x9E37_79B9_7F4A_7C15
-        mixed ^= mixed >> 30
-        mixed &*= 0xBF58_476D_1CE4_E5B9
-        mixed ^= mixed >> 27
-        mixed &*= 0x94D0_49BB_1331_11EB
-        return mixed ^ (mixed >> 31)
-    }
-
-    private func floorDiv(_ value: Int, by divisor: Int) -> Int {
-        let quotient = value / divisor
-        let remainder = value % divisor
-
-        if remainder < 0 {
-            return quotient - 1
-        }
-
-        return quotient
-    }
-
-    private func positiveRemainder(_ value: Int, by divisor: Int) -> Int {
-        let remainder = value % divisor
-
-        if remainder < 0 {
-            return remainder + divisor
-        }
-
-        return remainder
-    }
-
-    private func smoothStep(_ value: Float) -> Float {
-        value * value * (3.0 - 2.0 * value)
-    }
-
-    private func lerp(_ start: Float, _ end: Float, _ amount: Float) -> Float {
-        start + (end - start) * amount
+    private func worldZ(localZ: Int) -> Int {
+        coordinate.z * ChunkHeightmap.gridStride + localZ
     }
 
     private func vertexIndex(localX: Int, localZ: Int) -> UInt32 {

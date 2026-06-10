@@ -16,6 +16,14 @@ struct PlayerController {
     var terrainSurfaceOffset: Float = 0.02
 
     mutating func update(deltaTime: Float, input: PlayerInputState) -> SIMD3<Float> {
+        let proposedPosition = proposedHorizontalPosition(deltaTime: deltaTime, input: input)
+        position.x = proposedPosition.x
+        position.z = proposedPosition.z
+
+        return position
+    }
+
+    func proposedHorizontalPosition(deltaTime: Float, input: PlayerInputState) -> SIMD3<Float> {
         var movement = SIMD2<Float>(input.moveX, input.moveY)
 
         if simd_length(movement) < inputDeadZone {
@@ -25,8 +33,15 @@ struct PlayerController {
         }
 
         let speed = input.sprintPressed ? walkSpeed * sprintMultiplier : walkSpeed
-        position.x += movement.x * speed * deltaTime
-        position.z -= movement.y * speed * deltaTime
+        var proposedPosition = position
+        proposedPosition.x += movement.x * speed * deltaTime
+        proposedPosition.z -= movement.y * speed * deltaTime
+
+        return proposedPosition
+    }
+
+    mutating func applyGroundedPosition(_ groundedPosition: SIMD3<Float>) -> SIMD3<Float> {
+        position = groundedPosition
 
         return position
     }

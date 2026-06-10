@@ -25,6 +25,9 @@ final class ChunkTerrainManager {
     private var readyChunkData: [ChunkCoordinate: ProceduralChunkData] = [:]
     private var activeChunkSet = Set<ChunkCoordinate>()
     private var desiredPreloadChunks = Set<ChunkCoordinate>()
+    private var chunkDebugVisuals: [ChunkCoordinate: ChunkDebugVisualRecord] = [:]
+    private var showChunkBounds = true
+    private var showChunkLabels = true
 
     private var chunkDataGenerationSampleCount = 0
     private var chunkUploadSampleCount = 0
@@ -102,6 +105,16 @@ final class ChunkTerrainManager {
         self.anchor = anchor
     }
 
+    func setDebugOptions(showChunkBounds: Bool, showChunkLabels: Bool) {
+        guard self.showChunkBounds != showChunkBounds || self.showChunkLabels != showChunkLabels else {
+            return
+        }
+
+        self.showChunkBounds = showChunkBounds
+        self.showChunkLabels = showChunkLabels
+        syncChunkDebugVisuals()
+    }
+
     func update(around playerPosition: SIMD3<Float>) {
         lastChunkUploadsThisFrame = 0
         currentChunk = chunkCoordinate(containing: playerPosition)
@@ -125,14 +138,30 @@ final class ChunkTerrainManager {
         startGenerationJobsIfNeeded()
         uploadReadyChunks(preloadChunks: preloadChunks, activeChunks: activeChunks)
         updateChunkVisibility(activeChunks)
+        syncChunkDebugVisuals()
+    }
+
+    func updateActiveVisibility(around playerPosition: SIMD3<Float>) {
+        currentChunk = chunkCoordinate(containing: playerPosition)
+        activeChunkSet = requiredChunks(around: currentChunk, radius: activeRadiusValue)
+        updateChunkVisibility(activeChunkSet)
+        syncChunkDebugVisuals()
     }
 
     func terrainSample(at playerPosition: SIMD3<Float>) -> TerrainSampler.Sample? {
+        terrainGroundSample(at: playerPosition)?.sample
+    }
+
+    func terrainGroundSample(at playerPosition: SIMD3<Float>) -> TerrainGroundSample? {
         let coordinate = chunkCoordinate(containing: playerPosition)
-        return chunks[coordinate]?.sampler.sampleAt(
+        guard let sample = chunks[coordinate]?.sampler.sampleAt(
             x: playerPosition.x,
             z: playerPosition.z
-        )
+        ) else {
+            return nil
+        }
+
+        return TerrainGroundSample(sample: sample, chunk: coordinate)
     }
 
     private func chunkCoordinate(containing playerPosition: SIMD3<Float>) -> ChunkCoordinate {
@@ -181,6 +210,69 @@ final class ChunkTerrainManager {
         for (coordinate, chunk) in chunks {
             chunk.entity.isEnabled = activeChunks.contains(coordinate)
         }
+    }
+
+    private func syncChunkDebugVisuals() {
+        guard showChunkBounds || showChunkLabels else {
+            removeAllChunkDebugVisuals()
+            return
+        }
+
+        var desiredCoordinates = activeChunkSet
+        desiredCoordinates.formUnion(generatingChunkSet)
+
+        let staleCoordinates = Set(chunkDebugVisuals.keys).subtracting(desiredCoordinates)
+        for coordinate in sorted(staleCoordinates) {
+            chunkDebugVisuals[coordinate]?.entity.removeFromParent()
+            chunkDebugVisuals.removeValue(forKey: coordinate)
+        }
+
+        for coordinate in sorted(desiredCoordinates) {
+            let state = debugVisualState(for: coordinate)
+
+            if let existing = chunkDebugVisuals[coordinate],
+               existing.state == state,
+               existing.showBounds == showChunkBounds,
+               existing.showLabels == showChunkLabels {
+                continue
+            }
+
+            chunkDebugVisuals[coordinate]?.entity.removeFromParent()
+
+            let entity = ChunkDebugVisualFactory.makeVisual(
+                coordinate: coordinate,
+                state: state,
+                showBounds: showChunkBounds,
+                showLabels: showChunkLabels
+            )
+            anchor.addChild(entity)
+            chunkDebugVisuals[coordinate] = ChunkDebugVisualRecord(
+                entity: entity,
+                state: state,
+                showBounds: showChunkBounds,
+                showLabels: showChunkLabels
+            )
+        }
+    }
+
+    private func debugVisualState(for coordinate: ChunkCoordinate) -> ChunkDebugVisualState {
+        if coordinate == currentChunk {
+            return .current
+        }
+
+        if generatingChunkSet.contains(coordinate) {
+            return .generating
+        }
+
+        return .active
+    }
+
+    private func removeAllChunkDebugVisuals() {
+        for visual in chunkDebugVisuals.values {
+            visual.entity.removeFromParent()
+        }
+
+        chunkDebugVisuals.removeAll()
     }
 
     private func enqueueMissingChunks(
@@ -334,4 +426,11 @@ final class ChunkTerrainManager {
             return first.y < second.y
         }
     }
+}
+
+private struct ChunkDebugVisualRecord {
+    let entity: Entity
+    let state: ChunkDebugVisualState
+    let showBounds: Bool
+    let showLabels: Bool
 }
