@@ -1,50 +1,56 @@
 //
-//  RealityKitGameView.swift
+//  MetalGameView.swift
 //  IsoWorldPOC
 //
-//  Created by Work on 09/06/2026.
+//  Created by Work on 10/06/2026.
 //
 
 import AppKit
-import RealityKit
+import MetalKit
 import SwiftUI
 
-struct RealityKitGameView: NSViewRepresentable {
+struct MetalGameView: NSViewRepresentable {
     let debugMetrics: DebugMetrics
 
     func makeCoordinator() -> Coordinator {
         Coordinator(debugMetrics: debugMetrics)
     }
 
-    func makeNSView(context: Context) -> ARView {
-        let arView = KeyboardControllableARView(frame: .zero)
-        arView.onKeyDown = { keyCode in
+    func makeNSView(context: Context) -> MTKView {
+        let metalView = KeyboardControllableMTKView(frame: .zero, device: context.coordinator.renderer.device)
+        metalView.delegate = context.coordinator.renderer
+        metalView.colorPixelFormat = .bgra8Unorm
+        metalView.depthStencilPixelFormat = .depth32Float
+        metalView.clearColor = context.coordinator.renderer.clearColor
+        metalView.framebufferOnly = true
+        metalView.preferredFramesPerSecond = 60
+        metalView.enableSetNeedsDisplay = false
+        metalView.isPaused = false
+        metalView.onKeyDown = { keyCode in
             context.coordinator.renderer.handleKeyDown(keyCode: keyCode)
         }
-        arView.onKeyUp = { keyCode in
+        metalView.onKeyUp = { keyCode in
             context.coordinator.renderer.handleKeyUp(keyCode: keyCode)
         }
-        arView.onKeyboardReset = {
+        metalView.onKeyboardReset = {
             context.coordinator.renderer.resetKeyboard()
         }
-
-        context.coordinator.renderer.configureScene(in: arView)
-        return arView
+        return metalView
     }
 
-    func updateNSView(_ nsView: ARView, context: Context) {}
+    func updateNSView(_ nsView: MTKView, context: Context) {}
 
     @MainActor
     final class Coordinator {
-        let renderer: RealityKitGameRenderer
+        let renderer: MetalRenderer
 
         init(debugMetrics: DebugMetrics) {
-            self.renderer = RealityKitGameRenderer(debugMetrics: debugMetrics)
+            self.renderer = MetalRenderer(debugMetrics: debugMetrics)
         }
     }
 }
 
-private final class KeyboardControllableARView: ARView {
+private final class KeyboardControllableMTKView: MTKView {
     var onKeyDown: ((UInt16) -> Void)?
     var onKeyUp: ((UInt16) -> Void)?
     var onKeyboardReset: (() -> Void)?

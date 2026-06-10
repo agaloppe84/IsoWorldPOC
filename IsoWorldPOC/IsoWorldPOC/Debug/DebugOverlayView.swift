@@ -19,6 +19,7 @@ struct DebugOverlayView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("PERF")
+            Text("renderer: \(metrics.rendererMode.displayName)")
             Text("fps / frame: \(format(metrics.framesPerSecond)) / \(format(metrics.frameTimeMilliseconds)) ms")
             Text("chunk data avg: \(format(metrics.averageChunkDataGenerationMs)) ms")
             Text("chunk upload avg: \(format(metrics.averageChunkUploadMs)) ms")

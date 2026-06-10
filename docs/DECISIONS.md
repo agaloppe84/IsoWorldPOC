@@ -99,3 +99,13 @@ Consequence: les parametres `sunDirection`, `sunIntensity`, `ambientIntensity` e
 Limites RealityKit connues: l'eclairage reste simple, le controle fin des ombres est limite, les ombres peuvent couter cher avec beaucoup de chunks/props, et l'ambient actuel est une approximation via lumiere de remplissage plutot qu'un vrai systeme global illumination.
 
 Budget performance: garder une seule source avec ombres actives au depart, limiter la distance d'ombre, et desactiver ou reduire les ombres si le frame time augmente sur Mac M1.
+
+## 012 - Choix progressif du backend de rendu
+
+Decision: introduire `RendererMode` avec `realityKit` par defaut et `metalExperimental` comme option preparee mais non activee.
+
+Raison: conserver le POC jouable pendant que l'architecture se prepare a recevoir un backend Metal. RealityKit reste temporairement le backend actif parce qu'il gere deja la scene, la camera, les chunks, les props, le debug visuel, la lumiere et les interactions actuelles.
+
+Consequence: `GameRootView` choisit le backend via un mode explicite, l'overlay debug affiche le renderer actif, et le futur `MetalGameView` pourra etre injecte sans remplacer toute la scene RealityKit d'un seul coup.
+
+Migration Metal: Metal sera ajoute progressivement pour reduire le risque technique, commencer par le terrain seul, mesurer les performances, puis migrer les chunks, materiaux, debug 3D et props par etapes.

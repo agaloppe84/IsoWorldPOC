@@ -49,6 +49,22 @@ Responsabilites:
 
 RealityKit doit rester cote application ou dans un module de presentation dedie. Il ne doit pas entrer dans `EngineCore`.
 
+### Backend actif
+
+Le backend actif temporaire est `RealityKitGameRenderer`.
+
+Responsabilites:
+
+- Configurer la scene RealityKit.
+- Posseder la camera RealityKit active.
+- Connecter les chunks streamés aux entites RealityKit.
+- Mettre a jour le joueur visible, les lumieres et les metriques debug.
+- Garder le comportement actuel du POC pendant la migration progressive.
+
+`RealityKitGameView` reste un host macOS/SwiftUI: elle cree l'`ARView`, transmet les evenements clavier et laisse le backend renderer gerer la scene.
+
+La prochaine cible est d'introduire un backend parallele `MetalGameRenderer` sans supprimer RealityKit. Les contrats de rendu purs vivent dans `EngineCore/Rendering` et ne doivent importer ni RealityKit ni Metal.
+
 ## Input
 
 GameController est utilise pour le support manette PS5.
@@ -103,4 +119,3 @@ La compilation doit toujours passer par:
 ```sh
 ./scripts/xcodebuild-safe.sh -project IsoWorldPOC/IsoWorldPOC.xcodeproj -scheme IsoWorldPOC -destination 'platform=macOS' build
 ```
-
