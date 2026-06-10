@@ -60,7 +60,7 @@ struct MetalRenderDebugUniforms {
     init(options: RenderDebugOptions) {
         self.terrainMaterialModeAndFlags = SIMD4<Float>(
             Self.modeID(options.terrainMaterialDebugMode),
-            0,
+            Float(options.terrainSplatDebugLayerIndex),
             0,
             0
         )
@@ -76,6 +76,8 @@ struct MetalRenderDebugUniforms {
             2
         case .blendWeight:
             3
+        case .splatLayerWeight:
+            4
         }
     }
 }

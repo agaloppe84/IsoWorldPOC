@@ -205,3 +205,25 @@ Raison: les transitions de biomes doivent etre inspectables dans le jeu avant d'
 Consequence: l'overlay expose un picker de mode terrain. `WorldRuntime` transporte ce mode dans le snapshot, `MetalFrameContext` le convertit en uniform, et le shader Metal applique le debug seulement aux materiaux terrain.
 
 Limite actuelle: le mode `blendWeight` est une heatmap de debug et non un rendu artistique. Il sert a verifier ou les transitions existent, pas a representer le style final.
+
+## 022 - Preparation des splat weights terrain
+
+Decision: introduire `TerrainMaterialSplat` et `TerrainMaterialSplatLayer` dans les contrats EngineCore.
+
+Raison: le modele primaire/secondaire suffit pour une premiere transition visuelle, mais il ne sera pas assez riche pour des texture arrays, atlas, splat maps ou transitions multi-materiaux.
+
+Consequence: chaque sample terrain peut maintenant transporter jusqu'a 4 couches de materiaux normalisees. `BiomeSampler` derive ces couches de maniere deterministe depuis le voisinage biome en coordonnees monde. Le vertex buffer Metal transporte `splatWeights` et `splatMaterialIDs`.
+
+Garantie: les tests verifient determinisme, normalisation, limite a 4 couches et raccord exact des splats entre chunks voisins.
+
+Limite actuelle: le shader artistique continue de rendre avec l'approximation primaire/secondaire. Les poids 4 couches sont prets dans les donnees et le buffer GPU, mais ils ne pilotent pas encore de textures.
+
+## 023 - Debug par couche splat
+
+Decision: ajouter le mode `splatLayerWeight` et `terrainSplatDebugLayerIndex` dans les options de debug de rendu.
+
+Raison: avant de brancher des textures, il faut pouvoir verifier chaque canal de poids splat separement dans la scene.
+
+Consequence: l'overlay expose un index de couche 0-3. Le shader Metal lit `splatWeights[layerIndex]` et affiche une heatmap 0..1 pour la couche selectionnee.
+
+Garantie: l'index est borne dans `RenderDebugOptions`, et les tests couvrent le mode, le clamp et la serialisation JSON.

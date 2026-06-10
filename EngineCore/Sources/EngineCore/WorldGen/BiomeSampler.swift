@@ -49,15 +49,34 @@ public struct BiomeSampler: Sendable {
         ))
     }
 
+    public func terrainMaterialSplat(
+        for coordinate: ChunkCoordinate,
+        localX: Int,
+        localZ: Int,
+        samplesPerChunk: Int = 64
+    ) -> TerrainMaterialSplat {
+        terrainMaterialSplat(at: samplePosition(
+            for: coordinate,
+            localX: localX,
+            localZ: localZ,
+            samplesPerChunk: samplesPerChunk
+        ))
+    }
+
     public func terrainVertexMaterial(at position: WorldPosition) -> TerrainVertexMaterial {
         let primaryBiome = biome(at: position)
-        let blend = secondaryBiomeBlend(at: position, primaryBiome: primaryBiome)
+        let splat = terrainMaterialSplat(at: position, primaryBiome: primaryBiome)
 
         return TerrainVertexMaterial(
             primaryBiome: primaryBiome,
-            secondaryBiome: blend.biome,
-            blendWeight: blend.weight
+            splat: splat
         )
+    }
+
+    public func terrainMaterialSplat(at position: WorldPosition) -> TerrainMaterialSplat {
+        let primaryBiome = biome(at: position)
+
+        return terrainMaterialSplat(at: position, primaryBiome: primaryBiome)
     }
 
     public func dominantBiome(
@@ -108,10 +127,10 @@ public struct BiomeSampler: Sendable {
         )
     }
 
-    private func secondaryBiomeBlend(
+    private func terrainMaterialSplat(
         at position: WorldPosition,
         primaryBiome: Biome
-    ) -> (biome: Biome?, weight: Float) {
+    ) -> TerrainMaterialSplat {
         let transitionRadius: Float = 18
         let offsets: [(x: Float, z: Float)] = [
             (-transitionRadius, 0),
@@ -124,6 +143,7 @@ public struct BiomeSampler: Sendable {
             (transitionRadius, transitionRadius),
         ]
         var countsByType: [BiomeType: Int] = [:]
+        var secondarySampleCount = 0
 
         for offset in offsets {
             let neighborBiome = biome(at: WorldPosition(
@@ -137,29 +157,34 @@ public struct BiomeSampler: Sendable {
             }
 
             countsByType[neighborBiome.type, default: 0] += 1
+            secondarySampleCount += 1
         }
 
-        guard
-            let secondaryType = BiomeType.allCases.max(by: { lhs, rhs in
-                let lhsCount = countsByType[lhs, default: 0]
-                let rhsCount = countsByType[rhs, default: 0]
-
-                if lhsCount == rhsCount {
-                    return lhs.rawValue > rhs.rawValue
-                }
-
-                return lhsCount < rhsCount
-            }),
-            let secondaryCount = countsByType[secondaryType],
-            secondaryCount > 0
-        else {
-            return (nil, 0)
+        guard secondarySampleCount > 0 else {
+            return TerrainMaterialSplat(biome: primaryBiome)
         }
 
-        let neighborhoodInfluence = Float(secondaryCount) / Float(offsets.count)
-        let blendWeight = min(smoothStep(neighborhoodInfluence) * 0.55, 0.45)
+        let neighborhoodInfluence = Float(secondarySampleCount) / Float(offsets.count)
+        let totalSecondaryWeight = min(smoothStep(neighborhoodInfluence) * 0.55, 0.45)
+        var layers = [
+            TerrainMaterialSplatLayer(
+                biome: primaryBiome,
+                weight: 1 - totalSecondaryWeight
+            )
+        ]
 
-        return (Biome.definition(for: secondaryType), blendWeight)
+        for biomeType in countsByType.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
+            guard let count = countsByType[biomeType], count > 0 else {
+                continue
+            }
+
+            layers.append(TerrainMaterialSplatLayer(
+                biome: Biome.definition(for: biomeType),
+                weight: totalSecondaryWeight * Float(count) / Float(secondarySampleCount)
+            ))
+        }
+
+        return TerrainMaterialSplat(layers: layers)
     }
 
     private func positiveFraction(_ value: Float, cellSize: Int) -> Float {

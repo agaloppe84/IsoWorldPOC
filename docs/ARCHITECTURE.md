@@ -99,7 +99,9 @@ Pour le terrain, `BiomeSampler` produit maintenant un `TerrainVertexMaterial` pa
 
 Chaque sample peut porter un materiau primaire, un materiau secondaire et un poids de transition. Le shader Metal mixe couleur et roughness dans le vertex shader. Cela donne une premiere transition douce entre biomes sans ajouter de draw call et sans introduire encore de textures.
 
-L'overlay peut basculer le debug terrain entre rendu normal, biome primaire, biome secondaire et heatmap du poids de transition. Le mode est stocke dans `RenderDebugOptions`, passe au shader par uniform, et ne s'applique qu'aux vertices terrain.
+Les donnees de sample preparent aussi un modele splat: `TerrainMaterialSplat` contient jusqu'a 4 couches de materiaux normalisees. Le vertex buffer Metal transporte deja `splatWeights` et `splatMaterialIDs`, meme si le rendu artistique actuel continue d'utiliser seulement l'approximation primaire/secondaire.
+
+L'overlay peut basculer le debug terrain entre rendu normal, biome primaire, biome secondaire, heatmap du poids de transition et heatmap d'une couche splat specifique. Le mode et l'index de couche splat sont stockes dans `RenderDebugOptions`, passes au shader par uniform, et ne s'appliquent qu'aux vertices terrain.
 
 Cette approche garde les props et terrains batchables par chunk. Elle evite de multiplier les draw calls avant d'avoir une vraie strategie texture/atlas/splat map. Le shader utilise actuellement la roughness pour adoucir la reponse diffuse des materiaux rugueux.
 

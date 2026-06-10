@@ -7,6 +7,8 @@ struct TerrainVertex {
     float4 color;
     float4 secondaryColor;
     float4 material;
+    float4 splatWeights;
+    float4 splatMaterialIDs;
 };
 
 struct TerrainUniforms {
@@ -28,8 +30,8 @@ struct TerrainVertexOut {
     float4 color;
 };
 
-static float3 terrainBlendHeatColor(float blendWeight) {
-    float normalizedBlend = clamp(blendWeight / 0.45, 0.0, 1.0);
+static float3 terrainWeightHeatColor(float weight) {
+    float normalizedBlend = clamp(weight, 0.0, 1.0);
     float3 low = float3(0.05, 0.16, 0.90);
     float3 mid = float3(0.10, 0.85, 0.36);
     float3 high = float3(1.00, 0.84, 0.08);
@@ -39,6 +41,23 @@ static float3 terrainBlendHeatColor(float blendWeight) {
     }
 
     return mix(mid, high, (normalizedBlend - 0.5) * 2.0);
+}
+
+static float3 terrainBlendHeatColor(float blendWeight) {
+    return terrainWeightHeatColor(clamp(blendWeight / 0.45, 0.0, 1.0));
+}
+
+static float splatWeightAt(float4 weights, int layerIndex) {
+    switch (clamp(layerIndex, 0, 3)) {
+    case 0:
+        return weights.x;
+    case 1:
+        return weights.y;
+    case 2:
+        return weights.z;
+    default:
+        return weights.w;
+    }
 }
 
 vertex TerrainVertexOut terrain_vertex(
@@ -55,6 +74,7 @@ vertex TerrainVertexOut terrain_vertex(
     float sunIntensity = lightingUniforms.sunDirectionAndIntensity.w;
     float ambientIntensity = lightingUniforms.ambientAndFlags.x;
     float blendWeight = clamp(inputVertex.material.w, 0.0, 1.0);
+    float secondarySplatWeight = clamp(1.0 - inputVertex.splatWeights.x, 0.0, 1.0);
     float roughness = mix(
         clamp(inputVertex.material.x, 0.0, 1.0),
         clamp(inputVertex.material.z, 0.0, 1.0),
@@ -65,6 +85,7 @@ vertex TerrainVertexOut terrain_vertex(
     float wrappedDiffuse = mix(diffuse, diffuse * 0.82 + 0.18, roughness);
     float shade = clamp(ambientIntensity + wrappedDiffuse * sunIntensity, 0.0, 1.25);
     float terrainMaterialDebugMode = debugUniforms.terrainMaterialModeAndFlags.x;
+    int terrainSplatDebugLayerIndex = int(round(debugUniforms.terrainMaterialModeAndFlags.y));
     float materialKind = inputVertex.material.y;
     bool isTerrainMaterial = materialKind >= 1.0 && materialKind <= 6.0;
     float3 outputColor = baseColor * shade;
@@ -73,8 +94,13 @@ vertex TerrainVertexOut terrain_vertex(
         outputColor = inputVertex.color.rgb;
     } else if (isTerrainMaterial && terrainMaterialDebugMode >= 1.5 && terrainMaterialDebugMode < 2.5) {
         outputColor = inputVertex.secondaryColor.rgb;
-    } else if (isTerrainMaterial && terrainMaterialDebugMode >= 2.5) {
-        outputColor = terrainBlendHeatColor(blendWeight);
+    } else if (isTerrainMaterial && terrainMaterialDebugMode >= 2.5 && terrainMaterialDebugMode < 3.5) {
+        outputColor = terrainBlendHeatColor(secondarySplatWeight);
+    } else if (isTerrainMaterial && terrainMaterialDebugMode >= 3.5) {
+        outputColor = terrainWeightHeatColor(splatWeightAt(
+            inputVertex.splatWeights,
+            terrainSplatDebugLayerIndex
+        ));
     }
 
     TerrainVertexOut out;

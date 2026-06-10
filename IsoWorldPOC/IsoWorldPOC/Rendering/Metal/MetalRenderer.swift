@@ -51,7 +51,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             debugOptions: RenderSnapshotDebugOptions(
                 showChunkBounds: debugMetrics.showChunkBounds,
                 showChunkLabels: debugMetrics.showChunkLabels,
-                terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode
+                terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode,
+                terrainSplatDebugLayerIndex: debugMetrics.terrainSplatDebugLayerIndex
             )
         )
         self.snapshot = runtime.snapshot
@@ -88,7 +89,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             debugOptions: RenderSnapshotDebugOptions(
                 showChunkBounds: debugMetrics.showChunkBounds,
                 showChunkLabels: debugMetrics.showChunkLabels,
-                terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode
+                terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode,
+                terrainSplatDebugLayerIndex: debugMetrics.terrainSplatDebugLayerIndex
             )
         )
     }
@@ -277,14 +279,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
                 [chunk.terrainMaterial.identifier]
             } else {
                 chunk.terrainVertexMaterials.flatMap { material in
-                    if material.hasBlend {
-                        [
-                            material.materialIdentifier,
-                            material.secondaryMaterialIdentifier,
-                        ]
-                    } else {
-                        [material.materialIdentifier]
-                    }
+                    material.splat.layers.map(\.materialIdentifier)
                 }
             }
         }).count
@@ -444,6 +439,8 @@ struct MetalChunkBuffers {
         let hasPerVertexMaterials = vertexMaterials.count == geometry.positions.count
         let fallbackColor = color(from: fallbackMaterial.baseColor)
         let fallbackPayload = MetalMaterialPayload.terrain(fallbackMaterial)
+        let fallbackSplatWeights = MetalMaterialPayload.terrainSplatWeights(fallbackMaterial)
+        let fallbackSplatMaterialIDs = MetalMaterialPayload.terrainSplatMaterialIDs(fallbackMaterial)
 
         return zip(geometry.positions, geometry.normals).enumerated().map { index, pair in
             let position = pair.0
@@ -451,13 +448,17 @@ struct MetalChunkBuffers {
             let vertexMaterial = hasPerVertexMaterials ? vertexMaterials[index] : nil
             let primaryColor = vertexMaterial.map { color(from: $0.baseColor) } ?? fallbackColor
             let secondaryColor = vertexMaterial.map { color(from: $0.secondaryBaseColor) } ?? fallbackColor
+            let splatWeights = vertexMaterial.map(MetalMaterialPayload.terrainSplatWeights) ?? fallbackSplatWeights
+            let splatMaterialIDs = vertexMaterial.map(MetalMaterialPayload.terrainSplatMaterialIDs) ?? fallbackSplatMaterialIDs
 
             return MetalTerrainVertex(
                 position: SIMD3<Float>(position.x, position.y, position.z),
                 normal: SIMD3<Float>(normal.x, normal.y, normal.z),
                 color: primaryColor,
                 material: vertexMaterial.map(MetalMaterialPayload.terrain) ?? fallbackPayload,
-                secondaryColor: secondaryColor
+                secondaryColor: secondaryColor,
+                splatWeights: splatWeights,
+                splatMaterialIDs: splatMaterialIDs
             )
         }
     }
@@ -518,7 +519,9 @@ struct MetalChunkBuffers {
             normal: finalNormal,
             color: vertex.color,
             material: vertex.material,
-            secondaryColor: vertex.secondaryColor
+            secondaryColor: vertex.secondaryColor,
+            splatWeights: vertex.splatWeights,
+            splatMaterialIDs: vertex.splatMaterialIDs
         )
     }
 
@@ -635,19 +638,25 @@ struct MetalTerrainVertex {
     let color: SIMD4<Float>
     let secondaryColor: SIMD4<Float>
     let material: SIMD4<Float>
+    let splatWeights: SIMD4<Float>
+    let splatMaterialIDs: SIMD4<Float>
 
     init(
         position: SIMD3<Float>,
         normal: SIMD3<Float>,
         color: SIMD4<Float>,
         material: SIMD4<Float>,
-        secondaryColor: SIMD4<Float>? = nil
+        secondaryColor: SIMD4<Float>? = nil,
+        splatWeights: SIMD4<Float> = SIMD4<Float>(1, 0, 0, 0),
+        splatMaterialIDs: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0)
     ) {
         self.position = position
         self.normal = normal
         self.color = color
         self.secondaryColor = secondaryColor ?? color
         self.material = material
+        self.splatWeights = splatWeights
+        self.splatMaterialIDs = splatMaterialIDs
     }
 }
 

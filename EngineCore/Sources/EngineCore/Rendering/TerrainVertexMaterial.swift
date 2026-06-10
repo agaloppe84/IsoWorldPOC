@@ -10,6 +10,7 @@ public struct TerrainVertexMaterial: Equatable, Hashable, Codable, Sendable {
     public let secondaryBaseColor: BiomeColor
     public let secondaryRoughness: Float
     public let blendWeight: Float
+    public let splat: TerrainMaterialSplat
 
     public var primaryWeight: Float {
         1.0 - blendWeight
@@ -46,19 +47,45 @@ public struct TerrainVertexMaterial: Equatable, Hashable, Codable, Sendable {
         secondaryMaterialIdentifier: String? = nil,
         secondaryBaseColor: BiomeColor? = nil,
         secondaryRoughness: Float? = nil,
-        blendWeight: Float = 0
+        blendWeight: Float = 0,
+        splat: TerrainMaterialSplat? = nil
     ) {
+        let secondaryBiomeType = secondaryBiomeType ?? biomeType
+        let secondaryMaterialKind = secondaryMaterialKind ?? materialKind
+        let secondaryMaterialIdentifier = secondaryMaterialIdentifier ?? materialIdentifier
+        let secondaryBaseColor = secondaryBaseColor ?? baseColor
+        let secondaryRoughness = secondaryRoughness ?? roughness
+        let blendWeight = Self.clampedBlendWeight(blendWeight)
+
         self.biomeType = biomeType
         self.materialKind = materialKind
         self.materialIdentifier = materialIdentifier
         self.baseColor = baseColor
         self.roughness = roughness
-        self.secondaryBiomeType = secondaryBiomeType ?? biomeType
-        self.secondaryMaterialKind = secondaryMaterialKind ?? materialKind
-        self.secondaryMaterialIdentifier = secondaryMaterialIdentifier ?? materialIdentifier
-        self.secondaryBaseColor = secondaryBaseColor ?? baseColor
-        self.secondaryRoughness = secondaryRoughness ?? roughness
-        self.blendWeight = Self.clampedBlendWeight(blendWeight)
+        self.secondaryBiomeType = secondaryBiomeType
+        self.secondaryMaterialKind = secondaryMaterialKind
+        self.secondaryMaterialIdentifier = secondaryMaterialIdentifier
+        self.secondaryBaseColor = secondaryBaseColor
+        self.secondaryRoughness = secondaryRoughness
+        self.blendWeight = blendWeight
+        self.splat = splat ?? TerrainMaterialSplat(layers: [
+            TerrainMaterialSplatLayer(
+                biomeType: biomeType,
+                materialKind: materialKind,
+                materialIdentifier: materialIdentifier,
+                baseColor: baseColor,
+                roughness: roughness,
+                weight: 1 - blendWeight
+            ),
+            TerrainMaterialSplatLayer(
+                biomeType: secondaryBiomeType,
+                materialKind: secondaryMaterialKind,
+                materialIdentifier: secondaryMaterialIdentifier,
+                baseColor: secondaryBaseColor,
+                roughness: secondaryRoughness,
+                weight: blendWeight
+            ),
+        ])
     }
 
     public init(biome: Biome) {
@@ -90,6 +117,33 @@ public struct TerrainVertexMaterial: Equatable, Hashable, Codable, Sendable {
             secondaryBaseColor: secondaryBiome.terrainMaterial.baseColor,
             secondaryRoughness: secondaryBiome.terrainMaterial.roughness,
             blendWeight: secondaryBiome.type == primaryBiome.type ? 0 : blendWeight
+        )
+    }
+
+    public init(
+        primaryBiome: Biome,
+        splat: TerrainMaterialSplat
+    ) {
+        let secondaryLayer = splat.layers.first { layer in
+            layer.materialIdentifier != primaryBiome.terrainMaterial.identifier
+        }
+        let secondaryBiome = secondaryLayer.map { layer in
+            Biome.definition(for: layer.biomeType)
+        } ?? primaryBiome
+
+        self.init(
+            biomeType: primaryBiome.type,
+            materialKind: primaryBiome.terrainMaterial.kind,
+            materialIdentifier: primaryBiome.terrainMaterial.identifier,
+            baseColor: primaryBiome.terrainMaterial.baseColor,
+            roughness: primaryBiome.terrainMaterial.roughness,
+            secondaryBiomeType: secondaryBiome.type,
+            secondaryMaterialKind: secondaryBiome.terrainMaterial.kind,
+            secondaryMaterialIdentifier: secondaryBiome.terrainMaterial.identifier,
+            secondaryBaseColor: secondaryBiome.terrainMaterial.baseColor,
+            secondaryRoughness: secondaryBiome.terrainMaterial.roughness,
+            blendWeight: secondaryLayer?.weight ?? 0,
+            splat: splat
         )
     }
 

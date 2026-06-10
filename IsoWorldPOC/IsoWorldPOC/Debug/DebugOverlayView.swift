@@ -34,6 +34,11 @@ struct DebugOverlayView: View {
                 }
             }
             .pickerStyle(.menu)
+            Stepper(
+                "splat layer: \(metrics.terrainSplatDebugLayerIndex)",
+                value: $metrics.terrainSplatDebugLayerIndex,
+                in: 0...(TerrainMaterialSplat.maxLayerCount - 1)
+            )
 
             Divider().overlay(.white.opacity(0.35))
 

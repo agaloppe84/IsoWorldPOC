@@ -568,6 +568,86 @@ final class EngineCoreTests: XCTestCase {
         )
     }
 
+    func testTerrainMaterialSplatNormalizesAndLimitsLayers() {
+        let splat = TerrainMaterialSplat(layers: BiomeType.allCases.map { type in
+            TerrainMaterialSplatLayer(
+                biome: Biome.definition(for: type),
+                weight: 1
+            )
+        })
+
+        XCTAssertEqual(splat.layers.count, TerrainMaterialSplat.maxLayerCount)
+        XCTAssertTrue(splat.isNormalized)
+        XCTAssertEqual(splat.totalWeight, 1, accuracy: 0.0001)
+        XCTAssertTrue(splat.layers.allSatisfy { $0.weight > 0 })
+    }
+
+    func testBiomeSamplerTerrainMaterialSplatIsDeterministicAndNormalized() {
+        let sampler = BiomeSampler(seed: WorldSeed(99))
+        let position = WorldPosition(x: -128, y: 0, z: 288)
+        let first = sampler.terrainMaterialSplat(at: position)
+        let second = sampler.terrainMaterialSplat(at: position)
+
+        XCTAssertEqual(first, second)
+        XCTAssertTrue(first.isNormalized)
+        XCTAssertGreaterThanOrEqual(first.layers.count, 1)
+        XCTAssertLessThanOrEqual(first.layers.count, TerrainMaterialSplat.maxLayerCount)
+
+        for index in 1..<first.layers.count {
+            XCTAssertGreaterThanOrEqual(
+                first.layers[index - 1].weight + 0.0001,
+                first.layers[index].weight
+            )
+        }
+    }
+
+    func testBiomeSamplerTerrainMaterialSplatProducesTransitionLayers() throws {
+        let sampler = BiomeSampler(seed: WorldSeed(99))
+        var transitionSplat: TerrainMaterialSplat?
+
+        for z in stride(from: -512, through: 512, by: 16) {
+            for x in stride(from: -512, through: 512, by: 16) {
+                let splat = sampler.terrainMaterialSplat(at: WorldPosition(
+                    x: Float(x),
+                    y: 0,
+                    z: Float(z)
+                ))
+
+                if splat.layers.count > 1 {
+                    transitionSplat = splat
+                    break
+                }
+            }
+
+            if transitionSplat != nil {
+                break
+            }
+        }
+
+        let splat = try XCTUnwrap(transitionSplat)
+        XCTAssertTrue(splat.isNormalized)
+        XCTAssertGreaterThan(splat.secondaryWeight, 0)
+        XCTAssertLessThanOrEqual(splat.secondaryWeight, 0.45)
+    }
+
+    func testTerrainVertexMaterialCarriesSplatWeights() {
+        let primary = Biome.definition(for: .grassland)
+        let secondary = Biome.definition(for: .forest)
+        let tertiary = Biome.definition(for: .dryPlateau)
+        let splat = TerrainMaterialSplat(layers: [
+            TerrainMaterialSplatLayer(biome: primary, weight: 0.70),
+            TerrainMaterialSplatLayer(biome: secondary, weight: 0.20),
+            TerrainMaterialSplatLayer(biome: tertiary, weight: 0.10),
+        ])
+        let material = TerrainVertexMaterial(primaryBiome: primary, splat: splat)
+
+        XCTAssertEqual(material.splat, splat)
+        XCTAssertEqual(material.splat.layers.count, 3)
+        XCTAssertEqual(material.splat.totalWeight, 1, accuracy: 0.0001)
+        XCTAssertEqual(material.secondaryBiomeType, .forest)
+        XCTAssertEqual(material.blendWeight, 0.20, accuracy: 0.0001)
+    }
+
     func testBiomeSamplerSharesTerrainVertexMaterialsBetweenAdjacentChunks() {
         let sampler = BiomeSampler(seed: WorldSeed(99))
         let left = ChunkCoordinate(x: 0, y: 0, z: 0)
@@ -614,6 +694,60 @@ final class EngineCoreTests: XCTestCase {
                     localZ: localZ
                 ),
                 sampler.terrainVertexMaterial(
+                    for: negativeRight,
+                    localX: 0,
+                    localZ: localZ
+                )
+            )
+        }
+    }
+
+    func testBiomeSamplerSharesTerrainMaterialSplatsBetweenAdjacentChunks() {
+        let sampler = BiomeSampler(seed: WorldSeed(99))
+        let left = ChunkCoordinate(x: 0, y: 0, z: 0)
+        let right = ChunkCoordinate(x: 1, y: 0, z: 0)
+        let back = ChunkCoordinate(x: 0, y: 0, z: 1)
+        let negativeLeft = ChunkCoordinate(x: -2, y: 0, z: -3)
+        let negativeRight = ChunkCoordinate(x: -1, y: 0, z: -3)
+
+        for localZ in [0, 17, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                sampler.terrainMaterialSplat(
+                    for: left,
+                    localX: ChunkHeightmap.resolution - 1,
+                    localZ: localZ
+                ),
+                sampler.terrainMaterialSplat(
+                    for: right,
+                    localX: 0,
+                    localZ: localZ
+                )
+            )
+        }
+
+        for localX in [0, 23, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                sampler.terrainMaterialSplat(
+                    for: left,
+                    localX: localX,
+                    localZ: ChunkHeightmap.resolution - 1
+                ),
+                sampler.terrainMaterialSplat(
+                    for: back,
+                    localX: localX,
+                    localZ: 0
+                )
+            )
+        }
+
+        for localZ in [0, 29, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                sampler.terrainMaterialSplat(
+                    for: negativeLeft,
+                    localX: ChunkHeightmap.resolution - 1,
+                    localZ: localZ
+                ),
+                sampler.terrainMaterialSplat(
                     for: negativeRight,
                     localX: 0,
                     localZ: localZ
@@ -987,7 +1121,8 @@ final class EngineCoreTests: XCTestCase {
             debugOptions: RenderDebugOptions(
                 showChunkBounds: true,
                 showChunkLabels: true,
-                terrainMaterialDebugMode: .blendWeight
+                terrainMaterialDebugMode: .blendWeight,
+                terrainSplatDebugLayerIndex: 2
             )
         )
 
@@ -997,6 +1132,7 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertTrue(snapshot.debugOptions.showChunkBounds)
         XCTAssertTrue(snapshot.debugOptions.showChunkLabels)
         XCTAssertEqual(snapshot.debugOptions.terrainMaterialDebugMode, .blendWeight)
+        XCTAssertEqual(snapshot.debugOptions.terrainSplatDebugLayerIndex, 2)
     }
 
     func testRenderDebugOptionsDefaultToNormalTerrainMaterialMode() {
@@ -1005,9 +1141,25 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertFalse(options.showChunkBounds)
         XCTAssertFalse(options.showChunkLabels)
         XCTAssertEqual(options.terrainMaterialDebugMode, .normal)
+        XCTAssertEqual(options.terrainSplatDebugLayerIndex, 0)
         XCTAssertEqual(
             TerrainMaterialDebugMode.allCases.map(\.rawValue),
-            ["normal", "primaryBiome", "secondaryBiome", "blendWeight"]
+            ["normal", "primaryBiome", "secondaryBiome", "blendWeight", "splatLayerWeight"]
+        )
+    }
+
+    func testRenderDebugOptionsClampSplatLayerIndex() {
+        XCTAssertEqual(
+            RenderDebugOptions(terrainSplatDebugLayerIndex: -1).terrainSplatDebugLayerIndex,
+            0
+        )
+        XCTAssertEqual(
+            RenderDebugOptions(terrainSplatDebugLayerIndex: 2).terrainSplatDebugLayerIndex,
+            2
+        )
+        XCTAssertEqual(
+            RenderDebugOptions(terrainSplatDebugLayerIndex: 99).terrainSplatDebugLayerIndex,
+            TerrainMaterialSplat.maxLayerCount - 1
         )
     }
 
@@ -1025,7 +1177,8 @@ final class EngineCoreTests: XCTestCase {
             debugOptions: RenderDebugOptions(
                 showChunkBounds: true,
                 showChunkLabels: false,
-                terrainMaterialDebugMode: .secondaryBiome
+                terrainMaterialDebugMode: .splatLayerWeight,
+                terrainSplatDebugLayerIndex: 3
             )
         )
 
@@ -1034,7 +1187,8 @@ final class EngineCoreTests: XCTestCase {
 
         XCTAssertEqual(decoded, snapshot)
         XCTAssertEqual(decoded.chunks.first?.debugBounds?.state, .current)
-        XCTAssertEqual(decoded.debugOptions.terrainMaterialDebugMode, .secondaryBiome)
+        XCTAssertEqual(decoded.debugOptions.terrainMaterialDebugMode, .splatLayerWeight)
+        XCTAssertEqual(decoded.debugOptions.terrainSplatDebugLayerIndex, 3)
     }
 
     private func flatHeightmap(height: Float) -> ChunkHeightmap {

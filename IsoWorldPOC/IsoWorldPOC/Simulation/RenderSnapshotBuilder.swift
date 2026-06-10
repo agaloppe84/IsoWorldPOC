@@ -11,12 +11,14 @@ struct RenderSnapshotDebugOptions {
     static let defaults = RenderSnapshotDebugOptions(
         showChunkBounds: true,
         showChunkLabels: true,
-        terrainMaterialDebugMode: .normal
+        terrainMaterialDebugMode: .normal,
+        terrainSplatDebugLayerIndex: 0
     )
 
     let showChunkBounds: Bool
     let showChunkLabels: Bool
     let terrainMaterialDebugMode: TerrainMaterialDebugMode
+    let terrainSplatDebugLayerIndex: Int
 }
 
 @MainActor
@@ -38,7 +40,8 @@ struct RenderSnapshotBuilder {
             debugOptions: RenderDebugOptions(
                 showChunkBounds: debugOptions.showChunkBounds,
                 showChunkLabels: debugOptions.showChunkLabels,
-                terrainMaterialDebugMode: debugOptions.terrainMaterialDebugMode
+                terrainMaterialDebugMode: debugOptions.terrainMaterialDebugMode,
+                terrainSplatDebugLayerIndex: debugOptions.terrainSplatDebugLayerIndex
             )
         )
     }

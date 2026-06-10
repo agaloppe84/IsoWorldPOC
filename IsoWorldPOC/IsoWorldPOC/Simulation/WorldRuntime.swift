@@ -96,6 +96,7 @@ final class WorldRuntime {
         debugMetrics.ambientIntensity = snapshot.lighting.ambientIntensity
         debugMetrics.shadowsEnabled = snapshot.lighting.shadowsEnabled
         debugMetrics.terrainMaterialDebugMode = snapshot.debugOptions.terrainMaterialDebugMode
+        debugMetrics.terrainSplatDebugLayerIndex = snapshot.debugOptions.terrainSplatDebugLayerIndex
     }
 
     private func updateSimulation(deltaTime: Float) {
