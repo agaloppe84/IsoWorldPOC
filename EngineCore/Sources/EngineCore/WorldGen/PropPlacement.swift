@@ -1,4 +1,5 @@
 public struct PropPlacement: Equatable, Hashable, Codable, Sendable {
+    public let placementIndex: Int
     public let type: PropType
     public let localX: Float
     public let localZ: Float
@@ -8,6 +9,7 @@ public struct PropPlacement: Equatable, Hashable, Codable, Sendable {
     public let scale: Float
 
     public init(
+        placementIndex: Int = 0,
         type: PropType,
         localX: Float,
         localZ: Float,
@@ -16,6 +18,7 @@ public struct PropPlacement: Equatable, Hashable, Codable, Sendable {
         rotationRadians: Float,
         scale: Float
     ) {
+        self.placementIndex = placementIndex
         self.type = type
         self.localX = localX
         self.localZ = localZ

@@ -25,6 +25,7 @@ struct ProceduralChunkData: Sendable {
     let meshTextureCoordinates: [SIMD2<Float>]
     let meshIndices: [UInt32]
     let propPlacements: [PropPlacement]
+    let propVariants: [PropVariant]
     let originX: Float
     let originZ: Float
     let dataGenerationTimeMs: Float
@@ -48,6 +49,7 @@ enum ProceduralTerrainFactory {
     static let triangleCountPerChunk = (chunkResolution - 1) * (chunkResolution - 1) * 2
     static let biomeSampler = BiomeSampler(seed: activeSeed)
     static let propGenerator = PropPlacementGenerator(seed: activeSeed, maxPropsPerChunk: 18)
+    static let assetGenerator = ProceduralAssetGenerator(seed: activeSeed)
 
     static func makeChunkData(coordinate: ChunkCoordinate) -> ProceduralChunkData {
         let dataGenerationStart = currentTimeMilliseconds()
@@ -65,6 +67,13 @@ enum ProceduralTerrainFactory {
             biome: biome,
             samplesPerChunk: chunkResolution
         )
+        let propVariants = propPlacements.map { placement in
+            assetGenerator.variant(
+                for: placement,
+                biome: biome,
+                chunk: coordinate
+            )
+        }
         let halfExtent = chunkWorldSize * 0.5
         let originX = Float(coordinate.x) * chunkWorldSize - halfExtent
         let originZ = Float(coordinate.z) * chunkWorldSize - halfExtent
@@ -78,6 +87,7 @@ enum ProceduralTerrainFactory {
             meshTextureCoordinates: terrainGeometry.textureCoordinates.map { SIMD2<Float>($0.u, $0.v) },
             meshIndices: terrainGeometry.indices,
             propPlacements: propPlacements,
+            propVariants: propVariants,
             originX: originX,
             originZ: originZ,
             dataGenerationTimeMs: Float(currentTimeMilliseconds() - dataGenerationStart)
@@ -105,11 +115,7 @@ enum ProceduralTerrainFactory {
                 indices: data.meshIndices
             )
             let terrainMeshBuildTimeMs = Float(currentTimeMilliseconds() - meshBuildStart)
-            let material = SimpleMaterial(
-                color: color(for: data.biome),
-                roughness: 0.85,
-                isMetallic: false
-            )
+            let material = material(for: data.biome.terrainMaterial)
             let entity = ModelEntity(mesh: meshResource, materials: [material])
             let sampler = TerrainSampler(
                 geometry: data.terrainGeometry,
@@ -120,10 +126,10 @@ enum ProceduralTerrainFactory {
             entity.name = "ProceduralTerrainChunk_\(data.coordinate.x)_\(data.coordinate.z)"
             entity.position = [data.originX, 0, data.originZ]
 
-            for placement in data.propPlacements {
+            for variant in data.propVariants {
                 entity.addChild(
                     makePropEntity(
-                        for: placement,
+                        for: variant,
                         sampler: sampler,
                         originX: data.originX,
                         originZ: data.originZ
@@ -141,7 +147,7 @@ enum ProceduralTerrainFactory {
                 biome: data.biome,
                 entity: entity,
                 sampler: sampler,
-                propCount: data.propPlacements.count,
+                propCount: data.propVariants.count,
                 buildMetrics: buildMetrics
             )
         } catch {
@@ -151,22 +157,32 @@ enum ProceduralTerrainFactory {
     }
 
     @MainActor
-    private static func color(for biome: Biome) -> NSColor {
+    private static func material(for descriptor: TerrainMaterialDescriptor) -> SimpleMaterial {
+        SimpleMaterial(
+            color: color(for: descriptor.baseColor),
+            roughness: MaterialScalarParameter(floatLiteral: descriptor.roughness),
+            isMetallic: false
+        )
+    }
+
+    @MainActor
+    private static func color(for color: BiomeColor) -> NSColor {
         NSColor(
-            calibratedRed: CGFloat(biome.placeholderColor.red),
-            green: CGFloat(biome.placeholderColor.green),
-            blue: CGFloat(biome.placeholderColor.blue),
+            calibratedRed: CGFloat(color.red),
+            green: CGFloat(color.green),
+            blue: CGFloat(color.blue),
             alpha: 1.0
         )
     }
 
     @MainActor
     private static func makePropEntity(
-        for placement: PropPlacement,
+        for variant: PropVariant,
         sampler: TerrainSampler,
         originX: Float,
         originZ: Float
     ) -> Entity {
+        let placement = variant.placement
         let prop = Entity()
         let localX = placement.localX * horizontalScale
         let localZ = placement.localZ * horizontalScale
@@ -177,18 +193,10 @@ enum ProceduralTerrainFactory {
         prop.name = "Prop_\(placement.type.rawValue)"
         prop.position = [localX, terrainHeight + 0.02, localZ]
         prop.orientation = simd_quatf(angle: placement.rotationRadians, axis: [0, 1, 0])
-        prop.scale = [placement.scale, placement.scale, placement.scale]
 
-        switch placement.type {
-        case .rock:
-            prop.addChild(makeRockEntity())
-        case .treePlaceholder:
-            prop.addChild(makeTreeEntity())
-        case .crystalPlaceholder:
-            prop.addChild(makeCrystalEntity())
-        }
+        prop.addChild(RealityKitPropAdapter.makeEntity(for: variant))
 
-        let debugSize = physicsDebugSize(for: placement.type)
+        let debugSize = simd(variant.collisionSize)
         prop.addChild(
             makePhysicsDebugBox(
                 name: "PhysicsDebug_\(placement.type.rawValue)",
@@ -199,73 +207,6 @@ enum ProceduralTerrainFactory {
         )
 
         return prop
-    }
-
-    @MainActor
-    private static func makeRockEntity() -> Entity {
-        let material = SimpleMaterial(color: .systemGray, roughness: 0.9, isMetallic: false)
-        let rock = ModelEntity(
-            mesh: .generateBox(size: [0.32, 0.22, 0.28], cornerRadius: 0.06),
-            materials: [material]
-        )
-        rock.position = [0, 0.11, 0]
-        return rock
-    }
-
-    @MainActor
-    private static func makeTreeEntity() -> Entity {
-        let tree = Entity()
-        let trunkMaterial = SimpleMaterial(
-            color: .init(red: 0.36, green: 0.22, blue: 0.12, alpha: 1),
-            roughness: 0.8,
-            isMetallic: false
-        )
-        let crownMaterial = SimpleMaterial(
-            color: .init(red: 0.08, green: 0.40, blue: 0.16, alpha: 1),
-            roughness: 0.75,
-            isMetallic: false
-        )
-        let trunk = ModelEntity(
-            mesh: .generateBox(size: [0.12, 0.45, 0.12], cornerRadius: 0.02),
-            materials: [trunkMaterial]
-        )
-        let crown = ModelEntity(
-            mesh: .generateBox(size: [0.45, 0.45, 0.45], cornerRadius: 0.08),
-            materials: [crownMaterial]
-        )
-
-        trunk.position = [0, 0.225, 0]
-        crown.position = [0, 0.62, 0]
-        tree.addChild(trunk)
-        tree.addChild(crown)
-
-        return tree
-    }
-
-    @MainActor
-    private static func makeCrystalEntity() -> Entity {
-        let material = SimpleMaterial(color: .systemCyan, roughness: 0.35, isMetallic: false)
-        let crystal = ModelEntity(
-            mesh: .generateBox(size: [0.20, 0.52, 0.20], cornerRadius: 0.03),
-            materials: [material]
-        )
-
-        crystal.position = [0, 0.26, 0]
-        crystal.orientation = simd_quatf(angle: Float.pi * 0.25, axis: [0, 0, 1])
-
-        return crystal
-    }
-
-    @MainActor
-    private static func physicsDebugSize(for type: PropType) -> SIMD3<Float> {
-        switch type {
-        case .rock:
-            return [0.44, 0.30, 0.40]
-        case .treePlaceholder:
-            return [0.58, 1.02, 0.58]
-        case .crystalPlaceholder:
-            return [0.30, 0.62, 0.30]
-        }
     }
 
     @MainActor
@@ -305,5 +246,9 @@ enum ProceduralTerrainFactory {
 
     private static func currentTimeMilliseconds() -> Double {
         ProcessInfo.processInfo.systemUptime * 1_000
+    }
+
+    private static func simd(_ vector: PropVector3) -> SIMD3<Float> {
+        [vector.x, vector.y, vector.z]
     }
 }

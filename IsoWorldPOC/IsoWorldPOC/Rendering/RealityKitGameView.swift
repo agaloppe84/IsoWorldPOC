@@ -85,6 +85,7 @@ struct RealityKitGameView: NSViewRepresentable {
         private func update(deltaTime: Float) {
             updatePerformanceMetrics(deltaTime: deltaTime)
 
+            cameraController.updateOrbit(deltaTime: deltaTime, input: inputManager.state)
             terrainManager?.setDebugOptions(
                 showChunkBounds: debugMetrics.showChunkBounds,
                 showChunkLabels: debugMetrics.showChunkLabels
@@ -94,7 +95,9 @@ struct RealityKitGameView: NSViewRepresentable {
             let previousPosition = playerController.position
             let proposedPosition = playerController.proposedHorizontalPosition(
                 deltaTime: deltaTime,
-                input: inputManager.state
+                input: inputManager.state,
+                movementRight: cameraController.movementRight,
+                movementForward: cameraController.movementForward
             )
             let previousGround = terrainManager?.terrainGroundSample(at: previousPosition)
             let proposedGround = terrainManager?.terrainGroundSample(at: proposedPosition)
@@ -134,6 +137,10 @@ struct RealityKitGameView: NSViewRepresentable {
             debugMetrics.chunkUploadsThisFrame = terrainManager?.chunkUploadsThisFrame ?? 0
             debugMetrics.averageChunkDataGenerationMs = terrainManager?.averageChunkDataGenerationMs
             debugMetrics.averageChunkUploadMs = terrainManager?.averageChunkUploadMs
+            debugMetrics.cameraYaw = cameraController.cameraYaw
+            debugMetrics.cameraPitch = cameraController.cameraPitch
+            debugMetrics.cameraDistance = cameraController.cameraDistance
+            debugMetrics.movementMode = "cameraRelative"
         }
 
         private func updatePerformanceMetrics(deltaTime: Float) {

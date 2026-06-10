@@ -67,3 +67,13 @@ Raison: `activeRadius = 1` charge le chunk joueur et ses 8 voisins, ce qui suffi
 Consequence: les metriques debug exposent chunks actifs/visibles, triangles approximatifs, props approximatifs, frame time et moyennes de generation de chunk/mesh.
 
 Limites connues: generation synchrone, pas encore de LOD, pas encore de culling fin, pas encore de cache persistant; `visibleChunkCount` est actuellement equivalent aux chunks charges.
+
+## 009 - Strategie texture terrain initiale
+
+Decision: commencer avec un `TerrainMaterialDescriptor` pur dans `EngineCore` et une traduction simple vers un `SimpleMaterial` RealityKit par chunk.
+
+Raison: differencier visuellement les biomes sans importer de grosses textures externes, sans multiplier excessivement les materiaux et sans toucher au streaming.
+
+Consequence: les biomes exposent des materiaux semantiques simples (`grass`, `rock`, `dirt`, `sand`, `wetValley`, `snow` futur), tandis que l'app garde la responsabilite de creer les materiaux RealityKit.
+
+Objectif futur: introduire progressivement textures PBR, splat maps, triplanar mapping, normal maps, roughness maps et transitions douces entre biomes quand le terrain et le streaming seront stabilises.

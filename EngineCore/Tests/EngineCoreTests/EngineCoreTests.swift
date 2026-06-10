@@ -240,7 +240,120 @@ final class EngineCoreTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(biome.placeholderColor.blue, 0)
             XCTAssertLessThanOrEqual(biome.placeholderColor.blue, 1)
             XCTAssertGreaterThan(biome.ruggednessMultiplier, 0)
+            XCTAssertGreaterThanOrEqual(biome.propDensityMultiplier, 0)
+            XCTAssertFalse(biome.terrainMaterial.identifier.isEmpty)
+            XCTAssertGreaterThanOrEqual(biome.terrainMaterial.roughness, 0)
+            XCTAssertLessThanOrEqual(biome.terrainMaterial.roughness, 1)
         }
+    }
+
+    func testTerrainMaterialDescriptorsExposeBasicMaterialData() {
+        for kind in TerrainMaterialKind.allCases {
+            let descriptor = TerrainMaterialDescriptor.definition(for: kind)
+
+            XCTAssertEqual(descriptor.kind, kind)
+            XCTAssertFalse(descriptor.identifier.isEmpty)
+            XCTAssertGreaterThanOrEqual(descriptor.baseColor.red, 0)
+            XCTAssertLessThanOrEqual(descriptor.baseColor.red, 1)
+            XCTAssertGreaterThanOrEqual(descriptor.baseColor.green, 0)
+            XCTAssertLessThanOrEqual(descriptor.baseColor.green, 1)
+            XCTAssertGreaterThanOrEqual(descriptor.baseColor.blue, 0)
+            XCTAssertLessThanOrEqual(descriptor.baseColor.blue, 1)
+            XCTAssertGreaterThanOrEqual(descriptor.roughness, 0)
+            XCTAssertLessThanOrEqual(descriptor.roughness, 1)
+        }
+    }
+
+    func testBiomeDefinitionsMapToExpectedTerrainMaterials() {
+        XCTAssertEqual(Biome.definition(for: .grassland).terrainMaterial.kind, .grass)
+        XCTAssertEqual(Biome.definition(for: .forest).terrainMaterial.kind, .dirt)
+        XCTAssertEqual(Biome.definition(for: .rockyHighlands).terrainMaterial.kind, .rock)
+        XCTAssertEqual(Biome.definition(for: .dryPlateau).terrainMaterial.kind, .sand)
+        XCTAssertEqual(Biome.definition(for: .wetValley).terrainMaterial.kind, .wetValley)
+    }
+
+    func testBiomeRuleSetClassifiesClimateSamples() {
+        let ruleSet = BiomeRuleSet()
+
+        XCTAssertEqual(
+            ruleSet.biomeType(
+                for: ClimateSample(
+                    elevation: 0.72,
+                    moisture: -0.10,
+                    temperature: 0.05,
+                    continentalness: 0.20
+                )
+            ),
+            .rockyHighlands
+        )
+        XCTAssertEqual(
+            ruleSet.biomeType(
+                for: ClimateSample(
+                    elevation: -0.42,
+                    moisture: 0.35,
+                    temperature: 0.10,
+                    continentalness: -0.10
+                )
+            ),
+            .wetValley
+        )
+        XCTAssertEqual(
+            ruleSet.biomeType(
+                for: ClimateSample(
+                    elevation: 0.12,
+                    moisture: -0.50,
+                    temperature: 0.45,
+                    continentalness: 0.24
+                )
+            ),
+            .dryPlateau
+        )
+        XCTAssertEqual(
+            ruleSet.biomeType(
+                for: ClimateSample(
+                    elevation: 0.05,
+                    moisture: 0.28,
+                    temperature: 0.12,
+                    continentalness: -0.10
+                )
+            ),
+            .forest
+        )
+        XCTAssertEqual(
+            ruleSet.biomeType(
+                for: ClimateSample(
+                    elevation: 0.02,
+                    moisture: -0.05,
+                    temperature: 0.05,
+                    continentalness: -0.10
+                )
+            ),
+            .grassland
+        )
+    }
+
+    func testClimateSamplerIsDeterministicForSameSeedAndPosition() {
+        let position = WorldPosition(x: -212.5, y: 0, z: 884.25)
+        let first = BiomeSampler(seed: WorldSeed(42)).climate(at: position)
+        let second = BiomeSampler(seed: WorldSeed(42)).climate(at: position)
+
+        XCTAssertEqual(first, second)
+        XCTAssertGreaterThanOrEqual(first.elevation, -1)
+        XCTAssertLessThanOrEqual(first.elevation, 1)
+        XCTAssertGreaterThanOrEqual(first.moisture, -1)
+        XCTAssertLessThanOrEqual(first.moisture, 1)
+        XCTAssertGreaterThanOrEqual(first.temperature, -1)
+        XCTAssertLessThanOrEqual(first.temperature, 1)
+        XCTAssertGreaterThanOrEqual(first.continentalness, -1)
+        XCTAssertLessThanOrEqual(first.continentalness, 1)
+    }
+
+    func testClimateSamplerChangesAcrossSeeds() {
+        let position = WorldPosition(x: -212.5, y: 0, z: 884.25)
+        let first = BiomeSampler(seed: WorldSeed(42)).climate(at: position)
+        let second = BiomeSampler(seed: WorldSeed(43)).climate(at: position)
+
+        XCTAssertNotEqual(first, second)
     }
 
     func testBiomeSamplerIsDeterministicForSameSeedAndPosition() {
@@ -302,9 +415,18 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(first, second)
     }
 
+    func testPropPlacementGeneratorAssignsStablePlacementIndexes() {
+        let props = PropPlacementGenerator(seed: WorldSeed(42)).placements(
+            for: .origin,
+            biome: Biome.definition(for: .forest)
+        )
+
+        XCTAssertEqual(props.map(\.placementIndex), Array(0..<props.count))
+    }
+
     func testPropPlacementGeneratorDiffersForDifferentChunks() {
         let generator = PropPlacementGenerator(seed: WorldSeed(42))
-        let biome = Biome.definition(for: .rocky)
+        let biome = Biome.definition(for: .rockyHighlands)
         let first = generator.placements(for: ChunkCoordinate(x: 0, y: 0, z: 0), biome: biome)
         let second = generator.placements(for: ChunkCoordinate(x: 1, y: 0, z: 0), biome: biome)
 
@@ -313,7 +435,7 @@ final class EngineCoreTests: XCTestCase {
 
     func testPropPlacementGeneratorDiffersForDifferentSeeds() {
         let coordinate = ChunkCoordinate(x: -1, y: 0, z: 2)
-        let biome = Biome.definition(for: .highlands)
+        let biome = Biome.definition(for: .dryPlateau)
         let first = PropPlacementGenerator(seed: WorldSeed(1)).placements(for: coordinate, biome: biome)
         let second = PropPlacementGenerator(seed: WorldSeed(2)).placements(for: coordinate, biome: biome)
 
@@ -330,7 +452,7 @@ final class EngineCoreTests: XCTestCase {
     func testPropPlacementDensityIsInfluencedByBiome() {
         let generator = PropPlacementGenerator(seed: WorldSeed(42), maxPropsPerChunk: 64)
         let coordinate = ChunkCoordinate(x: 0, y: 0, z: 0)
-        let plainProps = generator.placements(for: coordinate, biome: Biome.definition(for: .plain))
+        let plainProps = generator.placements(for: coordinate, biome: Biome.definition(for: .grassland))
         let forestProps = generator.placements(for: coordinate, biome: Biome.definition(for: .forest))
 
         XCTAssertGreaterThan(forestProps.count, plainProps.count)
@@ -340,7 +462,7 @@ final class EngineCoreTests: XCTestCase {
         let generator = PropPlacementGenerator(seed: WorldSeed(42))
         let props = generator.placements(
             for: ChunkCoordinate(x: -2, y: 0, z: 3),
-            biome: Biome.definition(for: .rocky)
+            biome: Biome.definition(for: .rockyHighlands)
         )
         let maxLocalPosition = Float(ChunkHeightmap.resolution - 1)
 
@@ -354,6 +476,74 @@ final class EngineCoreTests: XCTestCase {
             XCTAssertTrue(prop.rotationRadians.isFinite)
             XCTAssertGreaterThan(prop.scale, 0)
         }
+    }
+
+    func testProceduralAssetGeneratorIsDeterministicForSameSeedAndPlacement() {
+        let placement = samplePropPlacement(type: .treePlaceholder)
+        let biome = Biome.definition(for: .forest)
+        let chunk = ChunkCoordinate(x: 2, y: 0, z: -3)
+        let generator = ProceduralAssetGenerator(seed: WorldSeed(42))
+        let first = generator.variant(for: placement, biome: biome, chunk: chunk)
+        let second = generator.variant(for: placement, biome: biome, chunk: chunk)
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(first.placement, placement)
+        XCTAssertFalse(first.geometry.parts.isEmpty)
+    }
+
+    func testProceduralAssetGeneratorChangesAcrossSeeds() {
+        let placement = samplePropPlacement(type: .rock)
+        let biome = Biome.definition(for: .rockyHighlands)
+        let chunk = ChunkCoordinate(x: 2, y: 0, z: -3)
+        let first = ProceduralAssetGenerator(seed: WorldSeed(42)).variant(
+            for: placement,
+            biome: biome,
+            chunk: chunk
+        )
+        let second = ProceduralAssetGenerator(seed: WorldSeed(43)).variant(
+            for: placement,
+            biome: biome,
+            chunk: chunk
+        )
+
+        XCTAssertNotEqual(first.variantSeed, second.variantSeed)
+        XCTAssertNotEqual(first, second)
+    }
+
+    func testProceduralAssetGeneratorChangesAcrossBiomes() {
+        let placement = samplePropPlacement(type: .treePlaceholder)
+        let chunk = ChunkCoordinate(x: 0, y: 0, z: 0)
+        let generator = ProceduralAssetGenerator(seed: WorldSeed(42))
+        let forest = generator.variant(
+            for: placement,
+            biome: Biome.definition(for: .forest),
+            chunk: chunk
+        )
+        let dryPlateau = generator.variant(
+            for: placement,
+            biome: Biome.definition(for: .dryPlateau),
+            chunk: chunk
+        )
+
+        XCTAssertNotEqual(forest.variantSeed, dryPlateau.variantSeed)
+        XCTAssertNotEqual(forest.archetypeID, dryPlateau.archetypeID)
+        XCTAssertNotEqual(forest.secondaryMaterial, dryPlateau.secondaryMaterial)
+    }
+
+    func testProceduralAssetGeneratorProducesGeometryWithMaterialSlots() {
+        let placement = samplePropPlacement(type: .crystalPlaceholder)
+        let variant = ProceduralAssetGenerator(seed: WorldSeed(42)).variant(
+            for: placement,
+            biome: Biome.definition(for: .wetValley),
+            chunk: .origin
+        )
+        let slots = Set(variant.geometry.parts.map(\.materialSlot))
+
+        XCTAssertTrue(slots.contains(.primary))
+        XCTAssertTrue(slots.contains(.accent))
+        XCTAssertGreaterThan(variant.collisionSize.x, 0)
+        XCTAssertGreaterThan(variant.collisionSize.y, 0)
+        XCTAssertGreaterThan(variant.collisionSize.z, 0)
     }
 
     func testTerrainMeshBuilderProducesOneVertexPerHeightmapSample() {
@@ -656,6 +846,19 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(first.x, second.x, accuracy: 0.0001, file: file, line: line)
         XCTAssertEqual(first.y, second.y, accuracy: 0.0001, file: file, line: line)
         XCTAssertEqual(first.z, second.z, accuracy: 0.0001, file: file, line: line)
+    }
+
+    private func samplePropPlacement(type: PropType) -> PropPlacement {
+        PropPlacement(
+            placementIndex: 7,
+            type: type,
+            localX: 12.5,
+            localZ: 24.25,
+            worldX: 75.5,
+            worldZ: -18.25,
+            rotationRadians: 0.42,
+            scale: 1.1
+        )
     }
 
     private func biomeTypes(

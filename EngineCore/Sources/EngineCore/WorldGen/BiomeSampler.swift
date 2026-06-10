@@ -1,13 +1,24 @@
 public struct BiomeSampler: Sendable {
     public let seed: WorldSeed
+    public let ruleSet: BiomeRuleSet
 
-    public init(seed: WorldSeed) {
+    public init(seed: WorldSeed, ruleSet: BiomeRuleSet = BiomeRuleSet()) {
         self.seed = seed
+        self.ruleSet = ruleSet
     }
 
     public func biome(at position: WorldPosition) -> Biome {
-        let type = biomeType(at: position)
+        let type = ruleSet.biomeType(for: climate(at: position))
         return Biome.definition(for: type)
+    }
+
+    public func climate(at position: WorldPosition) -> ClimateSample {
+        ClimateSample(
+            elevation: valueNoise(x: position.x, z: position.z, cellSize: 128, salt: 0xE1E9_A710),
+            moisture: valueNoise(x: position.x, z: position.z, cellSize: 96, salt: 0xB10A_B10A),
+            temperature: valueNoise(x: position.x, z: position.z, cellSize: 160, salt: 0x7E2A_C011),
+            continentalness: valueNoise(x: position.x, z: position.z, cellSize: 224, salt: 0xC047_1A7D)
+        )
     }
 
     public func biome(
@@ -17,11 +28,12 @@ public struct BiomeSampler: Sendable {
         samplesPerChunk: Int = 64
     ) -> Biome {
         precondition(samplesPerChunk > 0, "samplesPerChunk must be positive.")
+        let sampleStride = max(samplesPerChunk - 1, 1)
 
         let position = WorldPosition(
-            x: Float(coordinate.x * samplesPerChunk + localX),
-            y: Float(coordinate.y * samplesPerChunk),
-            z: Float(coordinate.z * samplesPerChunk + localZ)
+            x: Float(coordinate.x * sampleStride + localX),
+            y: Float(coordinate.y * sampleStride),
+            z: Float(coordinate.z * sampleStride + localZ)
         )
 
         return biome(at: position)
@@ -37,26 +49,6 @@ public struct BiomeSampler: Sendable {
             localZ: samplesPerChunk / 2,
             samplesPerChunk: samplesPerChunk
         )
-    }
-
-    private func biomeType(at position: WorldPosition) -> BiomeType {
-        let moisture = valueNoise(x: position.x, z: position.z, cellSize: 96, salt: 0xB10A_B10A)
-        let elevation = valueNoise(x: position.x, z: position.z, cellSize: 128, salt: 0xE1E9_A710)
-        let roughness = valueNoise(x: position.x, z: position.z, cellSize: 48, salt: 0xA0C6_5A1E)
-
-        if elevation > 0.48 {
-            return .highlands
-        }
-
-        if roughness > 0.45 || (elevation > 0.24 && moisture < -0.20) {
-            return .rocky
-        }
-
-        if moisture > 0.08 {
-            return .forest
-        }
-
-        return .plain
     }
 
     private func valueNoise(x: Float, z: Float, cellSize: Int, salt: UInt64) -> Float {

@@ -39,13 +39,13 @@ public struct PropPlacementGenerator: Sendable {
         }
 
         var random = SeededRandom(seedValue: chunkSeed(for: coordinate, biomeType: biome.type))
-        let count = targetPropCount(for: biome.type, random: &random)
+        let count = targetPropCount(for: biome, random: &random)
         let clampedCount = min(count, maxPropsPerChunk)
         let maxLocalPosition = Float(samplesPerChunk - 1)
         let margin = min(Float(2), maxLocalPosition * 0.25)
         let usableSpan = max(Float(0), maxLocalPosition - margin * 2)
 
-        return (0..<clampedCount).map { _ in
+        return (0..<clampedCount).map { index in
             let type = propType(for: biome.type, roll: randomUnit(&random))
             let localX = margin + randomUnit(&random) * usableSpan
             let localZ = margin + randomUnit(&random) * usableSpan
@@ -53,6 +53,7 @@ public struct PropPlacementGenerator: Sendable {
             let worldZ = Float(coordinate.z * samplesPerChunk) + localZ
 
             return PropPlacement(
+                placementIndex: index,
                 type: type,
                 localX: localX,
                 localZ: localZ,
@@ -64,32 +65,37 @@ public struct PropPlacementGenerator: Sendable {
         }
     }
 
-    private func targetPropCount(for biomeType: BiomeType, random: inout SeededRandom) -> Int {
+    private func targetPropCount(for biome: Biome, random: inout SeededRandom) -> Int {
         let baseCount: Int
         let jitterRange: Int
 
-        switch biomeType {
-        case .plain:
+        switch biome.type {
+        case .grassland:
             baseCount = 4
             jitterRange = 2
         case .forest:
             baseCount = 15
             jitterRange = 4
-        case .rocky:
+        case .rockyHighlands:
             baseCount = 10
             jitterRange = 3
-        case .highlands:
-            baseCount = 7
+        case .dryPlateau:
+            baseCount = 4
+            jitterRange = 2
+        case .wetValley:
+            baseCount = 9
             jitterRange = 3
         }
 
         let jitter = Int(random.next() % UInt64(jitterRange + 1))
-        return baseCount + jitter
+        let densityAdjusted = Float(baseCount + jitter) * biome.propDensityMultiplier
+
+        return max(0, Int(densityAdjusted.rounded()))
     }
 
     private func propType(for biomeType: BiomeType, roll: Float) -> PropType {
         switch biomeType {
-        case .plain:
+        case .grassland:
             if roll < 0.55 { return .rock }
             if roll < 0.90 { return .treePlaceholder }
             return .crystalPlaceholder
@@ -97,14 +103,18 @@ public struct PropPlacementGenerator: Sendable {
             if roll < 0.72 { return .treePlaceholder }
             if roll < 0.94 { return .rock }
             return .crystalPlaceholder
-        case .rocky:
+        case .rockyHighlands:
             if roll < 0.72 { return .rock }
             if roll < 0.92 { return .crystalPlaceholder }
             return .treePlaceholder
-        case .highlands:
-            if roll < 0.52 { return .rock }
-            if roll < 0.78 { return .crystalPlaceholder }
+        case .dryPlateau:
+            if roll < 0.78 { return .rock }
+            if roll < 0.96 { return .crystalPlaceholder }
             return .treePlaceholder
+        case .wetValley:
+            if roll < 0.58 { return .treePlaceholder }
+            if roll < 0.88 { return .rock }
+            return .crystalPlaceholder
         }
     }
 
@@ -132,14 +142,16 @@ public struct PropPlacementGenerator: Sendable {
 
     private func biomeSalt(for type: BiomeType) -> UInt64 {
         switch type {
-        case .plain:
+        case .grassland:
             return 0x1000_0000_0000_0001
         case .forest:
             return 0x2000_0000_0000_0002
-        case .rocky:
+        case .rockyHighlands:
             return 0x3000_0000_0000_0003
-        case .highlands:
+        case .dryPlateau:
             return 0x4000_0000_0000_0004
+        case .wetValley:
+            return 0x5000_0000_0000_0005
         }
     }
 

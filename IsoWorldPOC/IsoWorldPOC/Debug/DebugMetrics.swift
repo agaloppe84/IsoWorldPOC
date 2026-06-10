@@ -39,4 +39,8 @@ final class DebugMetrics: ObservableObject {
     @Published var averageChunkUploadMs: Float?
     @Published var showChunkBounds = true
     @Published var showChunkLabels = true
+    @Published var cameraYaw: Float = 0
+    @Published var cameraPitch: Float = 0
+    @Published var cameraDistance: Float = 0
+    @Published var movementMode = "cameraRelative"
 }

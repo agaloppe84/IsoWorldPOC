@@ -48,6 +48,13 @@ struct DebugOverlayView: View {
 
             Divider().overlay(.white.opacity(0.35))
 
+            sectionTitle("CAMERA")
+            Text("movementMode: \(metrics.movementMode)")
+            Text("yaw / pitch: \(formatDegrees(metrics.cameraYaw)) / \(formatDegrees(metrics.cameraPitch))")
+            Text("distance: \(format(metrics.cameraDistance))")
+
+            Divider().overlay(.white.opacity(0.35))
+
             sectionTitle("INPUT")
             Text("controller: \(input.isGamepadConnected ? "Connected" : "Not connected")")
             Text("name: \(metrics.controllerName)")
@@ -84,6 +91,10 @@ struct DebugOverlayView: View {
         }
 
         return format(value)
+    }
+
+    private func formatDegrees(_ radians: Float) -> String {
+        "\(format(radians * 180 / Float.pi)) deg"
     }
 
     private func format(_ value: Bool) -> String {
