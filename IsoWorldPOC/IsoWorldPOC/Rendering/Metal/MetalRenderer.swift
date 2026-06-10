@@ -22,6 +22,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private let pipelineState: MTLRenderPipelineState?
     private let depthStencilState: MTLDepthStencilState?
     private let debugBoundsDepthStencilState: MTLDepthStencilState?
+    private let terrainTextureCatalog: TerrainTextureCatalog?
+    private let terrainSamplerState: MTLSamplerState?
     private let debugMetrics: DebugMetrics
     private let terrainPass = MetalTerrainPass()
     private let propPass = MetalPropPass()
@@ -46,6 +48,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         self.pipelineState = MetalRenderer.makePipelineState(device: device)
         self.depthStencilState = MetalRenderer.makeDepthStencilState(device: device)
         self.debugBoundsDepthStencilState = MetalRenderer.makeDebugBoundsDepthStencilState(device: device)
+        self.terrainTextureCatalog = TerrainTextureCatalog.makePlaceholder(device: device)
+        self.terrainSamplerState = TerrainTextureCatalog.makeSamplerState(device: device)
         self.debugMetrics = debugMetrics
         self.runtime = WorldRuntime(
             debugOptions: RenderSnapshotDebugOptions(
@@ -107,6 +111,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             let pipelineState,
             let renderPassDescriptor = view.currentRenderPassDescriptor,
             let drawable = view.currentDrawable,
+            let terrainTexture = terrainTextureCatalog?.texture,
+            let terrainSamplerState,
             let commandBuffer = commandQueue.makeCommandBuffer(),
             let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
         else {
@@ -140,6 +146,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             length: MemoryLayout<MetalRenderDebugUniforms>.stride,
             index: 3
         )
+        renderEncoder.setFragmentTexture(terrainTexture, index: 0)
+        renderEncoder.setFragmentSamplerState(terrainSamplerState, index: 0)
 
         var drawMetrics = MetalFrameDrawMetrics.empty
         drawMetrics.add(terrainPass.encode(context: frameContext, renderEncoder: renderEncoder))
@@ -261,6 +269,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         debugMetrics.metalRenderedChunkCount = lastDrawMetrics.terrainChunksDrawn
         debugMetrics.metalRenderedPropCount = lastDrawMetrics.propsDrawn
         debugMetrics.metalBufferCount = metalBufferCount
+        debugMetrics.metalTerrainTextureLayerCount = terrainTextureCatalog?.layerCount ?? 0
         debugMetrics.metalVisibleTerrainMaterialCount = visibleTerrainMaterialCount
         debugMetrics.metalVisiblePropMaterialCount = visiblePropMaterialCount
     }
@@ -437,7 +446,8 @@ struct MetalChunkBuffers {
         vertexMaterials: [TerrainVertexMaterial]
     ) -> [MetalTerrainVertex] {
         let hasPerVertexMaterials = vertexMaterials.count == geometry.positions.count
-        let fallbackColor = color(from: fallbackMaterial.baseColor)
+        let hasTextureCoordinates = geometry.textureCoordinates.count == geometry.positions.count
+        let fallbackColor = TerrainTextureCatalog.placeholderColor(for: fallbackMaterial.kind)
         let fallbackPayload = MetalMaterialPayload.terrain(fallbackMaterial)
         let fallbackSplatWeights = MetalMaterialPayload.terrainSplatWeights(fallbackMaterial)
         let fallbackSplatMaterialIDs = MetalMaterialPayload.terrainSplatMaterialIDs(fallbackMaterial)
@@ -446,8 +456,18 @@ struct MetalChunkBuffers {
             let position = pair.0
             let normal = pair.1
             let vertexMaterial = hasPerVertexMaterials ? vertexMaterials[index] : nil
-            let primaryColor = vertexMaterial.map { color(from: $0.baseColor) } ?? fallbackColor
-            let secondaryColor = vertexMaterial.map { color(from: $0.secondaryBaseColor) } ?? fallbackColor
+            let textureCoordinate = hasTextureCoordinates
+                ? SIMD2<Float>(
+                    geometry.textureCoordinates[index].u,
+                    geometry.textureCoordinates[index].v
+                )
+                : SIMD2<Float>(0, 0)
+            let primaryColor = vertexMaterial.map {
+                TerrainTextureCatalog.placeholderColor(for: $0.materialKind)
+            } ?? fallbackColor
+            let secondaryColor = vertexMaterial.map {
+                TerrainTextureCatalog.placeholderColor(for: $0.secondaryMaterialKind)
+            } ?? fallbackColor
             let splatWeights = vertexMaterial.map(MetalMaterialPayload.terrainSplatWeights) ?? fallbackSplatWeights
             let splatMaterialIDs = vertexMaterial.map(MetalMaterialPayload.terrainSplatMaterialIDs) ?? fallbackSplatMaterialIDs
 
@@ -458,7 +478,8 @@ struct MetalChunkBuffers {
                 material: vertexMaterial.map(MetalMaterialPayload.terrain) ?? fallbackPayload,
                 secondaryColor: secondaryColor,
                 splatWeights: splatWeights,
-                splatMaterialIDs: splatMaterialIDs
+                splatMaterialIDs: splatMaterialIDs,
+                textureCoordinate: textureCoordinate
             )
         }
     }
@@ -521,7 +542,8 @@ struct MetalChunkBuffers {
             material: vertex.material,
             secondaryColor: vertex.secondaryColor,
             splatWeights: vertex.splatWeights,
-            splatMaterialIDs: vertex.splatMaterialIDs
+            splatMaterialIDs: vertex.splatMaterialIDs,
+            textureCoordinate: vertex.textureCoordinate
         )
     }
 
@@ -640,6 +662,7 @@ struct MetalTerrainVertex {
     let material: SIMD4<Float>
     let splatWeights: SIMD4<Float>
     let splatMaterialIDs: SIMD4<Float>
+    let textureCoordinate: SIMD2<Float>
 
     init(
         position: SIMD3<Float>,
@@ -648,7 +671,8 @@ struct MetalTerrainVertex {
         material: SIMD4<Float>,
         secondaryColor: SIMD4<Float>? = nil,
         splatWeights: SIMD4<Float> = SIMD4<Float>(1, 0, 0, 0),
-        splatMaterialIDs: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0)
+        splatMaterialIDs: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0),
+        textureCoordinate: SIMD2<Float> = SIMD2<Float>(0, 0)
     ) {
         self.position = position
         self.normal = normal
@@ -657,6 +681,7 @@ struct MetalTerrainVertex {
         self.material = material
         self.splatWeights = splatWeights
         self.splatMaterialIDs = splatMaterialIDs
+        self.textureCoordinate = textureCoordinate
     }
 }
 

@@ -216,7 +216,7 @@ Consequence: chaque sample terrain peut maintenant transporter jusqu'a 4 couches
 
 Garantie: les tests verifient determinisme, normalisation, limite a 4 couches et raccord exact des splats entre chunks voisins.
 
-Limite actuelle: le shader artistique continue de rendre avec l'approximation primaire/secondaire. Les poids 4 couches sont prets dans les donnees et le buffer GPU, mais ils ne pilotent pas encore de textures.
+Limite actuelle: les poids 4 couches sont prets dans les donnees et le buffer GPU. Ils pilotent un premier catalogue texture placeholder cote Metal, mais pas encore de vraies textures artistiques.
 
 ## 023 - Debug par couche splat
 
@@ -227,3 +227,15 @@ Raison: avant de brancher des textures, il faut pouvoir verifier chaque canal de
 Consequence: l'overlay expose un index de couche 0-3. Le shader Metal lit `splatWeights[layerIndex]` et affiche une heatmap 0..1 pour la couche selectionnee.
 
 Garantie: l'index est borne dans `RenderDebugOptions`, et les tests couvrent le mode, le clamp et la serialisation JSON.
+
+## 024 - TerrainTextureCatalog placeholder
+
+Decision: ajouter un `TerrainTextureCatalog` cote app/Metal avec un texture array genere en memoire pour les materiaux terrain de base.
+
+Raison: avant d'integrer de vraies textures externes, le renderer doit deja avoir la forme d'un pipeline texture: IDs materiaux, UV terrain, texture array, sampler et mix par poids splat.
+
+Consequence: le terrain normal n'utilise plus seulement les vertex colors. Le shader Metal echantillonne une couche placeholder par materiau et melange jusqu'a 4 couches avec `splatWeights`. Les modes debug continuent d'afficher les couleurs/heatmaps pour inspecter les biomes et les poids.
+
+Limite actuelle: les textures sont des motifs 2x2 generes en code, sans PBR, normal map, roughness map, atlas disque ni streaming texture. Elles valident l'architecture et preparent le remplacement par des assets reels.
+
+Prochaine cible: introduire un vrai contrat de material/texture slots plus explicite, puis remplacer les placeholders par un atlas ou texture array charge depuis les assets du projet.

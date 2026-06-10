@@ -99,11 +99,13 @@ Pour le terrain, `BiomeSampler` produit maintenant un `TerrainVertexMaterial` pa
 
 Chaque sample peut porter un materiau primaire, un materiau secondaire et un poids de transition. Le shader Metal mixe couleur et roughness dans le vertex shader. Cela donne une premiere transition douce entre biomes sans ajouter de draw call et sans introduire encore de textures.
 
-Les donnees de sample preparent aussi un modele splat: `TerrainMaterialSplat` contient jusqu'a 4 couches de materiaux normalisees. Le vertex buffer Metal transporte deja `splatWeights` et `splatMaterialIDs`, meme si le rendu artistique actuel continue d'utiliser seulement l'approximation primaire/secondaire.
+Les donnees de sample preparent aussi un modele splat: `TerrainMaterialSplat` contient jusqu'a 4 couches de materiaux normalisees. Le vertex buffer Metal transporte `splatWeights`, `splatMaterialIDs` et les coordonnees UV terrain.
+
+Le rendu normal du terrain utilise un `TerrainTextureCatalog` placeholder cote Metal. Ce catalogue genere en memoire un petit texture array 2x2 par materiau (`grass`, `rock`, `dirt`, `sand`, `wetValley`, `snow`) sans asset externe. Le fragment shader echantillonne ces couches et les melange avec les 4 poids splat. C'est volontairement simple, mais l'architecture est deja proche d'un futur atlas ou texture array de vraies textures.
 
 L'overlay peut basculer le debug terrain entre rendu normal, biome primaire, biome secondaire, heatmap du poids de transition et heatmap d'une couche splat specifique. Le mode et l'index de couche splat sont stockes dans `RenderDebugOptions`, passes au shader par uniform, et ne s'appliquent qu'aux vertices terrain.
 
-Cette approche garde les props et terrains batchables par chunk. Elle evite de multiplier les draw calls avant d'avoir une vraie strategie texture/atlas/splat map. Le shader utilise actuellement la roughness pour adoucir la reponse diffuse des materiaux rugueux.
+Cette approche garde les props et terrains batchables par chunk. Elle evite de multiplier les draw calls par biome ou materiau. Le shader utilise actuellement la roughness pour adoucir la reponse diffuse des materiaux rugueux.
 
 ### Lumiere
 
