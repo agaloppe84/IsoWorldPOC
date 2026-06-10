@@ -48,6 +48,7 @@ final class DebugMetrics: ObservableObject {
     @Published var metalVisibleTerrainMaterialCount = 0
     @Published var metalVisiblePropMaterialCount = 0
     @Published var metalTerrainTextureLayerCount = 0
+    @Published var metalTerrainTextureArrayCount = 0
     @Published var showChunkBounds = true
     @Published var showChunkLabels = true
     @Published var cameraYaw: Float = 0

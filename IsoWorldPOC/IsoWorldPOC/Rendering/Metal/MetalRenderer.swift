@@ -111,7 +111,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             let pipelineState,
             let renderPassDescriptor = view.currentRenderPassDescriptor,
             let drawable = view.currentDrawable,
-            let terrainTexture = terrainTextureCatalog?.texture,
+            let terrainTextureCatalog,
             let terrainSamplerState,
             let commandBuffer = commandQueue.makeCommandBuffer(),
             let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
@@ -146,7 +146,13 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             length: MemoryLayout<MetalRenderDebugUniforms>.stride,
             index: 3
         )
-        renderEncoder.setFragmentTexture(terrainTexture, index: 0)
+        renderEncoder.setFragmentTexture(terrainTextureCatalog.albedoTexture, index: 0)
+        renderEncoder.setFragmentTexture(terrainTextureCatalog.normalTexture, index: 1)
+        renderEncoder.setFragmentTexture(terrainTextureCatalog.roughnessTexture, index: 2)
+        renderEncoder.setFragmentTexture(
+            terrainTextureCatalog.metallicAmbientOcclusionTexture,
+            index: 3
+        )
         renderEncoder.setFragmentSamplerState(terrainSamplerState, index: 0)
 
         var drawMetrics = MetalFrameDrawMetrics.empty
@@ -270,6 +276,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         debugMetrics.metalRenderedPropCount = lastDrawMetrics.propsDrawn
         debugMetrics.metalBufferCount = metalBufferCount
         debugMetrics.metalTerrainTextureLayerCount = terrainTextureCatalog?.layerCount ?? 0
+        debugMetrics.metalTerrainTextureArrayCount = terrainTextureCatalog?.textureArrayCount ?? 0
         debugMetrics.metalVisibleTerrainMaterialCount = visibleTerrainMaterialCount
         debugMetrics.metalVisiblePropMaterialCount = visiblePropMaterialCount
     }

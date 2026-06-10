@@ -312,6 +312,7 @@ final class EngineCoreTests: XCTestCase {
         for slot in slots {
             let descriptor = TerrainMaterialDescriptor.definition(for: slot.materialKind)
 
+            XCTAssertEqual(slot.map, .albedo)
             XCTAssertEqual(slot.materialIdentifier, descriptor.identifier)
             XCTAssertGreaterThan(slot.uvScale, 0)
             XCTAssertFalse(slot.debugName.isEmpty)
@@ -320,6 +321,28 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(TerrainTextureSlot.slot(for: .grass).textureLayerIndex, 0)
         XCTAssertEqual(TerrainTextureSlot.slot(for: .rock).textureLayerIndex, 1)
         XCTAssertEqual(TerrainTextureSlot.slot(for: .wetValley).debugName, "Wet valley")
+    }
+
+    func testTerrainPBRTextureSlotsAreAvailableForEachMaterial() {
+        let allSlots = TerrainTextureSlot.allTerrainPBRSlots
+
+        XCTAssertEqual(
+            allSlots.count,
+            TerrainMaterialKind.allCases.count * TerrainTextureMap.allCases.count
+        )
+
+        for kind in TerrainMaterialKind.allCases {
+            let slots = TerrainTextureSlot.pbrSlots(for: kind)
+
+            XCTAssertEqual(slots.allSlots.map(\.map), TerrainTextureMap.allCases)
+            XCTAssertTrue(slots.allSlots.allSatisfy { $0.materialKind == kind })
+            XCTAssertTrue(slots.allSlots.allSatisfy {
+                $0.textureLayerIndex == TerrainTextureSlot.textureLayerIndex(for: kind)
+            })
+            XCTAssertTrue(slots.allSlots.allSatisfy {
+                $0.uvScale == TerrainTextureSlot.uvScale(for: kind)
+            })
+        }
     }
 
     func testRenderMaterialWrapsTerrainTextureSlot() {
@@ -337,6 +360,16 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(slot.materialKind, .rock)
         XCTAssertEqual(slot.textureLayerIndex, TerrainTextureSlot.textureLayerIndex(for: .rock))
         XCTAssertEqual(slot.uvScale, TerrainTextureSlot.uvScale(for: .rock), accuracy: 0.0001)
+
+        guard let pbrSlots = material.terrainPBRTextureSlots else {
+            XCTFail("Terrain render material should expose PBR texture slots.")
+            return
+        }
+
+        XCTAssertEqual(pbrSlots.albedo, slot)
+        XCTAssertEqual(pbrSlots.normal.map, .normal)
+        XCTAssertEqual(pbrSlots.roughness.map, .roughness)
+        XCTAssertEqual(pbrSlots.metallicAmbientOcclusion.map, .metallicAmbientOcclusion)
     }
 
     func testBiomeDefinitionsMapToExpectedTerrainMaterials() {
@@ -699,6 +732,10 @@ final class EngineCoreTests: XCTestCase {
             TerrainTextureSlot.uvScale(for: biome.terrainMaterial.kind),
             accuracy: 0.0001
         )
+        XCTAssertEqual(layer.pbrTextureSlots.albedo, layer.textureSlot)
+        XCTAssertEqual(layer.pbrTextureSlots.normal.map, .normal)
+        XCTAssertEqual(layer.pbrTextureSlots.roughness.map, .roughness)
+        XCTAssertEqual(layer.pbrTextureSlots.metallicAmbientOcclusion.map, .metallicAmbientOcclusion)
     }
 
     func testBiomeSamplerSharesTerrainVertexMaterialsBetweenAdjacentChunks() {

@@ -139,6 +139,36 @@ static float4 terrainSplatTextureColor(
     return color / totalWeight;
 }
 
+static float terrainSplatTextureChannel(
+    texture2d_array<float> terrainTextures,
+    sampler terrainSampler,
+    float2 textureCoordinate,
+    float4 weights,
+    float4 textureLayerIndices,
+    float4 uvScales,
+    int channelIndex
+) {
+    float4 color = terrainSplatTextureColor(
+        terrainTextures,
+        terrainSampler,
+        textureCoordinate,
+        weights,
+        textureLayerIndices,
+        uvScales
+    );
+
+    switch (clamp(channelIndex, 0, 3)) {
+    case 0:
+        return color.r;
+    case 1:
+        return color.g;
+    case 2:
+        return color.b;
+    default:
+        return color.a;
+    }
+}
+
 vertex TerrainVertexOut terrain_vertex(
     const device TerrainVertex *vertices [[buffer(0)]],
     constant TerrainUniforms &uniforms [[buffer(1)]],
@@ -177,7 +207,10 @@ vertex TerrainVertexOut terrain_vertex(
 
 fragment float4 terrain_fragment(
     TerrainVertexOut in [[stage_in]],
-    texture2d_array<float> terrainTextures [[texture(0)]],
+    texture2d_array<float> terrainAlbedoTextures [[texture(0)]],
+    texture2d_array<float> terrainNormalTextures [[texture(1)]],
+    texture2d_array<float> terrainRoughnessTextures [[texture(2)]],
+    texture2d_array<float> terrainMetallicAmbientOcclusionTextures [[texture(3)]],
     sampler terrainSampler [[sampler(0)]]
 ) {
     float terrainMaterialDebugMode = in.debugModeAndSplatLayer.x;
@@ -187,14 +220,46 @@ fragment float4 terrain_fragment(
     float3 outputColor = in.color.rgb;
 
     if (isTerrainMaterial) {
-        outputColor = terrainSplatTextureColor(
-            terrainTextures,
+        float4 albedo = terrainSplatTextureColor(
+            terrainAlbedoTextures,
             terrainSampler,
             in.textureCoordinate,
             in.splatWeights,
             in.splatTextureLayerIndices,
             in.splatUVScales
-        ).rgb * in.shade;
+        );
+        float sampledRoughness = terrainSplatTextureChannel(
+            terrainRoughnessTextures,
+            terrainSampler,
+            in.textureCoordinate,
+            in.splatWeights,
+            in.splatTextureLayerIndices,
+            in.splatUVScales,
+            0
+        );
+        float ambientOcclusion = terrainSplatTextureChannel(
+            terrainMetallicAmbientOcclusionTextures,
+            terrainSampler,
+            in.textureCoordinate,
+            in.splatWeights,
+            in.splatTextureLayerIndices,
+            in.splatUVScales,
+            1
+        );
+        float flatNormalZ = terrainSplatTextureChannel(
+            terrainNormalTextures,
+            terrainSampler,
+            in.textureCoordinate,
+            in.splatWeights,
+            in.splatTextureLayerIndices,
+            in.splatUVScales,
+            2
+        );
+        float pbrPlaceholderResponse = mix(0.99, 1.0, sampledRoughness) *
+            mix(0.96, 1.0, ambientOcclusion) *
+            mix(0.99, 1.0, flatNormalZ);
+
+        outputColor = albedo.rgb * in.shade * pbrPlaceholderResponse;
     } else {
         outputColor *= in.shade;
     }

@@ -11,6 +11,10 @@ public struct TerrainMaterialSplatLayer: Equatable, Hashable, Codable, Sendable 
         renderMaterial.terrainTextureSlot ?? TerrainTextureSlot.slot(for: materialKind)
     }
 
+    public var pbrTextureSlots: TerrainPBRTextureSlots {
+        renderMaterial.terrainPBRTextureSlots ?? TerrainTextureSlot.pbrSlots(for: materialKind)
+    }
+
     public init(
         biomeType: BiomeType,
         materialKind: TerrainMaterialKind,

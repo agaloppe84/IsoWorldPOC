@@ -27,7 +27,7 @@ struct DebugOverlayView: View {
             Text("draw calls total: \(metrics.metalDrawCallCount)")
             Text("passes t/p/pl/dbg: \(metrics.metalTerrainDrawCallCount) / \(metrics.metalPropDrawCallCount) / \(metrics.metalPlayerDrawCallCount) / \(metrics.metalDebugDrawCallCount)")
             Text("gpu buffers: \(metrics.metalBufferCount)")
-            Text("terrain texture layers: \(metrics.metalTerrainTextureLayerCount)")
+            Text("terrain textures arrays/layers: \(metrics.metalTerrainTextureArrayCount) / \(metrics.metalTerrainTextureLayerCount)")
             Text("materials terrain / prop: \(metrics.metalVisibleTerrainMaterialCount) / \(metrics.metalVisiblePropMaterialCount)")
             Picker("terrain material", selection: $metrics.terrainMaterialDebugMode) {
                 ForEach(TerrainMaterialDebugMode.allCases, id: \.self) { mode in

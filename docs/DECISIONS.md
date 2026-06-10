@@ -250,4 +250,16 @@ Consequence: chaque couche `TerrainMaterialSplatLayer` porte maintenant un `Rend
 
 Garantie: les tests EngineCore verifient la stabilite des indices de couches texture, la presence des slots et leur transport dans les couches splat.
 
-Limite actuelle: `RenderMaterial` reste minimal. Il ne decrit pas encore les slots PBR complets comme albedo, normal, roughness, metallic, occlusion ou height.
+Limite actuelle: `RenderMaterial` reste minimal. Il decrit les slots PBR terrain de base, mais pas encore les variantes detaillees comme height, displacement, emission, detail maps ou masks de blending avances.
+
+## 026 - Texture slots PBR placeholders
+
+Decision: etendre les contrats terrain avec `TerrainTextureMap` et `TerrainPBRTextureSlots` pour `albedo`, `normal`, `roughness` et `metallicAmbientOcclusion`.
+
+Raison: le renderer Metal doit se rapprocher d'un pipeline PBR sans attendre l'arrivee de vraies textures externes. Les maps doivent etre explicites dans les contrats, pas implicites dans le shader ou le catalogue GPU.
+
+Consequence: chaque `RenderMaterial` terrain expose maintenant ses slots PBR placeholders. `TerrainTextureCatalog` cree quatre texture arrays generes en memoire: albedo colore, normal flat, roughness grayscale et metallic/AO neutre. L'overlay affiche le nombre d'arrays texture terrain et le nombre de layers.
+
+Garantie: les tests EngineCore verifient que chaque materiau terrain possede les quatre maps PBR, avec des indices de couches stables et des echelles UV coherentes.
+
+Limite actuelle: les maps PBR sont encore des placeholders 2x2. Le shader reste volontairement simple et ne fait pas encore de normal mapping, BRDF PBR complete, image-based lighting ou texture streaming.

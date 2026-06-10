@@ -1,4 +1,25 @@
+public enum TerrainTextureMap: String, CaseIterable, Codable, Sendable {
+    case albedo
+    case normal
+    case roughness
+    case metallicAmbientOcclusion
+
+    public var debugName: String {
+        switch self {
+        case .albedo:
+            "Albedo"
+        case .normal:
+            "Normal"
+        case .roughness:
+            "Roughness"
+        case .metallicAmbientOcclusion:
+            "Metallic/AO"
+        }
+    }
+}
+
 public struct TerrainTextureSlot: Equatable, Hashable, Codable, Sendable {
+    public let map: TerrainTextureMap
     public let materialKind: TerrainMaterialKind
     public let materialIdentifier: String
     public let textureLayerIndex: Int
@@ -6,6 +27,7 @@ public struct TerrainTextureSlot: Equatable, Hashable, Codable, Sendable {
     public let debugName: String
 
     public init(
+        map: TerrainTextureMap = .albedo,
         materialKind: TerrainMaterialKind,
         materialIdentifier: String,
         textureLayerIndex: Int,
@@ -15,6 +37,7 @@ public struct TerrainTextureSlot: Equatable, Hashable, Codable, Sendable {
         precondition(textureLayerIndex >= 0, "textureLayerIndex must be non-negative.")
         precondition(uvScale > 0, "uvScale must be positive.")
 
+        self.map = map
         self.materialKind = materialKind
         self.materialIdentifier = materialIdentifier
         self.textureLayerIndex = textureLayerIndex
@@ -22,8 +45,9 @@ public struct TerrainTextureSlot: Equatable, Hashable, Codable, Sendable {
         self.debugName = debugName
     }
 
-    public init(material: TerrainMaterialDescriptor) {
+    public init(material: TerrainMaterialDescriptor, map: TerrainTextureMap = .albedo) {
         self.init(
+            map: map,
             materialKind: material.kind,
             materialIdentifier: material.identifier,
             textureLayerIndex: Self.textureLayerIndex(for: material.kind),
@@ -38,8 +62,33 @@ public struct TerrainTextureSlot: Equatable, Hashable, Codable, Sendable {
         }
     }
 
+    public static var allTerrainPBRSlots: [TerrainTextureSlot] {
+        TerrainMaterialKind.allCases.flatMap { kind in
+            TerrainTextureMap.allCases.map { map in
+                TerrainTextureSlot(
+                    material: TerrainMaterialDescriptor.definition(for: kind),
+                    map: map
+                )
+            }
+        }
+    }
+
     public static func slot(for kind: TerrainMaterialKind) -> TerrainTextureSlot {
-        TerrainTextureSlot(material: TerrainMaterialDescriptor.definition(for: kind))
+        slot(for: kind, map: .albedo)
+    }
+
+    public static func slot(
+        for kind: TerrainMaterialKind,
+        map: TerrainTextureMap
+    ) -> TerrainTextureSlot {
+        TerrainTextureSlot(
+            material: TerrainMaterialDescriptor.definition(for: kind),
+            map: map
+        )
+    }
+
+    public static func pbrSlots(for kind: TerrainMaterialKind) -> TerrainPBRTextureSlots {
+        TerrainPBRTextureSlots(material: TerrainMaterialDescriptor.definition(for: kind))
     }
 
     public static func textureLayerIndex(for kind: TerrainMaterialKind) -> Int {
@@ -94,25 +143,68 @@ public struct TerrainTextureSlot: Equatable, Hashable, Codable, Sendable {
     }
 }
 
+public struct TerrainPBRTextureSlots: Equatable, Hashable, Codable, Sendable {
+    public let albedo: TerrainTextureSlot
+    public let normal: TerrainTextureSlot
+    public let roughness: TerrainTextureSlot
+    public let metallicAmbientOcclusion: TerrainTextureSlot
+
+    public var allSlots: [TerrainTextureSlot] {
+        [
+            albedo,
+            normal,
+            roughness,
+            metallicAmbientOcclusion,
+        ]
+    }
+
+    public init(
+        albedo: TerrainTextureSlot,
+        normal: TerrainTextureSlot,
+        roughness: TerrainTextureSlot,
+        metallicAmbientOcclusion: TerrainTextureSlot
+    ) {
+        self.albedo = albedo
+        self.normal = normal
+        self.roughness = roughness
+        self.metallicAmbientOcclusion = metallicAmbientOcclusion
+    }
+
+    public init(material: TerrainMaterialDescriptor) {
+        self.init(
+            albedo: TerrainTextureSlot(material: material, map: .albedo),
+            normal: TerrainTextureSlot(material: material, map: .normal),
+            roughness: TerrainTextureSlot(material: material, map: .roughness),
+            metallicAmbientOcclusion: TerrainTextureSlot(
+                material: material,
+                map: .metallicAmbientOcclusion
+            )
+        )
+    }
+}
+
 public struct RenderMaterial: Equatable, Hashable, Codable, Sendable {
     public let identifier: String
     public let debugName: String
     public let baseColor: BiomeColor
     public let roughness: Float
     public let terrainTextureSlot: TerrainTextureSlot?
+    public let terrainPBRTextureSlots: TerrainPBRTextureSlots?
 
     public init(
         identifier: String,
         debugName: String,
         baseColor: BiomeColor,
         roughness: Float,
-        terrainTextureSlot: TerrainTextureSlot? = nil
+        terrainTextureSlot: TerrainTextureSlot? = nil,
+        terrainPBRTextureSlots: TerrainPBRTextureSlots? = nil
     ) {
         self.identifier = identifier
         self.debugName = debugName
         self.baseColor = baseColor
         self.roughness = min(max(roughness, 0), 1)
         self.terrainTextureSlot = terrainTextureSlot
+        self.terrainPBRTextureSlots = terrainPBRTextureSlots
     }
 
     public static func terrain(_ material: TerrainMaterialDescriptor) -> RenderMaterial {
@@ -130,18 +222,21 @@ public struct RenderMaterial: Equatable, Hashable, Codable, Sendable {
         baseColor: BiomeColor,
         roughness: Float
     ) -> RenderMaterial {
-        RenderMaterial(
+        let material = TerrainMaterialDescriptor(
+            kind: kind,
+            identifier: identifier,
+            baseColor: baseColor,
+            roughness: roughness
+        )
+        let pbrSlots = TerrainPBRTextureSlots(material: material)
+
+        return RenderMaterial(
             identifier: identifier,
             debugName: TerrainTextureSlot.debugName(for: kind),
             baseColor: baseColor,
             roughness: roughness,
-            terrainTextureSlot: TerrainTextureSlot(
-                materialKind: kind,
-                materialIdentifier: identifier,
-                textureLayerIndex: TerrainTextureSlot.textureLayerIndex(for: kind),
-                uvScale: TerrainTextureSlot.uvScale(for: kind),
-                debugName: TerrainTextureSlot.debugName(for: kind)
-            )
+            terrainTextureSlot: pbrSlots.albedo,
+            terrainPBRTextureSlots: pbrSlots
         )
     }
 }

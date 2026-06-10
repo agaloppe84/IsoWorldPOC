@@ -15,11 +15,18 @@ struct TerrainTextureDescriptor {
 }
 
 struct TerrainTextureCatalog {
-    let texture: MTLTexture
+    let albedoTexture: MTLTexture
+    let normalTexture: MTLTexture
+    let roughnessTexture: MTLTexture
+    let metallicAmbientOcclusionTexture: MTLTexture
     let descriptors: [TerrainTextureDescriptor]
 
     var layerCount: Int {
-        descriptors.count
+        Set(descriptors.map(\.slot.textureLayerIndex)).count
+    }
+
+    var textureArrayCount: Int {
+        Set(descriptors.map(\.slot.map)).count
     }
 
     static func makePlaceholder(device: MTLDevice?) -> TerrainTextureCatalog? {
@@ -27,9 +34,71 @@ struct TerrainTextureCatalog {
             return nil
         }
 
-        let slots = TerrainTextureSlot.allTerrainSlots.sorted {
+        let albedoSlots = TerrainTextureSlot.allTerrainSlots.sorted {
             $0.textureLayerIndex < $1.textureLayerIndex
         }
+        let pbrSlots = TerrainTextureSlot.allTerrainPBRSlots.sorted { lhs, rhs in
+            if lhs.map == rhs.map {
+                return lhs.textureLayerIndex < rhs.textureLayerIndex
+            }
+
+            return lhs.map.rawValue < rhs.map.rawValue
+        }
+
+        guard
+            let albedoTexture = makeTexture(
+                device: device,
+                slots: albedoSlots,
+                texels: albedoTexels(for:)
+            ),
+            let normalTexture = makeTexture(
+                device: device,
+                slots: albedoSlots,
+                texels: normalTexels(for:)
+            ),
+            let roughnessTexture = makeTexture(
+                device: device,
+                slots: albedoSlots,
+                texels: roughnessTexels(for:)
+            ),
+            let metallicAmbientOcclusionTexture = makeTexture(
+                device: device,
+                slots: albedoSlots,
+                texels: metallicAmbientOcclusionTexels(for:)
+            )
+        else {
+            return nil
+        }
+
+        var textureDescriptors: [TerrainTextureDescriptor] = []
+        textureDescriptors.reserveCapacity(pbrSlots.count)
+
+        for slot in pbrSlots {
+            let material = TerrainMaterialDescriptor.definition(for: slot.materialKind)
+            let color = vector(from: material.baseColor)
+
+            textureDescriptors.append(
+                TerrainTextureDescriptor(
+                    slot: slot,
+                    debugColor: SIMD4<Float>(color.x, color.y, color.z, 1)
+                )
+            )
+        }
+
+        return TerrainTextureCatalog(
+            albedoTexture: albedoTexture,
+            normalTexture: normalTexture,
+            roughnessTexture: roughnessTexture,
+            metallicAmbientOcclusionTexture: metallicAmbientOcclusionTexture,
+            descriptors: textureDescriptors
+        )
+    }
+
+    private static func makeTexture(
+        device: MTLDevice,
+        slots: [TerrainTextureSlot],
+        texels: (TerrainMaterialDescriptor) -> [UInt8]
+    ) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor()
         descriptor.textureType = .type2DArray
         descriptor.pixelFormat = .rgba8Unorm
@@ -43,13 +112,9 @@ struct TerrainTextureCatalog {
             return nil
         }
 
-        var textureDescriptors: [TerrainTextureDescriptor] = []
-        textureDescriptors.reserveCapacity(slots.count)
-
         for slot in slots {
             let material = TerrainMaterialDescriptor.definition(for: slot.materialKind)
-            let color = vector(from: material.baseColor)
-            let texels = placeholderTexels(baseColor: color)
+            let texels = texels(material)
             let region = MTLRegionMake2D(0, 0, 2, 2)
 
             texels.withUnsafeBytes { bytes in
@@ -66,19 +131,9 @@ struct TerrainTextureCatalog {
                     bytesPerImage: 2 * 2 * 4
                 )
             }
-
-            textureDescriptors.append(
-                TerrainTextureDescriptor(
-                    slot: slot,
-                    debugColor: SIMD4<Float>(color.x, color.y, color.z, 1)
-                )
-            )
         }
 
-        return TerrainTextureCatalog(
-            texture: texture,
-            descriptors: textureDescriptors
-        )
+        return texture
     }
 
     static func makeSamplerState(device: MTLDevice?) -> MTLSamplerState? {
@@ -103,13 +158,33 @@ struct TerrainTextureCatalog {
         return SIMD4<Float>(color.x, color.y, color.z, 1)
     }
 
-    private static func placeholderTexels(baseColor: SIMD3<Float>) -> [UInt8] {
-        [
+    private static func albedoTexels(for material: TerrainMaterialDescriptor) -> [UInt8] {
+        let baseColor = vector(from: material.baseColor)
+
+        return [
             rgbaBytes(baseColor, multiplier: 0.82),
             rgbaBytes(baseColor, multiplier: 1.05),
             rgbaBytes(baseColor, multiplier: 0.96),
             rgbaBytes(baseColor, multiplier: 1.16),
         ].flatMap { $0 }
+    }
+
+    private static func normalTexels(for _: TerrainMaterialDescriptor) -> [UInt8] {
+        repeatedTexels(r: 128, g: 128, b: 255, a: 255)
+    }
+
+    private static func roughnessTexels(for material: TerrainMaterialDescriptor) -> [UInt8] {
+        let roughness = byte(material.roughness)
+
+        return repeatedTexels(r: roughness, g: roughness, b: roughness, a: 255)
+    }
+
+    private static func metallicAmbientOcclusionTexels(for _: TerrainMaterialDescriptor) -> [UInt8] {
+        repeatedTexels(r: 0, g: 255, b: 255, a: 255)
+    }
+
+    private static func repeatedTexels(r: UInt8, g: UInt8, b: UInt8, a: UInt8) -> [UInt8] {
+        Array(repeating: [r, g, b, a], count: 4).flatMap { $0 }
     }
 
     private static func rgbaBytes(_ color: SIMD3<Float>, multiplier: Float) -> [UInt8] {
