@@ -1,5 +1,5 @@
 //
-//  MetalChunkDataStreamer.swift
+//  ChunkDataStreamer.swift
 //  IsoWorldPOC
 //
 //  Created by Work on 10/06/2026.
@@ -10,7 +10,7 @@ import Foundation
 import simd
 
 @MainActor
-final class MetalChunkDataStreamer {
+final class ChunkDataStreamer {
     private let activeRadiusValue = 1
     private let preloadRadiusValue = 2
     private let maxConcurrentChunkJobs = 2
@@ -84,6 +84,20 @@ final class MetalChunkDataStreamer {
         average(totalChunkDataGenerationTimeMs, sampleCount: chunkDataGenerationSampleCount)
     }
 
+    func activeChunkData() -> [ChunkStreamerRenderData] {
+        sorted(activeChunkSet).compactMap { coordinate in
+            guard let data = loadedChunkData[coordinate] else {
+                return nil
+            }
+
+            return ChunkStreamerRenderData(
+                data: data,
+                debugState: debugState(for: coordinate),
+                isVisible: activeChunkSet.contains(coordinate)
+            )
+        }
+    }
+
     func update(around playerPosition: SIMD3<Float>) {
         lastReadyChunksActivatedThisFrame = 0
         currentChunk = chunkCoordinate(containing: playerPosition)
@@ -115,32 +129,6 @@ final class MetalChunkDataStreamer {
         }
 
         return TerrainGroundSample(sample: sample, chunk: coordinate)
-    }
-
-    func makeSnapshot(
-        camera: CameraRenderState,
-        showChunkBounds: Bool,
-        showChunkLabels: Bool
-    ) -> RenderWorldSnapshot {
-        let chunks = sorted(activeChunkSet).compactMap { coordinate -> RenderChunk? in
-            guard let data = loadedChunkData[coordinate] else {
-                return nil
-            }
-
-            return renderChunk(
-                from: data,
-                debugState: debugState(for: coordinate)
-            )
-        }
-
-        return RenderWorldSnapshot(
-            camera: camera,
-            chunks: chunks,
-            debugOptions: RenderDebugOptions(
-                showChunkBounds: showChunkBounds,
-                showChunkLabels: showChunkLabels
-            )
-        )
     }
 
     private func loadChunkData(_ data: ProceduralChunkData) {
@@ -237,59 +225,6 @@ final class MetalChunkDataStreamer {
             loadChunkData(data)
             generatedChunkCount += 1
             lastReadyChunksActivatedThisFrame += 1
-        }
-    }
-
-    private func renderChunk(
-        from data: ProceduralChunkData,
-        debugState: RenderChunkDebugState
-    ) -> RenderChunk {
-        RenderChunk(
-            coordinate: data.coordinate,
-            origin: WorldPosition(x: data.originX, y: 0, z: data.originZ),
-            terrainGeometry: data.terrainGeometry,
-            biome: data.biome,
-            terrainMaterial: data.biome.terrainMaterial,
-            props: renderProps(from: data),
-            debugBounds: RenderChunkDebugBounds(
-                coordinate: data.coordinate,
-                origin: WorldPosition(x: data.originX, y: 0, z: data.originZ),
-                size: PropVector3(
-                    x: ProceduralChunkDataFactory.chunkWorldSize,
-                    y: 2.5,
-                    z: ProceduralChunkDataFactory.chunkWorldSize
-                ),
-                state: debugState
-            ),
-            isVisible: activeChunkSet.contains(data.coordinate),
-            approximateTriangleCount: data.meshIndices.count / 3
-        )
-    }
-
-    private func renderProps(from data: ProceduralChunkData) -> [RenderProp] {
-        let sampler = TerrainSampler(
-            geometry: data.terrainGeometry,
-            originX: data.originX,
-            originZ: data.originZ
-        )
-
-        return data.propVariants.map { variant in
-            let localX = variant.placement.localX * ProceduralChunkDataFactory.horizontalScale
-            let localZ = variant.placement.localZ * ProceduralChunkDataFactory.horizontalScale
-            let worldX = data.originX + localX
-            let worldZ = data.originZ + localZ
-            let terrainHeight = sampler.heightAt(x: worldX, z: worldZ)
-
-            return RenderProp(
-                variant: variant,
-                worldPosition: WorldPosition(
-                    x: worldX,
-                    y: terrainHeight + 0.02,
-                    z: worldZ
-                ),
-                rotationRadians: variant.placement.rotationRadians,
-                isVisible: activeChunkSet.contains(data.coordinate)
-            )
         }
     }
 
@@ -394,4 +329,10 @@ final class MetalChunkDataStreamer {
             return first.y < second.y
         }
     }
+}
+
+struct ChunkStreamerRenderData {
+    let data: ProceduralChunkData
+    let debugState: RenderChunkDebugState
+    let isVisible: Bool
 }

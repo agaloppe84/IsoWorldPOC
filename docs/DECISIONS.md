@@ -116,7 +116,7 @@ Decision: extraire la generation des donnees de chunk dans `ProceduralChunkDataF
 
 Raison: le backend Metal ne doit pas dependre d'un factory qui melange generation procedurale et rendu.
 
-Consequence: `MetalChunkDataStreamer` genere ses chunks via `ProceduralChunkDataFactory`. L'ancien `ProceduralTerrainFactory` RealityKit a ete supprime.
+Consequence: `ChunkDataStreamer` genere ses chunks via `ProceduralChunkDataFactory`. L'ancien `ProceduralTerrainFactory` RealityKit a ete supprime.
 
 Prochaine cible: deplacer davantage de logique runtime vers des types testables et reduire le role direct de `MetalRenderer`.
 
@@ -127,3 +127,13 @@ Decision: rendre les props proceduraux a partir des `propVariants` dans le backe
 Raison: les props font partie du monde procedurale visible et doivent utiliser les memes donnees deterministes que le terrain. Garder les adaptateurs RealityKit apres le passage Metal-only entretiendrait une architecture ambigue.
 
 Consequence: chaque chunk Metal bake un mesh de props simple depuis les descriptors abstraits (`PropGeometryDescriptor`, materiaux par slot, position monde). Les fichiers `RealityKitGameView`, `RealityKitGameRenderer`, `RealityKitTerrainAdapter`, `RealityKitPropAdapter`, `ChunkTerrainManager`, `DebugSceneFactory`, `CharacterVisual`, `CameraController`, `ChunkDebugVisualFactory`, `ProceduralTerrainFactory` et `SceneLightingSettings` ont ete retires.
+
+## 015 - WorldRuntime et RenderSnapshotBuilder
+
+Decision: extraire une couche `WorldRuntime` et un `RenderSnapshotBuilder` pour produire `RenderWorldSnapshot` avant le rendu Metal.
+
+Raison: `MetalRenderer` doit rester responsable des ressources GPU, des pipelines et du dessin. La simulation joueur, le streaming logique de chunks, le grounding et la camera ne doivent pas etre pilotes directement par le renderer.
+
+Consequence: `WorldRuntime` orchestre input, joueur, camera, grounding et `ChunkDataStreamer`. `RenderSnapshotBuilder` transforme les donnees runtime en contrats neutres (`RenderChunk`, `RenderProp`, `CameraRenderState`). `MetalRenderer` consomme uniquement le snapshot courant, synchronise les buffers Metal et met a jour les metriques renderer.
+
+Limite actuelle: `WorldRuntime` vit encore cote app. Une future etape pourra deplacer davantage de logique pure vers `EngineCore`, tant que celui-ci reste independant de SwiftUI, RealityKit et Metal.

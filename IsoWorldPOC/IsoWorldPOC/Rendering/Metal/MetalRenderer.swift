@@ -17,11 +17,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     let device: MTLDevice?
     let clearColor = MTLClearColor(red: 0.07, green: 0.10, blue: 0.14, alpha: 1.0)
 
-    private let inputManager = InputManager()
-    private var playerController = PlayerController()
-    private let playerGrounding = PlayerGrounding()
-    private let cameraController = OrbitCameraController()
-    private let chunkStreamer = MetalChunkDataStreamer()
+    private let runtime: WorldRuntime
     private let commandQueue: MTLCommandQueue?
     private let pipelineState: MTLRenderPipelineState?
     private let depthStencilState: MTLDepthStencilState?
@@ -30,12 +26,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private var snapshot: RenderWorldSnapshot
     private var chunkBuffersByCoordinate: [ChunkCoordinate: MetalChunkBuffers] = [:]
     private var playerBuffers: MetalIndexedMeshBuffers?
-    private var lastGrounding = PlayerGroundingResult(
-        position: .zero,
-        groundSample: nil,
-        playerGrounded: false,
-        movementBlockedBySlope: false
-    )
     private var lastFrameTime = CACurrentMediaTime()
     private var smoothedFrameTime: Float?
     private var drawableSize = SIMD2<Float>(1, 1)
@@ -51,18 +41,18 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         self.pipelineState = MetalRenderer.makePipelineState(device: device)
         self.depthStencilState = MetalRenderer.makeDepthStencilState(device: device)
         self.debugBoundsDepthStencilState = MetalRenderer.makeDebugBoundsDepthStencilState(device: device)
-        self.snapshot = MetalRenderer.makeEmptySnapshot()
         self.debugMetrics = debugMetrics
+        self.runtime = WorldRuntime(
+            debugOptions: RenderSnapshotDebugOptions(
+                showChunkBounds: debugMetrics.showChunkBounds,
+                showChunkLabels: debugMetrics.showChunkLabels
+            )
+        )
+        self.snapshot = runtime.snapshot
         self.playerBuffers = MetalRenderer.makePlayerBuffers(device: device)
 
         super.init()
 
-        chunkStreamer.update(around: .zero)
-        snapshot = chunkStreamer.makeSnapshot(
-            camera: cameraController.renderState(following: playerController.position),
-            showChunkBounds: debugMetrics.showChunkBounds,
-            showChunkLabels: debugMetrics.showChunkLabels
-        )
         syncBuffers(with: snapshot)
         updateDebugMetrics()
     }
@@ -75,19 +65,25 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     }
 
     func handleKeyDown(keyCode: UInt16) {
-        inputManager.keyDown(keyCode: keyCode)
+        runtime.handleKeyDown(keyCode: keyCode)
     }
 
     func handleKeyUp(keyCode: UInt16) {
-        inputManager.keyUp(keyCode: keyCode)
+        runtime.handleKeyUp(keyCode: keyCode)
     }
 
     func resetKeyboard() {
-        inputManager.resetKeyboard()
+        runtime.resetKeyboard()
     }
 
     func update(deltaTime: Float) {
-        updateGameplay(deltaTime: deltaTime)
+        snapshot = runtime.update(
+            deltaTime: deltaTime,
+            debugOptions: RenderSnapshotDebugOptions(
+                showChunkBounds: debugMetrics.showChunkBounds,
+                showChunkLabels: debugMetrics.showChunkLabels
+            )
+        )
     }
 
     func draw(in view: MTKView) {
@@ -154,36 +150,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         updateDebugMetrics()
     }
 
-    private func updateGameplay(deltaTime: Float) {
-        cameraController.updateOrbit(deltaTime: deltaTime, input: inputManager.state)
-        chunkStreamer.update(around: playerController.position)
-
-        let previousPosition = playerController.position
-        let proposedPosition = playerController.proposedHorizontalPosition(
-            deltaTime: deltaTime,
-            input: inputManager.state,
-            movementRight: cameraController.movementRight,
-            movementForward: cameraController.movementForward
-        )
-        let previousGround = chunkStreamer.terrainGroundSample(at: previousPosition)
-        let proposedGround = chunkStreamer.terrainGroundSample(at: proposedPosition)
-        let grounding = playerGrounding.resolve(
-            previousPosition: previousPosition,
-            proposedPosition: proposedPosition,
-            proposedGround: proposedGround,
-            previousGround: previousGround
-        )
-        let position = playerController.applyGroundedPosition(grounding.position)
-
-        chunkStreamer.updateActiveVisibility(around: position)
-        snapshot = chunkStreamer.makeSnapshot(
-            camera: cameraController.renderState(following: position),
-            showChunkBounds: debugMetrics.showChunkBounds,
-            showChunkLabels: debugMetrics.showChunkLabels
-        )
-        lastGrounding = grounding
-    }
-
     private static func makePipelineState(device: MTLDevice?) -> MTLRenderPipelineState? {
         guard
             let device,
@@ -231,20 +197,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
                 color: SIMD4<Float>(1.0, 0.86, 0.08, 1.0)
             ),
             indices: boxIndices()
-        )
-    }
-
-    private static func makeEmptySnapshot() -> RenderWorldSnapshot {
-        RenderWorldSnapshot(
-            camera: CameraRenderState(
-                position: WorldPosition(x: 0, y: 0, z: 1),
-                target: WorldPosition(x: 0, y: 0, z: 0),
-                fieldOfViewDegrees: 35,
-                yaw: 0,
-                pitch: 0,
-                distance: 1
-            ),
-            chunks: []
         )
     }
 
@@ -296,38 +248,11 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     }
 
     private func updateDebugMetrics() {
-        let camera = snapshot.camera
-        let position = playerController.position
-
         debugMetrics.rendererMode = .metal
-        debugMetrics.inputState = inputManager.state
-        debugMetrics.controllerName = inputManager.controllerName
-        debugMetrics.playerPosition = position
-        debugMetrics.terrainHeightUnderPlayer = lastGrounding.terrainHeight
-        debugMetrics.terrainSlopeUnderPlayer = lastGrounding.slopeUnderPlayer
-        debugMetrics.slopeUnderPlayer = lastGrounding.slopeUnderPlayer
-        debugMetrics.playerGrounded = lastGrounding.playerGrounded
-        debugMetrics.maxWalkableSlope = playerGrounding.maxWalkableSlope
-        debugMetrics.currentGroundChunk = lastGrounding.currentGroundChunk
-        debugMetrics.currentChunk = chunkStreamer.currentChunk
-        debugMetrics.activeChunkCount = chunkStreamer.activeChunkCount
-        debugMetrics.visibleChunkCount = chunkStreamer.visibleChunkCount
-        debugMetrics.generatedChunkCount = chunkStreamer.generatedChunkCount
+        runtime.applyDebugMetrics(to: debugMetrics)
         debugMetrics.cachedChunkCount = chunkBuffersByCoordinate.count
-        debugMetrics.approximateTriangleCount = chunkStreamer.approximateTriangleCount
-        debugMetrics.approximatePropCount = chunkStreamer.approximatePropCount
-        debugMetrics.averageChunkGenerationTimeMs = chunkStreamer.averageChunkDataGenerationMs
-        debugMetrics.averageChunkDataGenerationMs = chunkStreamer.averageChunkDataGenerationMs
-        debugMetrics.averageTerrainMeshBuildTimeMs = nil
         debugMetrics.averageChunkUploadMs = average(totalChunkUploadTimeMs, sampleCount: chunkUploadSampleCount)
-        debugMetrics.chunkJobsQueued = chunkStreamer.chunkJobsQueued
-        debugMetrics.chunkJobsGenerating = chunkStreamer.chunkJobsGenerating
-        debugMetrics.chunksReadyForUpload = chunkStreamer.chunksReadyForUpload
         debugMetrics.chunkUploadsThisFrame = chunkUploadsThisFrame
-        debugMetrics.cameraYaw = camera.yaw
-        debugMetrics.cameraPitch = camera.pitch
-        debugMetrics.cameraDistance = camera.distance
-        debugMetrics.movementMode = "cameraRelative"
     }
 
     private func drawPlayer(with renderEncoder: MTLRenderCommandEncoder?) {
@@ -380,7 +305,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     }
 
     private func makePlayerUniforms() -> MetalTerrainUniforms {
-        let modelMatrix = matrixTranslation(playerController.position)
+        let modelMatrix = matrixTranslation(runtime.playerPosition)
         let viewProjectionMatrix = makeViewProjectionMatrix(from: snapshot.camera)
 
         return MetalTerrainUniforms(

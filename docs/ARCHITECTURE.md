@@ -45,7 +45,7 @@ Responsabilites:
 - Camera isometrique/orbitale.
 - Entites visibles.
 - Materiaux et lumieres.
-- Synchronisation avec les donnees produites par le moteur.
+- Synchronisation GPU avec les snapshots de rendu produits par la simulation.
 
 RealityKit ne fait plus partie du chemin de rendu. Il ne doit pas entrer dans `EngineCore`.
 
@@ -57,13 +57,43 @@ Responsabilites:
 
 - Configurer `MTKView`.
 - Posseder les ressources GPU Metal.
-- Consommer les donnees de chunks et les contrats de rendu neutres.
+- Consommer `RenderWorldSnapshot`.
 - Dessiner le terrain, les props placeholders, le joueur placeholder et le debug 3D.
 - Mettre a jour les metriques debug liees au renderer.
+- Ne pas piloter directement la simulation, les inputs gameplay ou le streaming logique.
 
 `MetalGameView` reste un host macOS/SwiftUI: elle cree le `MTKView`, transmet les evenements clavier et laisse le backend renderer gerer le rendu.
 
 Les contrats de rendu purs vivent dans `EngineCore/Rendering` et ne doivent importer ni RealityKit ni Metal.
+
+### Runtime monde et snapshots
+
+`WorldRuntime` est la couche runtime de l'app. Elle orchestre les systemes gameplay encore cote app:
+
+- `InputManager`;
+- `PlayerController`;
+- `PlayerGrounding`;
+- `OrbitCameraController`;
+- `ChunkDataStreamer`;
+- `RenderSnapshotBuilder`.
+
+Responsabilites:
+
+- Avancer la simulation a chaque frame.
+- Mettre a jour le streaming de chunks autour du joueur.
+- Resoudre le suivi terrain du joueur.
+- Produire le `RenderWorldSnapshot` courant.
+- Remplir les metriques debug gameplay/monde.
+
+`RenderSnapshotBuilder` convertit l'etat runtime en contrats de rendu neutres:
+
+- `RenderWorldSnapshot`;
+- `RenderChunk`;
+- `RenderProp`;
+- `CameraRenderState`;
+- options de debug chunk bounds/labels.
+
+Le renderer Metal ne doit donc pas construire le monde ni decider quels chunks existent. Il recoit un snapshot, synchronise les buffers GPU manquants, puis dessine.
 
 ### Donnees de chunks procedurales
 
@@ -116,11 +146,13 @@ Controller / clavier
         ↓
 Intentions d'input
         ↓
-EngineCore
+WorldRuntime
         ↓
-Etat monde / chunks / deltas
+Simulation joueur / camera / streaming
         ↓
-Contrats de rendu neutres
+RenderSnapshotBuilder
+        ↓
+RenderWorldSnapshot
         ↓
 Metal
 ```
