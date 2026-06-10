@@ -8,7 +8,8 @@ struct TerrainVertex {
     float4 secondaryColor;
     float4 material;
     float4 splatWeights;
-    float4 splatMaterialIDs;
+    float4 splatTextureLayerIndices;
+    float4 splatUVScales;
     float2 textureCoordinate;
 };
 
@@ -32,7 +33,8 @@ struct TerrainVertexOut {
     float4 secondaryColor;
     float4 material;
     float4 splatWeights;
-    float4 splatMaterialIDs;
+    float4 splatTextureLayerIndices;
+    float4 splatUVScales;
     float2 textureCoordinate;
     float shade;
     float2 debugModeAndSplatLayer;
@@ -74,10 +76,11 @@ static float4 terrainTextureColor(
     texture2d_array<float> terrainTextures,
     sampler terrainSampler,
     float2 textureCoordinate,
-    float materialID
+    float textureLayerIndex,
+    float uvScale
 ) {
-    float layer = clamp(round(materialID) - 1.0, 0.0, terrainTextureLayerCount - 1.0);
-    float2 tiledCoordinate = fract(textureCoordinate * 18.0);
+    float layer = clamp(round(textureLayerIndex), 0.0, terrainTextureLayerCount - 1.0);
+    float2 tiledCoordinate = fract(textureCoordinate * max(uvScale, 0.0001));
 
     return terrainTextures.sample(terrainSampler, tiledCoordinate, uint(layer));
 }
@@ -87,19 +90,50 @@ static float4 terrainSplatTextureColor(
     sampler terrainSampler,
     float2 textureCoordinate,
     float4 weights,
-    float4 materialIDs
+    float4 textureLayerIndices,
+    float4 uvScales
 ) {
     float4 color = float4(0.0);
     float totalWeight = 0.0;
 
-    color += terrainTextureColor(terrainTextures, terrainSampler, textureCoordinate, materialIDs.x) * weights.x;
-    color += terrainTextureColor(terrainTextures, terrainSampler, textureCoordinate, materialIDs.y) * weights.y;
-    color += terrainTextureColor(terrainTextures, terrainSampler, textureCoordinate, materialIDs.z) * weights.z;
-    color += terrainTextureColor(terrainTextures, terrainSampler, textureCoordinate, materialIDs.w) * weights.w;
+    color += terrainTextureColor(
+        terrainTextures,
+        terrainSampler,
+        textureCoordinate,
+        textureLayerIndices.x,
+        uvScales.x
+    ) * weights.x;
+    color += terrainTextureColor(
+        terrainTextures,
+        terrainSampler,
+        textureCoordinate,
+        textureLayerIndices.y,
+        uvScales.y
+    ) * weights.y;
+    color += terrainTextureColor(
+        terrainTextures,
+        terrainSampler,
+        textureCoordinate,
+        textureLayerIndices.z,
+        uvScales.z
+    ) * weights.z;
+    color += terrainTextureColor(
+        terrainTextures,
+        terrainSampler,
+        textureCoordinate,
+        textureLayerIndices.w,
+        uvScales.w
+    ) * weights.w;
     totalWeight = weights.x + weights.y + weights.z + weights.w;
 
     if (totalWeight <= 0.0001) {
-        return terrainTextureColor(terrainTextures, terrainSampler, textureCoordinate, materialIDs.x);
+        return terrainTextureColor(
+            terrainTextures,
+            terrainSampler,
+            textureCoordinate,
+            textureLayerIndices.x,
+            uvScales.x
+        );
     }
 
     return color / totalWeight;
@@ -133,7 +167,8 @@ vertex TerrainVertexOut terrain_vertex(
     out.secondaryColor = inputVertex.secondaryColor;
     out.material = inputVertex.material;
     out.splatWeights = inputVertex.splatWeights;
-    out.splatMaterialIDs = inputVertex.splatMaterialIDs;
+    out.splatTextureLayerIndices = inputVertex.splatTextureLayerIndices;
+    out.splatUVScales = inputVertex.splatUVScales;
     out.textureCoordinate = inputVertex.textureCoordinate;
     out.shade = shade;
     out.debugModeAndSplatLayer = debugUniforms.terrainMaterialModeAndFlags.xy;
@@ -157,7 +192,8 @@ fragment float4 terrain_fragment(
             terrainSampler,
             in.textureCoordinate,
             in.splatWeights,
-            in.splatMaterialIDs
+            in.splatTextureLayerIndices,
+            in.splatUVScales
         ).rgb * in.shade;
     } else {
         outputColor *= in.shade;

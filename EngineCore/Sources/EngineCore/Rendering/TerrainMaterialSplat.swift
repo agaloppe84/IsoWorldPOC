@@ -4,7 +4,12 @@ public struct TerrainMaterialSplatLayer: Equatable, Hashable, Codable, Sendable 
     public let materialIdentifier: String
     public let baseColor: BiomeColor
     public let roughness: Float
+    public let renderMaterial: RenderMaterial
     public let weight: Float
+
+    public var textureSlot: TerrainTextureSlot {
+        renderMaterial.terrainTextureSlot ?? TerrainTextureSlot.slot(for: materialKind)
+    }
 
     public init(
         biomeType: BiomeType,
@@ -19,6 +24,12 @@ public struct TerrainMaterialSplatLayer: Equatable, Hashable, Codable, Sendable 
         self.materialIdentifier = materialIdentifier
         self.baseColor = baseColor
         self.roughness = roughness
+        self.renderMaterial = RenderMaterial.terrain(
+            kind: materialKind,
+            identifier: materialIdentifier,
+            baseColor: baseColor,
+            roughness: roughness
+        )
         self.weight = Self.clampedWeight(weight)
     }
 

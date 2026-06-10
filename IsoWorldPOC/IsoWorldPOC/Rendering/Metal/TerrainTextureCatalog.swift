@@ -10,22 +10,11 @@ import Metal
 import simd
 
 struct TerrainTextureDescriptor {
-    let kind: TerrainMaterialKind
-    let identifier: String
-    let layerIndex: Int
+    let slot: TerrainTextureSlot
     let debugColor: SIMD4<Float>
 }
 
 struct TerrainTextureCatalog {
-    static let materialOrder: [TerrainMaterialKind] = [
-        .grass,
-        .rock,
-        .dirt,
-        .sand,
-        .wetValley,
-        .snow,
-    ]
-
     let texture: MTLTexture
     let descriptors: [TerrainTextureDescriptor]
 
@@ -38,12 +27,15 @@ struct TerrainTextureCatalog {
             return nil
         }
 
+        let slots = TerrainTextureSlot.allTerrainSlots.sorted {
+            $0.textureLayerIndex < $1.textureLayerIndex
+        }
         let descriptor = MTLTextureDescriptor()
         descriptor.textureType = .type2DArray
         descriptor.pixelFormat = .rgba8Unorm
         descriptor.width = 2
         descriptor.height = 2
-        descriptor.arrayLength = materialOrder.count
+        descriptor.arrayLength = slots.count
         descriptor.mipmapLevelCount = 1
         descriptor.usage = [.shaderRead]
 
@@ -52,10 +44,10 @@ struct TerrainTextureCatalog {
         }
 
         var textureDescriptors: [TerrainTextureDescriptor] = []
-        textureDescriptors.reserveCapacity(materialOrder.count)
+        textureDescriptors.reserveCapacity(slots.count)
 
-        for (index, kind) in materialOrder.enumerated() {
-            let material = TerrainMaterialDescriptor.definition(for: kind)
+        for slot in slots {
+            let material = TerrainMaterialDescriptor.definition(for: slot.materialKind)
             let color = vector(from: material.baseColor)
             let texels = placeholderTexels(baseColor: color)
             let region = MTLRegionMake2D(0, 0, 2, 2)
@@ -68,7 +60,7 @@ struct TerrainTextureCatalog {
                 texture.replace(
                     region: region,
                     mipmapLevel: 0,
-                    slice: index,
+                    slice: slot.textureLayerIndex,
                     withBytes: baseAddress,
                     bytesPerRow: 2 * 4,
                     bytesPerImage: 2 * 2 * 4
@@ -77,9 +69,7 @@ struct TerrainTextureCatalog {
 
             textureDescriptors.append(
                 TerrainTextureDescriptor(
-                    kind: kind,
-                    identifier: material.identifier,
-                    layerIndex: index,
+                    slot: slot,
                     debugColor: SIMD4<Float>(color.x, color.y, color.z, 1)
                 )
             )

@@ -94,14 +94,16 @@ Le rendu Metal utilise un payload materiau par vertex:
 - couleur de base;
 - roughness;
 - identifiant numerique simple de type materiau.
+- indices de couches texture terrain explicites;
+- echelles UV par couche terrain.
 
 Pour le terrain, `BiomeSampler` produit maintenant un `TerrainVertexMaterial` par sample/vertex. Ces materiaux restent deterministes par seed, chunk et coordonnee locale. Les bords utilisent les memes coordonnees monde que la generation de biome, ce qui permet aux chunks voisins de partager les memes couleurs/materiaux sur leurs frontieres.
 
 Chaque sample peut porter un materiau primaire, un materiau secondaire et un poids de transition. Le shader Metal mixe couleur et roughness dans le vertex shader. Cela donne une premiere transition douce entre biomes sans ajouter de draw call et sans introduire encore de textures.
 
-Les donnees de sample preparent aussi un modele splat: `TerrainMaterialSplat` contient jusqu'a 4 couches de materiaux normalisees. Le vertex buffer Metal transporte `splatWeights`, `splatMaterialIDs` et les coordonnees UV terrain.
+Les donnees de sample preparent aussi un modele splat: `TerrainMaterialSplat` contient jusqu'a 4 couches de materiaux normalisees. Chaque couche porte un `RenderMaterial` et un `TerrainTextureSlot` neutres, declarant `textureLayerIndex`, `uvScale` et `debugName` sans importer Metal. Le vertex buffer Metal transporte `splatWeights`, `splatTextureLayerIndices`, `splatUVScales` et les coordonnees UV terrain.
 
-Le rendu normal du terrain utilise un `TerrainTextureCatalog` placeholder cote Metal. Ce catalogue genere en memoire un petit texture array 2x2 par materiau (`grass`, `rock`, `dirt`, `sand`, `wetValley`, `snow`) sans asset externe. Le fragment shader echantillonne ces couches et les melange avec les 4 poids splat. C'est volontairement simple, mais l'architecture est deja proche d'un futur atlas ou texture array de vraies textures.
+Le rendu normal du terrain utilise un `TerrainTextureCatalog` placeholder cote Metal. Ce catalogue genere en memoire un petit texture array 2x2 par materiau (`grass`, `rock`, `dirt`, `sand`, `wetValley`, `snow`) depuis les `TerrainTextureSlot` declares dans `EngineCore`. Le fragment shader echantillonne ces couches et les melange avec les 4 poids splat. C'est volontairement simple, mais l'architecture est deja proche d'un futur atlas ou texture array de vraies textures.
 
 L'overlay peut basculer le debug terrain entre rendu normal, biome primaire, biome secondaire, heatmap du poids de transition et heatmap d'une couche splat specifique. Le mode et l'index de couche splat sont stockes dans `RenderDebugOptions`, passes au shader par uniform, et ne s'appliquent qu'aux vertices terrain.
 

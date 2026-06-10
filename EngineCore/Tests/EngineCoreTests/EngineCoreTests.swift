@@ -303,6 +303,42 @@ final class EngineCoreTests: XCTestCase {
         }
     }
 
+    func testTerrainTextureSlotsAreExplicitAndStable() {
+        let slots = TerrainTextureSlot.allTerrainSlots
+
+        XCTAssertEqual(slots.count, TerrainMaterialKind.allCases.count)
+        XCTAssertEqual(slots.map(\.textureLayerIndex), Array(0..<slots.count))
+
+        for slot in slots {
+            let descriptor = TerrainMaterialDescriptor.definition(for: slot.materialKind)
+
+            XCTAssertEqual(slot.materialIdentifier, descriptor.identifier)
+            XCTAssertGreaterThan(slot.uvScale, 0)
+            XCTAssertFalse(slot.debugName.isEmpty)
+        }
+
+        XCTAssertEqual(TerrainTextureSlot.slot(for: .grass).textureLayerIndex, 0)
+        XCTAssertEqual(TerrainTextureSlot.slot(for: .rock).textureLayerIndex, 1)
+        XCTAssertEqual(TerrainTextureSlot.slot(for: .wetValley).debugName, "Wet valley")
+    }
+
+    func testRenderMaterialWrapsTerrainTextureSlot() {
+        let descriptor = TerrainMaterialDescriptor.definition(for: .rock)
+        let material = RenderMaterial.terrain(descriptor)
+
+        guard let slot = material.terrainTextureSlot else {
+            XCTFail("Terrain render material should expose a texture slot.")
+            return
+        }
+
+        XCTAssertEqual(material.identifier, descriptor.identifier)
+        XCTAssertEqual(material.baseColor, descriptor.baseColor)
+        XCTAssertEqual(material.roughness, descriptor.roughness, accuracy: 0.0001)
+        XCTAssertEqual(slot.materialKind, .rock)
+        XCTAssertEqual(slot.textureLayerIndex, TerrainTextureSlot.textureLayerIndex(for: .rock))
+        XCTAssertEqual(slot.uvScale, TerrainTextureSlot.uvScale(for: .rock), accuracy: 0.0001)
+    }
+
     func testBiomeDefinitionsMapToExpectedTerrainMaterials() {
         XCTAssertEqual(Biome.definition(for: .grassland).terrainMaterial.kind, .grass)
         XCTAssertEqual(Biome.definition(for: .forest).terrainMaterial.kind, .dirt)
@@ -646,6 +682,23 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(material.splat.totalWeight, 1, accuracy: 0.0001)
         XCTAssertEqual(material.secondaryBiomeType, .forest)
         XCTAssertEqual(material.blendWeight, 0.20, accuracy: 0.0001)
+    }
+
+    func testTerrainMaterialSplatLayersCarryTextureSlots() {
+        let biome = Biome.definition(for: .rockyHighlands)
+        let layer = TerrainMaterialSplatLayer(biome: biome, weight: 0.75)
+
+        XCTAssertEqual(layer.renderMaterial.identifier, biome.terrainMaterial.identifier)
+        XCTAssertEqual(layer.textureSlot.materialKind, biome.terrainMaterial.kind)
+        XCTAssertEqual(
+            layer.textureSlot.textureLayerIndex,
+            TerrainTextureSlot.textureLayerIndex(for: biome.terrainMaterial.kind)
+        )
+        XCTAssertEqual(
+            layer.textureSlot.uvScale,
+            TerrainTextureSlot.uvScale(for: biome.terrainMaterial.kind),
+            accuracy: 0.0001
+        )
     }
 
     func testBiomeSamplerSharesTerrainVertexMaterialsBetweenAdjacentChunks() {

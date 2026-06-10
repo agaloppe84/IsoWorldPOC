@@ -212,7 +212,7 @@ Decision: introduire `TerrainMaterialSplat` et `TerrainMaterialSplatLayer` dans 
 
 Raison: le modele primaire/secondaire suffit pour une premiere transition visuelle, mais il ne sera pas assez riche pour des texture arrays, atlas, splat maps ou transitions multi-materiaux.
 
-Consequence: chaque sample terrain peut maintenant transporter jusqu'a 4 couches de materiaux normalisees. `BiomeSampler` derive ces couches de maniere deterministe depuis le voisinage biome en coordonnees monde. Le vertex buffer Metal transporte `splatWeights` et `splatMaterialIDs`.
+Consequence: chaque sample terrain peut maintenant transporter jusqu'a 4 couches de materiaux normalisees. `BiomeSampler` derive ces couches de maniere deterministe depuis le voisinage biome en coordonnees monde. Le vertex buffer Metal transporte `splatWeights`, des indices de couches texture et des echelles UV.
 
 Garantie: les tests verifient determinisme, normalisation, limite a 4 couches et raccord exact des splats entre chunks voisins.
 
@@ -239,3 +239,15 @@ Consequence: le terrain normal n'utilise plus seulement les vertex colors. Le sh
 Limite actuelle: les textures sont des motifs 2x2 generes en code, sans PBR, normal map, roughness map, atlas disque ni streaming texture. Elles valident l'architecture et preparent le remplacement par des assets reels.
 
 Prochaine cible: introduire un vrai contrat de material/texture slots plus explicite, puis remplacer les placeholders par un atlas ou texture array charge depuis les assets du projet.
+
+## 025 - Material et texture slots explicites
+
+Decision: ajouter les contrats neutres `RenderMaterial` et `TerrainTextureSlot` dans `EngineCore/Rendering`.
+
+Raison: les shaders ne doivent pas dependre d'IDs flottants implicites ou d'un ordre de materiaux cache cote app. Les slots texture doivent etre declaratifs, serialisables et testables avant l'arrivee d'atlas, texture arrays artistiques ou normal maps.
+
+Consequence: chaque couche `TerrainMaterialSplatLayer` porte maintenant un `RenderMaterial` et expose un `TerrainTextureSlot` avec `textureLayerIndex`, `uvScale` et `debugName`. `TerrainTextureCatalog` construit son texture array placeholder depuis ces slots. Le vertex buffer Metal transporte `splatTextureLayerIndices` et `splatUVScales` au lieu de simples material IDs.
+
+Garantie: les tests EngineCore verifient la stabilite des indices de couches texture, la presence des slots et leur transport dans les couches splat.
+
+Limite actuelle: `RenderMaterial` reste minimal. Il ne decrit pas encore les slots PBR complets comme albedo, normal, roughness, metallic, occlusion ou height.

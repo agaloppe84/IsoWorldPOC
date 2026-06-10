@@ -450,7 +450,9 @@ struct MetalChunkBuffers {
         let fallbackColor = TerrainTextureCatalog.placeholderColor(for: fallbackMaterial.kind)
         let fallbackPayload = MetalMaterialPayload.terrain(fallbackMaterial)
         let fallbackSplatWeights = MetalMaterialPayload.terrainSplatWeights(fallbackMaterial)
-        let fallbackSplatMaterialIDs = MetalMaterialPayload.terrainSplatMaterialIDs(fallbackMaterial)
+        let fallbackSplatTextureLayerIndices = MetalMaterialPayload
+            .terrainSplatTextureLayerIndices(fallbackMaterial)
+        let fallbackSplatUVScales = MetalMaterialPayload.terrainSplatUVScales(fallbackMaterial)
 
         return zip(geometry.positions, geometry.normals).enumerated().map { index, pair in
             let position = pair.0
@@ -469,7 +471,12 @@ struct MetalChunkBuffers {
                 TerrainTextureCatalog.placeholderColor(for: $0.secondaryMaterialKind)
             } ?? fallbackColor
             let splatWeights = vertexMaterial.map(MetalMaterialPayload.terrainSplatWeights) ?? fallbackSplatWeights
-            let splatMaterialIDs = vertexMaterial.map(MetalMaterialPayload.terrainSplatMaterialIDs) ?? fallbackSplatMaterialIDs
+            let splatTextureLayerIndices = vertexMaterial
+                .map(MetalMaterialPayload.terrainSplatTextureLayerIndices) ??
+                fallbackSplatTextureLayerIndices
+            let splatUVScales = vertexMaterial
+                .map(MetalMaterialPayload.terrainSplatUVScales) ??
+                fallbackSplatUVScales
 
             return MetalTerrainVertex(
                 position: SIMD3<Float>(position.x, position.y, position.z),
@@ -478,7 +485,8 @@ struct MetalChunkBuffers {
                 material: vertexMaterial.map(MetalMaterialPayload.terrain) ?? fallbackPayload,
                 secondaryColor: secondaryColor,
                 splatWeights: splatWeights,
-                splatMaterialIDs: splatMaterialIDs,
+                splatTextureLayerIndices: splatTextureLayerIndices,
+                splatUVScales: splatUVScales,
                 textureCoordinate: textureCoordinate
             )
         }
@@ -542,7 +550,8 @@ struct MetalChunkBuffers {
             material: vertex.material,
             secondaryColor: vertex.secondaryColor,
             splatWeights: vertex.splatWeights,
-            splatMaterialIDs: vertex.splatMaterialIDs,
+            splatTextureLayerIndices: vertex.splatTextureLayerIndices,
+            splatUVScales: vertex.splatUVScales,
             textureCoordinate: vertex.textureCoordinate
         )
     }
@@ -661,7 +670,8 @@ struct MetalTerrainVertex {
     let secondaryColor: SIMD4<Float>
     let material: SIMD4<Float>
     let splatWeights: SIMD4<Float>
-    let splatMaterialIDs: SIMD4<Float>
+    let splatTextureLayerIndices: SIMD4<Float>
+    let splatUVScales: SIMD4<Float>
     let textureCoordinate: SIMD2<Float>
 
     init(
@@ -671,7 +681,8 @@ struct MetalTerrainVertex {
         material: SIMD4<Float>,
         secondaryColor: SIMD4<Float>? = nil,
         splatWeights: SIMD4<Float> = SIMD4<Float>(1, 0, 0, 0),
-        splatMaterialIDs: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0),
+        splatTextureLayerIndices: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0),
+        splatUVScales: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1),
         textureCoordinate: SIMD2<Float> = SIMD2<Float>(0, 0)
     ) {
         self.position = position
@@ -680,7 +691,8 @@ struct MetalTerrainVertex {
         self.secondaryColor = secondaryColor ?? color
         self.material = material
         self.splatWeights = splatWeights
-        self.splatMaterialIDs = splatMaterialIDs
+        self.splatTextureLayerIndices = splatTextureLayerIndices
+        self.splatUVScales = splatUVScales
         self.textureCoordinate = textureCoordinate
     }
 }
