@@ -10,6 +10,7 @@ public struct RenderDebugOptions: Equatable, Codable, Sendable {
 
 public struct RenderWorldSnapshot: Equatable, Codable, Sendable {
     public let camera: CameraRenderState
+    public let lighting: LightingState
     public let chunks: [RenderChunk]
     public let debugOptions: RenderDebugOptions
 
@@ -39,10 +40,12 @@ public struct RenderWorldSnapshot: Equatable, Codable, Sendable {
 
     public init(
         camera: CameraRenderState,
+        lighting: LightingState = .defaultDay,
         chunks: [RenderChunk],
         debugOptions: RenderDebugOptions = RenderDebugOptions()
     ) {
         self.camera = camera
+        self.lighting = lighting
         self.chunks = chunks
         self.debugOptions = debugOptions
     }

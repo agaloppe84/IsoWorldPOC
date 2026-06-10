@@ -70,11 +70,11 @@ Limites connues: generation synchrone, pas encore de LOD, pas encore de culling 
 
 ## 009 - Strategie texture terrain initiale
 
-Decision: commencer avec un `TerrainMaterialDescriptor` pur dans `EngineCore` et une traduction simple vers un `SimpleMaterial` RealityKit par chunk.
+Decision historique: commencer avec un `TerrainMaterialDescriptor` pur dans `EngineCore` et une traduction simple vers un `SimpleMaterial` RealityKit par chunk.
 
 Raison: differencier visuellement les biomes sans importer de grosses textures externes, sans multiplier excessivement les materiaux et sans toucher au streaming.
 
-Consequence: les biomes exposent des materiaux semantiques simples (`grass`, `rock`, `dirt`, `sand`, `wetValley`, `snow` futur), tandis que l'app garde la responsabilite de creer les materiaux RealityKit.
+Consequence actuelle: les biomes exposent des materiaux semantiques simples (`grass`, `rock`, `dirt`, `sand`, `wetValley`, `snow` futur). Le rendu Metal utilise d'abord des couleurs vertex/material placeholders derivees de ces descriptors.
 
 Objectif futur: introduire progressivement textures PBR, splat maps, triplanar mapping, normal maps, roughness maps et transitions douces entre biomes quand le terrain et le streaming seront stabilises.
 
@@ -88,15 +88,17 @@ Consequence actuelle: `CharacterVisual` a ete supprime avec le code RealityKit l
 
 Sources possibles: Kenney CC0, Poly Haven CC0, Sketchfab Creative Commons uniquement avec verification explicite de la licence, de l'attribution requise et du droit d'utilisation dans le projet.
 
-## 011 - Lumiere RealityKit initiale
+## 011 - Lumiere initiale
 
-Decision: utiliser une lumiere directionnelle principale type soleil, une seconde lumiere directionnelle faible comme remplissage ambiant, et des ombres directionnelles bornees par une distance courte.
+Decision historique: utiliser une lumiere directionnelle principale type soleil, une seconde lumiere directionnelle faible comme remplissage ambiant, et des ombres directionnelles bornees par une distance courte.
 
 Raison: ameliorer la lecture du terrain et des props sans viser un rendu final ni ajouter de dependance externe.
 
-Consequence: les parametres `sunDirection`, `sunIntensity`, `ambientIntensity` et `shadowsEnabled` sont exposes dans l'overlay debug pour suivre le comportement courant.
+Consequence actuelle: les parametres `sunDirection`, `sunIntensity`, `ambientIntensity` et `shadowsEnabled` sont portes par `LightingState`, envoyes au shader Metal et exposes dans l'overlay debug.
 
-Limites RealityKit connues: l'eclairage reste simple, le controle fin des ombres est limite, les ombres peuvent couter cher avec beaucoup de chunks/props, et l'ambient actuel est une approximation via lumiere de remplissage plutot qu'un vrai systeme global illumination.
+Limites historiques RealityKit: l'eclairage et le controle fin des ombres etaient limites pour notre trajectoire Metal-only.
+
+Limite actuelle Metal: l'eclairage est volontairement simple, sans shadow map, sans BRDF avancee et sans correction colorimetrique fine. L'ambient reste une approximation controlee.
 
 Budget performance: garder une seule source avec ombres actives au depart, limiter la distance d'ombre, et desactiver ou reduire les ombres si le frame time augmente sur Mac M1.
 
@@ -137,3 +139,47 @@ Raison: `MetalRenderer` doit rester responsable des ressources GPU, des pipeline
 Consequence: `WorldRuntime` orchestre input, joueur, camera, grounding et `ChunkDataStreamer`. `RenderSnapshotBuilder` transforme les donnees runtime en contrats neutres (`RenderChunk`, `RenderProp`, `CameraRenderState`). `MetalRenderer` consomme uniquement le snapshot courant, synchronise les buffers Metal et met a jour les metriques renderer.
 
 Limite actuelle: `WorldRuntime` vit encore cote app. Une future etape pourra deplacer davantage de logique pure vers `EngineCore`, tant que celui-ci reste independant de SwiftUI, RealityKit et Metal.
+
+## 016 - Passes Metal legeres avant RenderGraph complet
+
+Decision: organiser le rendu Metal en passes simples (`MetalTerrainPass`, `MetalPropPass`, `MetalPlayerPass`, `MetalDebugPass`) pilotees par `MetalRenderer`.
+
+Raison: le renderer doit rester extensible pour lighting, shadows et materiaux sans devenir un fichier monolithique, mais un RenderGraph complet serait premature a ce stade.
+
+Consequence: `MetalRenderer` prepare `MetalFrameContext`, lance les passes, synchronise les buffers GPU et expose des metriques de draw. Chaque passe reste petite, specialisee et mesurable.
+
+Validation actuelle: l'overlay expose les draw calls totaux et par passe, le nombre de buffers GPU, les chunks dessines et les props dessines.
+
+Prochaine cible: introduire une vraie strategie de materiaux/lighting en s'appuyant sur ces passes, puis seulement ajouter un RenderGraph si les dependances entre passes le justifient.
+
+## 017 - LightingState neutre pour Metal
+
+Decision: ajouter `LightingState` dans les contrats `EngineCore/Rendering` et le transporter via `RenderWorldSnapshot`.
+
+Raison: la lumiere ne doit pas etre hardcodee dans le shader Metal. Elle fait partie de l'etat de rendu du monde, doit etre testable et doit rester independante du backend.
+
+Consequence: `WorldRuntime` produit un snapshot avec une lumiere directionnelle par defaut. `MetalRenderer` convertit cette lumiere en uniforms GPU, et le shader applique une premiere lumiere diffuse + ambiante. Les ombres restent desactivees et reservees a une future passe dediee.
+
+Validation actuelle: les tests `EngineCore` couvrent la stabilite du `LightingState` par defaut et le stockage dans `RenderWorldSnapshot`.
+
+## 018 - Payload materiau par vertex
+
+Decision: transporter un payload materiau minimal dans `MetalTerrainVertex`: roughness et identifiant numerique de type materiau.
+
+Raison: le terrain et les props doivent commencer a exploiter les descriptors materiaux sans creer un draw call par materiau ni multiplier les pipelines trop tot.
+
+Consequence: les vertices terrain recoivent la roughness et le type issus de `TerrainMaterialDescriptor`; les vertices de props recoivent la roughness de leur `PropMaterialDescriptor`. Le shader utilise la roughness pour adoucir la lumiere diffuse.
+
+Limite actuelle: il ne s'agit pas encore d'un systeme PBR. Les ids materiaux preparent le debug et les futures textures/atlas/splat maps, mais ne pilotent pas encore des textures.
+
+## 019 - Materiaux terrain par sample
+
+Decision: ajouter un `TerrainVertexMaterial` par sample/vertex terrain et le transporter jusque dans `RenderChunk`.
+
+Raison: une couleur/matiere unique par chunk rend les biomes trop plats et provoque des transitions visuelles grossieres. Le terrain doit deja pouvoir exprimer des variations locales sans creer un draw call par biome.
+
+Consequence: `BiomeSampler` derive un materiau terrain pour chaque sample a partir des coordonnees monde implicites du chunk. `ProceduralChunkDataFactory` stocke ces materiaux avec la geometrie, `RenderSnapshotBuilder` les expose dans `RenderChunk`, et `MetalRenderer` bake couleur + payload materiau dans le vertex buffer terrain.
+
+Garantie: les tests EngineCore verifient que deux chunks voisins produisent les memes materiaux sur leurs bords partages, y compris avec des coordonnees negatives.
+
+Limite actuelle: le rendu reste en vertex colors et payloads simples. Les transitions entre biomes peuvent encore etre franches; le prochain niveau sera d'introduire des poids de materiaux/splat data deterministes avant d'ajouter textures ou atlas.

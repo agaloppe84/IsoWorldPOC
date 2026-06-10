@@ -21,6 +21,44 @@ final class EngineCoreTests: XCTestCase {
         )
     }
 
+    func testDefaultLightingStateIsStable() {
+        let lighting = LightingState.defaultDay
+
+        XCTAssertEqual(lighting.sunDirection.x, -0.35, accuracy: 0.0001)
+        XCTAssertEqual(lighting.sunDirection.y, -0.85, accuracy: 0.0001)
+        XCTAssertEqual(lighting.sunDirection.z, -0.25, accuracy: 0.0001)
+        XCTAssertEqual(lighting.sunIntensity, 0.90, accuracy: 0.0001)
+        XCTAssertEqual(lighting.ambientIntensity, 0.38, accuracy: 0.0001)
+        XCTAssertFalse(lighting.shadowsEnabled)
+    }
+
+    func testRenderWorldSnapshotStoresLightingState() {
+        let camera = CameraRenderState(
+            position: WorldPosition(x: 0, y: 8, z: 10),
+            target: WorldPosition(x: 0, y: 0, z: 0),
+            fieldOfViewDegrees: 35,
+            yaw: 0,
+            pitch: -0.8,
+            distance: 12
+        )
+        let lighting = LightingState(
+            sunDirection: PropVector3(x: 0, y: -1, z: 0),
+            sunIntensity: 0.7,
+            ambientIntensity: 0.2,
+            shadowsEnabled: true
+        )
+        let snapshot = RenderWorldSnapshot(
+            camera: camera,
+            lighting: lighting,
+            chunks: [],
+            debugOptions: RenderDebugOptions(showChunkBounds: true)
+        )
+
+        XCTAssertEqual(snapshot.lighting, lighting)
+        XCTAssertEqual(snapshot.camera, camera)
+        XCTAssertTrue(snapshot.debugOptions.showChunkBounds)
+    }
+
     func testPositiveWorldPositionStaysInOriginChunk() {
         let position = WorldPosition(x: 4.25, y: 2.0, z: 15.75)
         let chunk = ChunkCoordinate.containing(position, chunkSize: 16)
@@ -405,6 +443,73 @@ final class EngineCoreTests: XCTestCase {
 
         XCTAssertEqual(first, second)
         XCTAssertEqual(dominant, sampler.biome(for: coordinate, localX: 32, localZ: 32))
+    }
+
+    func testTerrainVertexMaterialMirrorsSampledBiomeMaterial() {
+        let sampler = BiomeSampler(seed: WorldSeed(99))
+        let coordinate = ChunkCoordinate(x: -3, y: 0, z: 4)
+        let biome = sampler.biome(for: coordinate, localX: 12, localZ: 48)
+        let material = sampler.terrainVertexMaterial(for: coordinate, localX: 12, localZ: 48)
+
+        XCTAssertEqual(material.biomeType, biome.type)
+        XCTAssertEqual(material.materialKind, biome.terrainMaterial.kind)
+        XCTAssertEqual(material.materialIdentifier, biome.terrainMaterial.identifier)
+        XCTAssertEqual(material.baseColor, biome.terrainMaterial.baseColor)
+        XCTAssertEqual(material.roughness, biome.terrainMaterial.roughness)
+    }
+
+    func testBiomeSamplerSharesTerrainVertexMaterialsBetweenAdjacentChunks() {
+        let sampler = BiomeSampler(seed: WorldSeed(99))
+        let left = ChunkCoordinate(x: 0, y: 0, z: 0)
+        let right = ChunkCoordinate(x: 1, y: 0, z: 0)
+        let back = ChunkCoordinate(x: 0, y: 0, z: 1)
+        let negativeLeft = ChunkCoordinate(x: -2, y: 0, z: -3)
+        let negativeRight = ChunkCoordinate(x: -1, y: 0, z: -3)
+
+        for localZ in [0, 17, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                sampler.terrainVertexMaterial(
+                    for: left,
+                    localX: ChunkHeightmap.resolution - 1,
+                    localZ: localZ
+                ),
+                sampler.terrainVertexMaterial(
+                    for: right,
+                    localX: 0,
+                    localZ: localZ
+                )
+            )
+        }
+
+        for localX in [0, 23, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                sampler.terrainVertexMaterial(
+                    for: left,
+                    localX: localX,
+                    localZ: ChunkHeightmap.resolution - 1
+                ),
+                sampler.terrainVertexMaterial(
+                    for: back,
+                    localX: localX,
+                    localZ: 0
+                )
+            )
+        }
+
+        for localZ in [0, 29, ChunkHeightmap.resolution - 1] {
+            XCTAssertEqual(
+                sampler.terrainVertexMaterial(
+                    for: negativeLeft,
+                    localX: ChunkHeightmap.resolution - 1,
+                    localZ: localZ
+                ),
+                sampler.terrainVertexMaterial(
+                    for: negativeRight,
+                    localX: 0,
+                    localZ: localZ
+                )
+            )
+        }
     }
 
     func testPropPlacementGeneratorIsDeterministicForSameSeedAndChunk() {

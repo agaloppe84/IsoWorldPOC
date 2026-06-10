@@ -58,13 +58,57 @@ Responsabilites:
 - Configurer `MTKView`.
 - Posseder les ressources GPU Metal.
 - Consommer `RenderWorldSnapshot`.
-- Dessiner le terrain, les props placeholders, le joueur placeholder et le debug 3D.
+- Orchestrer les passes Metal.
 - Mettre a jour les metriques debug liees au renderer.
 - Ne pas piloter directement la simulation, les inputs gameplay ou le streaming logique.
 
 `MetalGameView` reste un host macOS/SwiftUI: elle cree le `MTKView`, transmet les evenements clavier et laisse le backend renderer gerer le rendu.
 
 Les contrats de rendu purs vivent dans `EngineCore/Rendering` et ne doivent importer ni RealityKit ni Metal.
+
+### Passes Metal
+
+Le rendu Metal est organise en passes legeres, sans RenderGraph complet pour l'instant:
+
+- `MetalTerrainPass`: dessine les chunks terrain visibles.
+- `MetalPropPass`: dessine les props proceduraux bakes dans les buffers de chunk.
+- `MetalPlayerPass`: dessine le placeholder joueur.
+- `MetalDebugPass`: dessine les helpers debug 3D comme les bounds de chunks.
+
+`MetalFrameContext` transporte l'etat necessaire a une frame:
+
+- `RenderWorldSnapshot`;
+- buffers GPU par chunk;
+- buffers joueur;
+- position joueur;
+- matrice view-projection.
+- uniforms de lumiere derives de `LightingState`.
+
+Chaque passe retourne des metriques de draw simples. L'overlay expose les draw calls, buffers GPU, chunks dessines et props dessines. Cette structure prepare les futures passes lighting/shadow/material sans imposer encore un graphe de rendu complexe.
+
+### Materiaux Metal initiaux
+
+Le rendu Metal utilise un payload materiau par vertex:
+
+- couleur de base;
+- roughness;
+- identifiant numerique simple de type materiau.
+
+Pour le terrain, `BiomeSampler` produit maintenant un `TerrainVertexMaterial` par sample/vertex. Ces materiaux restent deterministes par seed, chunk et coordonnee locale. Les bords utilisent les memes coordonnees monde que la generation de biome, ce qui permet aux chunks voisins de partager les memes couleurs/materiaux sur leurs frontieres.
+
+Cette approche garde les props et terrains batchables par chunk. Elle evite de multiplier les draw calls avant d'avoir une vraie strategie texture/atlas/splat map. Le shader utilise actuellement la roughness pour adoucir la reponse diffuse des materiaux rugueux.
+
+### Lumiere
+
+La lumiere de base est portee par `LightingState` dans les contrats `EngineCore/Rendering`.
+
+Responsabilites:
+
+- Decrire une lumiere directionnelle principale.
+- Exposer intensite solaire, intensite ambiante et activation future des ombres.
+- Rester independante de Metal, RealityKit et SwiftUI.
+
+Le shader Metal consomme ces valeurs via un uniform dedie. Les ombres ne sont pas encore calculees: `shadowsEnabled` est conserve dans le contrat pour preparer une future `MetalShadowPass`.
 
 ### Runtime monde et snapshots
 
@@ -102,6 +146,7 @@ Le renderer Metal ne doit donc pas construire le monde ni decider quels chunks e
 - geometrie terrain issue d'`EngineCore`;
 - biome dominant;
 - materiau terrain abstrait;
+- materiaux terrain par vertex/sample issus du biome;
 - placements et variants de props;
 - origine monde du chunk;
 - metriques simples de generation.

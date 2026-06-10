@@ -16,6 +16,7 @@ final class WorldRuntime {
     private let cameraController = OrbitCameraController()
     private let chunkStreamer = ChunkDataStreamer()
     private let snapshotBuilder = RenderSnapshotBuilder()
+    private let lightingState = LightingState.defaultDay
     private var lastGrounding = PlayerGroundingResult(
         position: .zero,
         groundSample: nil,
@@ -86,6 +87,14 @@ final class WorldRuntime {
         debugMetrics.cameraPitch = camera.pitch
         debugMetrics.cameraDistance = camera.distance
         debugMetrics.movementMode = "cameraRelative"
+        debugMetrics.sunDirection = SIMD3<Float>(
+            snapshot.lighting.sunDirection.x,
+            snapshot.lighting.sunDirection.y,
+            snapshot.lighting.sunDirection.z
+        )
+        debugMetrics.sunIntensity = snapshot.lighting.sunIntensity
+        debugMetrics.ambientIntensity = snapshot.lighting.ambientIntensity
+        debugMetrics.shadowsEnabled = snapshot.lighting.shadowsEnabled
     }
 
     private func updateSimulation(deltaTime: Float) {
@@ -117,6 +126,7 @@ final class WorldRuntime {
         snapshotBuilder.makeSnapshot(
             chunkStreamer: chunkStreamer,
             camera: cameraController.renderState(following: playerController.position),
+            lighting: lightingState,
             debugOptions: debugOptions
         )
     }

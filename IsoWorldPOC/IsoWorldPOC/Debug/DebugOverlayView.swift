@@ -24,6 +24,10 @@ struct DebugOverlayView: View {
             Text("chunk data avg: \(format(metrics.averageChunkDataGenerationMs)) ms")
             Text("chunk upload avg: \(format(metrics.averageChunkUploadMs)) ms")
             Text("mesh build avg: \(format(metrics.averageTerrainMeshBuildTimeMs)) ms")
+            Text("draw calls total: \(metrics.metalDrawCallCount)")
+            Text("passes t/p/pl/dbg: \(metrics.metalTerrainDrawCallCount) / \(metrics.metalPropDrawCallCount) / \(metrics.metalPlayerDrawCallCount) / \(metrics.metalDebugDrawCallCount)")
+            Text("gpu buffers: \(metrics.metalBufferCount)")
+            Text("materials terrain / prop: \(metrics.metalVisibleTerrainMaterialCount) / \(metrics.metalVisiblePropMaterialCount)")
 
             Divider().overlay(.white.opacity(0.35))
 
@@ -42,6 +46,7 @@ struct DebugOverlayView: View {
             Text("generated: \(metrics.generatedChunkCount)")
             Text("triangles approx: \(metrics.approximateTriangleCount)")
             Text("props approx: \(metrics.approximatePropCount)")
+            Text("drawn chunks / props: \(metrics.metalRenderedChunkCount) / \(metrics.metalRenderedPropCount)")
             Text("jobs queued / gen / ready: \(metrics.chunkJobsQueued) / \(metrics.chunkJobsGenerating) / \(metrics.chunksReadyForUpload)")
             Text("uploads this frame: \(metrics.chunkUploadsThisFrame)")
             Toggle("showChunkBounds", isOn: $metrics.showChunkBounds)

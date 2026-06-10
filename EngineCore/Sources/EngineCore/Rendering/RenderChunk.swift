@@ -30,6 +30,7 @@ public struct RenderChunk: Equatable, Codable, Sendable {
     public let terrainGeometry: TerrainGeometryBuffers
     public let biome: Biome
     public let terrainMaterial: TerrainMaterialDescriptor
+    public let terrainVertexMaterials: [TerrainVertexMaterial]
     public let props: [RenderProp]
     public let debugBounds: RenderChunkDebugBounds?
     public let isVisible: Bool
@@ -41,16 +42,24 @@ public struct RenderChunk: Equatable, Codable, Sendable {
         terrainGeometry: TerrainGeometryBuffers,
         biome: Biome,
         terrainMaterial: TerrainMaterialDescriptor,
+        terrainVertexMaterials: [TerrainVertexMaterial] = [],
         props: [RenderProp] = [],
         debugBounds: RenderChunkDebugBounds? = nil,
         isVisible: Bool = true,
         approximateTriangleCount: Int
     ) {
+        precondition(
+            terrainVertexMaterials.isEmpty ||
+                terrainVertexMaterials.count == terrainGeometry.positions.count,
+            "RenderChunk requires one terrain vertex material per terrain vertex."
+        )
+
         self.coordinate = coordinate
         self.origin = origin
         self.terrainGeometry = terrainGeometry
         self.biome = biome
         self.terrainMaterial = terrainMaterial
+        self.terrainVertexMaterials = terrainVertexMaterials
         self.props = props
         self.debugBounds = debugBounds
         self.isVisible = isVisible

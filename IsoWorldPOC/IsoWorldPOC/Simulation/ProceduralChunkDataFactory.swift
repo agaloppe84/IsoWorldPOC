@@ -13,6 +13,7 @@ struct ProceduralChunkData: Sendable {
     let coordinate: ChunkCoordinate
     let biome: Biome
     let terrainGeometry: TerrainGeometryBuffers
+    let terrainVertexMaterials: [TerrainVertexMaterial]
     let meshPositions: [SIMD3<Float>]
     let meshNormals: [SIMD3<Float>]
     let meshTextureCoordinates: [SIMD2<Float>]
@@ -47,6 +48,7 @@ enum ProceduralChunkDataFactory {
             for: coordinate,
             samplesPerChunk: chunkResolution
         )
+        let terrainVertexMaterials = makeTerrainVertexMaterials(for: coordinate)
         let propPlacements = propGenerator.placements(
             for: coordinate,
             biome: biome,
@@ -67,6 +69,7 @@ enum ProceduralChunkDataFactory {
             coordinate: coordinate,
             biome: biome,
             terrainGeometry: terrainGeometry,
+            terrainVertexMaterials: terrainVertexMaterials,
             meshPositions: terrainGeometry.positions.map { SIMD3<Float>($0.x, $0.y, $0.z) },
             meshNormals: terrainGeometry.normals.map { SIMD3<Float>($0.x, $0.y, $0.z) },
             meshTextureCoordinates: terrainGeometry.textureCoordinates.map { SIMD2<Float>($0.u, $0.v) },
@@ -77,6 +80,28 @@ enum ProceduralChunkDataFactory {
             originZ: originZ,
             dataGenerationTimeMs: Float(currentTimeMilliseconds() - dataGenerationStart)
         )
+    }
+
+    private static func makeTerrainVertexMaterials(
+        for coordinate: ChunkCoordinate
+    ) -> [TerrainVertexMaterial] {
+        var materials: [TerrainVertexMaterial] = []
+        materials.reserveCapacity(chunkResolution * chunkResolution)
+
+        for localZ in 0..<chunkResolution {
+            for localX in 0..<chunkResolution {
+                materials.append(
+                    biomeSampler.terrainVertexMaterial(
+                        for: coordinate,
+                        localX: localX,
+                        localZ: localZ,
+                        samplesPerChunk: chunkResolution
+                    )
+                )
+            }
+        }
+
+        return materials
     }
 
     private static func currentTimeMilliseconds() -> Double {

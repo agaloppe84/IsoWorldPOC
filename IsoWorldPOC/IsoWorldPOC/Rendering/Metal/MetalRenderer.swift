@@ -23,9 +23,14 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private let depthStencilState: MTLDepthStencilState?
     private let debugBoundsDepthStencilState: MTLDepthStencilState?
     private let debugMetrics: DebugMetrics
+    private let terrainPass = MetalTerrainPass()
+    private let propPass = MetalPropPass()
+    private let playerPass = MetalPlayerPass()
+    private let debugPass = MetalDebugPass()
     private var snapshot: RenderWorldSnapshot
     private var chunkBuffersByCoordinate: [ChunkCoordinate: MetalChunkBuffers] = [:]
     private var playerBuffers: MetalIndexedMeshBuffers?
+    private var lastDrawMetrics = MetalFrameDrawMetrics.empty
     private var lastFrameTime = CACurrentMediaTime()
     private var smoothedFrameTime: Float?
     private var drawableSize = SIMD2<Float>(1, 1)
@@ -98,7 +103,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             let pipelineState,
             let renderPassDescriptor = view.currentRenderPassDescriptor,
             let drawable = view.currentDrawable,
-            let commandBuffer = commandQueue.makeCommandBuffer()
+            let commandBuffer = commandQueue.makeCommandBuffer(),
+            let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
         else {
             return
         }
@@ -106,44 +112,37 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         renderPassDescriptor.colorAttachments[0].clearColor = clearColor
         renderPassDescriptor.depthAttachment.clearDepth = 1.0
 
-        let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
-        renderEncoder?.setRenderPipelineState(pipelineState)
+        renderEncoder.setRenderPipelineState(pipelineState)
         if let depthStencilState {
-            renderEncoder?.setDepthStencilState(depthStencilState)
+            renderEncoder.setDepthStencilState(depthStencilState)
         }
 
-        for chunk in snapshot.chunks where chunk.isVisible {
-            guard let buffers = chunkBuffersByCoordinate[chunk.coordinate] else {
-                continue
-            }
+        let frameContext = MetalFrameContext(
+            snapshot: snapshot,
+            chunkBuffersByCoordinate: chunkBuffersByCoordinate,
+            playerBuffers: playerBuffers,
+            playerPosition: runtime.playerPosition,
+            viewProjectionMatrix: makeViewProjectionMatrix(from: snapshot.camera)
+        )
+        var lightingUniforms = frameContext.lightingUniforms
+        renderEncoder.setVertexBytes(
+            &lightingUniforms,
+            length: MemoryLayout<MetalLightingUniforms>.stride,
+            index: 2
+        )
 
-            var uniforms = makeTerrainUniforms(for: chunk)
-            renderEncoder?.setVertexBuffer(buffers.terrainVertexBuffer, offset: 0, index: 0)
-            renderEncoder?.setVertexBytes(
-                &uniforms,
-                length: MemoryLayout<MetalTerrainUniforms>.stride,
-                index: 1
-            )
-            renderEncoder?.drawIndexedPrimitives(
-                type: .triangle,
-                indexCount: buffers.terrainIndexCount,
-                indexType: .uint32,
-                indexBuffer: buffers.terrainIndexBuffer,
-                indexBufferOffset: 0
-            )
-        }
+        var drawMetrics = MetalFrameDrawMetrics.empty
+        drawMetrics.add(terrainPass.encode(context: frameContext, renderEncoder: renderEncoder))
+        drawMetrics.add(propPass.encode(context: frameContext, renderEncoder: renderEncoder))
+        drawMetrics.add(playerPass.encode(context: frameContext, renderEncoder: renderEncoder))
+        drawMetrics.add(debugPass.encode(
+            context: frameContext,
+            renderEncoder: renderEncoder,
+            depthStencilState: debugBoundsDepthStencilState
+        ))
+        lastDrawMetrics = drawMetrics
 
-        drawProps(with: renderEncoder)
-        drawPlayer(with: renderEncoder)
-
-        if snapshot.debugOptions.showChunkBounds {
-            if let debugBoundsDepthStencilState {
-                renderEncoder?.setDepthStencilState(debugBoundsDepthStencilState)
-            }
-            drawChunkBounds(with: renderEncoder)
-        }
-
-        renderEncoder?.endEncoding()
+        renderEncoder.endEncoding()
 
         commandBuffer.present(drawable)
         commandBuffer.commit()
@@ -194,7 +193,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             device: device,
             vertices: makeBoxVertices(
                 size: SIMD3<Float>(0.38, 0.95, 0.38),
-                color: SIMD4<Float>(1.0, 0.86, 0.08, 1.0)
+                color: SIMD4<Float>(1.0, 0.86, 0.08, 1.0),
+                material: MetalMaterialPayload.player
             ),
             indices: boxIndices()
         )
@@ -220,16 +220,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         }
     }
 
-    private func makeTerrainUniforms(for chunk: RenderChunk) -> MetalTerrainUniforms {
-        let modelMatrix = matrixTranslation(vector(from: chunk.origin))
-        let viewProjectionMatrix = makeViewProjectionMatrix(from: snapshot.camera)
-
-        return MetalTerrainUniforms(
-            modelViewProjectionMatrix: viewProjectionMatrix * modelMatrix,
-            modelMatrix: modelMatrix
-        )
-    }
-
     private func makeViewProjectionMatrix(from camera: CameraRenderState) -> matrix_float4x4 {
         let aspect = drawableSize.x / drawableSize.y
         let projection = matrixPerspectiveRightHanded(
@@ -253,89 +243,46 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         debugMetrics.cachedChunkCount = chunkBuffersByCoordinate.count
         debugMetrics.averageChunkUploadMs = average(totalChunkUploadTimeMs, sampleCount: chunkUploadSampleCount)
         debugMetrics.chunkUploadsThisFrame = chunkUploadsThisFrame
+        debugMetrics.metalDrawCallCount = lastDrawMetrics.totalDrawCalls
+        debugMetrics.metalTerrainDrawCallCount = lastDrawMetrics.terrainDrawCalls
+        debugMetrics.metalPropDrawCallCount = lastDrawMetrics.propDrawCalls
+        debugMetrics.metalPlayerDrawCallCount = lastDrawMetrics.playerDrawCalls
+        debugMetrics.metalDebugDrawCallCount = lastDrawMetrics.debugDrawCalls
+        debugMetrics.metalRenderedChunkCount = lastDrawMetrics.terrainChunksDrawn
+        debugMetrics.metalRenderedPropCount = lastDrawMetrics.propsDrawn
+        debugMetrics.metalBufferCount = metalBufferCount
+        debugMetrics.metalVisibleTerrainMaterialCount = visibleTerrainMaterialCount
+        debugMetrics.metalVisiblePropMaterialCount = visiblePropMaterialCount
     }
 
-    private func drawPlayer(with renderEncoder: MTLRenderCommandEncoder?) {
-        guard let playerBuffers else {
-            return
+    private var metalBufferCount: Int {
+        let playerBufferCount = playerBuffers?.bufferCount ?? 0
+
+        return chunkBuffersByCoordinate.values.reduce(playerBufferCount) { total, buffers in
+            total + buffers.bufferCount
         }
-
-        var uniforms = makePlayerUniforms()
-        renderEncoder?.setVertexBuffer(playerBuffers.vertexBuffer, offset: 0, index: 0)
-        renderEncoder?.setVertexBytes(
-            &uniforms,
-            length: MemoryLayout<MetalTerrainUniforms>.stride,
-            index: 1
-        )
-        renderEncoder?.drawIndexedPrimitives(
-            type: .triangle,
-            indexCount: playerBuffers.indexCount,
-            indexType: .uint32,
-            indexBuffer: playerBuffers.indexBuffer,
-            indexBufferOffset: 0
-        )
     }
 
-    private func drawProps(with renderEncoder: MTLRenderCommandEncoder?) {
-        for chunk in snapshot.chunks where chunk.isVisible {
-            guard
-                let buffers = chunkBuffersByCoordinate[chunk.coordinate],
-                let propVertexBuffer = buffers.propVertexBuffer,
-                let propIndexBuffer = buffers.propIndexBuffer,
-                buffers.propIndexCount > 0
-            else {
-                continue
+    private var visibleTerrainMaterialCount: Int {
+        Set(snapshot.chunks.filter(\.isVisible).flatMap { chunk in
+            if chunk.terrainVertexMaterials.isEmpty {
+                [chunk.terrainMaterial.identifier]
+            } else {
+                chunk.terrainVertexMaterials.map(\.materialIdentifier)
             }
-
-            var uniforms = makeTerrainUniforms(for: chunk)
-            renderEncoder?.setVertexBuffer(propVertexBuffer, offset: 0, index: 0)
-            renderEncoder?.setVertexBytes(
-                &uniforms,
-                length: MemoryLayout<MetalTerrainUniforms>.stride,
-                index: 1
-            )
-            renderEncoder?.drawIndexedPrimitives(
-                type: .triangle,
-                indexCount: buffers.propIndexCount,
-                indexType: .uint32,
-                indexBuffer: propIndexBuffer,
-                indexBufferOffset: 0
-            )
-        }
+        }).count
     }
 
-    private func makePlayerUniforms() -> MetalTerrainUniforms {
-        let modelMatrix = matrixTranslation(runtime.playerPosition)
-        let viewProjectionMatrix = makeViewProjectionMatrix(from: snapshot.camera)
-
-        return MetalTerrainUniforms(
-            modelViewProjectionMatrix: viewProjectionMatrix * modelMatrix,
-            modelMatrix: modelMatrix
-        )
-    }
-
-    private func drawChunkBounds(with renderEncoder: MTLRenderCommandEncoder?) {
-        for chunk in snapshot.chunks where chunk.isVisible {
-            guard
-                let buffers = chunkBuffersByCoordinate[chunk.coordinate],
-                buffers.debugBoundsLineVertexCount > 0
-            else {
-                continue
+    private var visiblePropMaterialCount: Int {
+        Set(snapshot.chunks.filter(\.isVisible).flatMap { chunk in
+            chunk.props.filter(\.isVisible).flatMap { prop in
+                [
+                    prop.variant.primaryMaterial.identifier,
+                    prop.variant.secondaryMaterial.identifier,
+                    prop.variant.accentMaterial.identifier,
+                ]
             }
-
-            var uniforms = makeTerrainUniforms(for: chunk)
-            renderEncoder?.setVertexBuffer(buffers.debugBoundsLineVertexBuffer, offset: 0, index: 0)
-            renderEncoder?.setVertexBytes(
-                &uniforms,
-                length: MemoryLayout<MetalTerrainUniforms>.stride,
-                index: 1
-            )
-            renderEncoder?.drawPrimitives(
-                type: .line,
-                vertexStart: 0,
-                vertexCount: buffers.debugBoundsLineVertexCount
-            )
-        }
+        }).count
     }
 
     private func updatePerformanceMetrics() -> Float {
@@ -376,10 +323,14 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     }
 }
 
-private struct MetalIndexedMeshBuffers {
+struct MetalIndexedMeshBuffers {
     let vertexBuffer: MTLBuffer
     let indexBuffer: MTLBuffer
     let indexCount: Int
+
+    var bufferCount: Int {
+        2
+    }
 
     init?(
         device: MTLDevice?,
@@ -408,7 +359,7 @@ private struct MetalIndexedMeshBuffers {
     }
 }
 
-private struct MetalChunkBuffers {
+struct MetalChunkBuffers {
     let renderChunk: RenderChunk
     let terrainVertexBuffer: MTLBuffer
     let terrainIndexBuffer: MTLBuffer
@@ -419,11 +370,19 @@ private struct MetalChunkBuffers {
     let debugBoundsLineVertexBuffer: MTLBuffer?
     let debugBoundsLineVertexCount: Int
 
+    var bufferCount: Int {
+        2 +
+            (propVertexBuffer == nil ? 0 : 1) +
+            (propIndexBuffer == nil ? 0 : 1) +
+            (debugBoundsLineVertexBuffer == nil ? 0 : 1)
+    }
+
     init?(device: MTLDevice?, renderChunk: RenderChunk) {
         let geometry = renderChunk.terrainGeometry
         let terrainVertices = Self.terrainVertices(
             from: geometry,
-            color: renderChunk.terrainMaterial.baseColor
+            fallbackMaterial: renderChunk.terrainMaterial,
+            vertexMaterials: renderChunk.terrainVertexMaterials
         )
         let propMesh = Self.propMesh(for: renderChunk)
         let debugLineVertices = Self.debugBoundsLineVertices(for: renderChunk)
@@ -462,15 +421,23 @@ private struct MetalChunkBuffers {
 
     private static func terrainVertices(
         from geometry: TerrainGeometryBuffers,
-        color: BiomeColor
+        fallbackMaterial: TerrainMaterialDescriptor,
+        vertexMaterials: [TerrainVertexMaterial]
     ) -> [MetalTerrainVertex] {
-        let vertexColor = SIMD4<Float>(color.red, color.green, color.blue, 1)
+        let hasPerVertexMaterials = vertexMaterials.count == geometry.positions.count
+        let fallbackColor = color(from: fallbackMaterial.baseColor)
+        let fallbackPayload = MetalMaterialPayload.terrain(fallbackMaterial)
 
-        return zip(geometry.positions, geometry.normals).map { position, normal in
-            MetalTerrainVertex(
+        return zip(geometry.positions, geometry.normals).enumerated().map { index, pair in
+            let position = pair.0
+            let normal = pair.1
+            let vertexMaterial = hasPerVertexMaterials ? vertexMaterials[index] : nil
+
+            return MetalTerrainVertex(
                 position: SIMD3<Float>(position.x, position.y, position.z),
                 normal: SIMD3<Float>(normal.x, normal.y, normal.z),
-                color: vertexColor
+                color: vertexMaterial.map { color(from: $0.baseColor) } ?? fallbackColor,
+                material: vertexMaterial.map(MetalMaterialPayload.terrain) ?? fallbackPayload
             )
         }
     }
@@ -487,10 +454,12 @@ private struct MetalChunkBuffers {
 
             for part in prop.variant.geometry.parts {
                 let baseIndex = UInt32(vertices.count)
-                let color = propColor(for: prop.variant.material(for: part.materialSlot))
+                let material = prop.variant.material(for: part.materialSlot)
+                let color = propColor(for: material)
                 let partVertices = centeredBoxVertices(
                     size: vector(from: part.size),
-                    color: color
+                    color: color,
+                    material: MetalMaterialPayload.prop(material)
                 ).map { vertex in
                     transformedPropVertex(
                         vertex,
@@ -527,13 +496,15 @@ private struct MetalChunkBuffers {
         return MetalTerrainVertex(
             position: finalPosition,
             normal: finalNormal,
-            color: vertex.color
+            color: vertex.color,
+            material: vertex.material
         )
     }
 
     private static func centeredBoxVertices(
         size: SIMD3<Float>,
-        color: SIMD4<Float>
+        color: SIMD4<Float>,
+        material: SIMD4<Float>
     ) -> [MetalTerrainVertex] {
         let halfX = size.x * 0.5
         let halfY = size.y * 0.5
@@ -546,45 +517,44 @@ private struct MetalChunkBuffers {
         let bottomNormal = SIMD3<Float>(0, -1, 0)
 
         return [
-            MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: frontNormal, color: color),
-            MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: frontNormal, color: color),
-            MetalTerrainVertex(position: [halfX, halfY, halfZ], normal: frontNormal, color: color),
-            MetalTerrainVertex(position: [-halfX, halfY, halfZ], normal: frontNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: frontNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: frontNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, halfY, halfZ], normal: frontNormal, color: color, material: material),
+            MetalTerrainVertex(position: [-halfX, halfY, halfZ], normal: frontNormal, color: color, material: material),
 
-            MetalTerrainVertex(position: [halfX, -halfY, -halfZ], normal: backNormal, color: color),
-            MetalTerrainVertex(position: [-halfX, -halfY, -halfZ], normal: backNormal, color: color),
-            MetalTerrainVertex(position: [-halfX, halfY, -halfZ], normal: backNormal, color: color),
-            MetalTerrainVertex(position: [halfX, halfY, -halfZ], normal: backNormal, color: color),
+            MetalTerrainVertex(position: [halfX, -halfY, -halfZ], normal: backNormal, color: color, material: material),
+            MetalTerrainVertex(position: [-halfX, -halfY, -halfZ], normal: backNormal, color: color, material: material),
+            MetalTerrainVertex(position: [-halfX, halfY, -halfZ], normal: backNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, halfY, -halfZ], normal: backNormal, color: color, material: material),
 
-            MetalTerrainVertex(position: [-halfX, -halfY, -halfZ], normal: leftNormal, color: color),
-            MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: leftNormal, color: color),
-            MetalTerrainVertex(position: [-halfX, halfY, halfZ], normal: leftNormal, color: color),
-            MetalTerrainVertex(position: [-halfX, halfY, -halfZ], normal: leftNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, -halfY, -halfZ], normal: leftNormal, color: color, material: material),
+            MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: leftNormal, color: color, material: material),
+            MetalTerrainVertex(position: [-halfX, halfY, halfZ], normal: leftNormal, color: color, material: material),
+            MetalTerrainVertex(position: [-halfX, halfY, -halfZ], normal: leftNormal, color: color, material: material),
 
-            MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: rightNormal, color: color),
-            MetalTerrainVertex(position: [halfX, -halfY, -halfZ], normal: rightNormal, color: color),
-            MetalTerrainVertex(position: [halfX, halfY, -halfZ], normal: rightNormal, color: color),
-            MetalTerrainVertex(position: [halfX, halfY, halfZ], normal: rightNormal, color: color),
+            MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: rightNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, -halfY, -halfZ], normal: rightNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, halfY, -halfZ], normal: rightNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, halfY, halfZ], normal: rightNormal, color: color, material: material),
 
-            MetalTerrainVertex(position: [-halfX, halfY, halfZ], normal: topNormal, color: color),
-            MetalTerrainVertex(position: [halfX, halfY, halfZ], normal: topNormal, color: color),
-            MetalTerrainVertex(position: [halfX, halfY, -halfZ], normal: topNormal, color: color),
-            MetalTerrainVertex(position: [-halfX, halfY, -halfZ], normal: topNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, halfY, halfZ], normal: topNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, halfY, halfZ], normal: topNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, halfY, -halfZ], normal: topNormal, color: color, material: material),
+            MetalTerrainVertex(position: [-halfX, halfY, -halfZ], normal: topNormal, color: color, material: material),
 
-            MetalTerrainVertex(position: [-halfX, -halfY, -halfZ], normal: bottomNormal, color: color),
-            MetalTerrainVertex(position: [halfX, -halfY, -halfZ], normal: bottomNormal, color: color),
-            MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: bottomNormal, color: color),
-            MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: bottomNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, -halfY, -halfZ], normal: bottomNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, -halfY, -halfZ], normal: bottomNormal, color: color, material: material),
+            MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: bottomNormal, color: color, material: material),
+            MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: bottomNormal, color: color, material: material),
         ]
     }
 
     private static func propColor(for material: PropMaterialDescriptor) -> SIMD4<Float> {
-        SIMD4<Float>(
-            material.color.red,
-            material.color.green,
-            material.color.blue,
-            1
-        )
+        color(from: material.color)
+    }
+
+    private static func color(from color: BiomeColor) -> SIMD4<Float> {
+        SIMD4<Float>(color.red, color.green, color.blue, 1)
     }
 
     private static func debugBoundsLineVertices(for chunk: RenderChunk) -> [MetalTerrainVertex] {
@@ -615,7 +585,12 @@ private struct MetalChunkBuffers {
         ]
 
         return linePositions.map { position in
-            MetalTerrainVertex(position: position, normal: normal, color: color)
+            MetalTerrainVertex(
+                position: position,
+                normal: normal,
+                color: color,
+                material: MetalMaterialPayload.debug
+            )
         }
     }
 
@@ -633,13 +608,18 @@ private struct MetalChunkBuffers {
     }
 }
 
-private struct MetalTerrainVertex {
+struct MetalTerrainVertex {
     let position: SIMD3<Float>
     let normal: SIMD3<Float>
     let color: SIMD4<Float>
+    let material: SIMD4<Float>
 }
 
-private func makeBoxVertices(size: SIMD3<Float>, color: SIMD4<Float>) -> [MetalTerrainVertex] {
+private func makeBoxVertices(
+    size: SIMD3<Float>,
+    color: SIMD4<Float>,
+    material: SIMD4<Float>
+) -> [MetalTerrainVertex] {
     let halfX = size.x * 0.5
     let halfZ = size.z * 0.5
     let minY: Float = 0
@@ -653,35 +633,35 @@ private func makeBoxVertices(size: SIMD3<Float>, color: SIMD4<Float>) -> [MetalT
     let bottomNormal = SIMD3<Float>(0, -1, 0)
 
     return [
-        MetalTerrainVertex(position: [-halfX, minY, halfZ], normal: frontNormal, color: color),
-        MetalTerrainVertex(position: [halfX, minY, halfZ], normal: frontNormal, color: color),
-        MetalTerrainVertex(position: [halfX, maxY, halfZ], normal: frontNormal, color: color),
-        MetalTerrainVertex(position: [-halfX, maxY, halfZ], normal: frontNormal, color: color),
+        MetalTerrainVertex(position: [-halfX, minY, halfZ], normal: frontNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, minY, halfZ], normal: frontNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, maxY, halfZ], normal: frontNormal, color: color, material: material),
+        MetalTerrainVertex(position: [-halfX, maxY, halfZ], normal: frontNormal, color: color, material: material),
 
-        MetalTerrainVertex(position: [halfX, minY, -halfZ], normal: backNormal, color: color),
-        MetalTerrainVertex(position: [-halfX, minY, -halfZ], normal: backNormal, color: color),
-        MetalTerrainVertex(position: [-halfX, maxY, -halfZ], normal: backNormal, color: color),
-        MetalTerrainVertex(position: [halfX, maxY, -halfZ], normal: backNormal, color: color),
+        MetalTerrainVertex(position: [halfX, minY, -halfZ], normal: backNormal, color: color, material: material),
+        MetalTerrainVertex(position: [-halfX, minY, -halfZ], normal: backNormal, color: color, material: material),
+        MetalTerrainVertex(position: [-halfX, maxY, -halfZ], normal: backNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, maxY, -halfZ], normal: backNormal, color: color, material: material),
 
-        MetalTerrainVertex(position: [-halfX, minY, -halfZ], normal: leftNormal, color: color),
-        MetalTerrainVertex(position: [-halfX, minY, halfZ], normal: leftNormal, color: color),
-        MetalTerrainVertex(position: [-halfX, maxY, halfZ], normal: leftNormal, color: color),
-        MetalTerrainVertex(position: [-halfX, maxY, -halfZ], normal: leftNormal, color: color),
+        MetalTerrainVertex(position: [-halfX, minY, -halfZ], normal: leftNormal, color: color, material: material),
+        MetalTerrainVertex(position: [-halfX, minY, halfZ], normal: leftNormal, color: color, material: material),
+        MetalTerrainVertex(position: [-halfX, maxY, halfZ], normal: leftNormal, color: color, material: material),
+        MetalTerrainVertex(position: [-halfX, maxY, -halfZ], normal: leftNormal, color: color, material: material),
 
-        MetalTerrainVertex(position: [halfX, minY, halfZ], normal: rightNormal, color: color),
-        MetalTerrainVertex(position: [halfX, minY, -halfZ], normal: rightNormal, color: color),
-        MetalTerrainVertex(position: [halfX, maxY, -halfZ], normal: rightNormal, color: color),
-        MetalTerrainVertex(position: [halfX, maxY, halfZ], normal: rightNormal, color: color),
+        MetalTerrainVertex(position: [halfX, minY, halfZ], normal: rightNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, minY, -halfZ], normal: rightNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, maxY, -halfZ], normal: rightNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, maxY, halfZ], normal: rightNormal, color: color, material: material),
 
-        MetalTerrainVertex(position: [-halfX, maxY, halfZ], normal: topNormal, color: color),
-        MetalTerrainVertex(position: [halfX, maxY, halfZ], normal: topNormal, color: color),
-        MetalTerrainVertex(position: [halfX, maxY, -halfZ], normal: topNormal, color: color),
-        MetalTerrainVertex(position: [-halfX, maxY, -halfZ], normal: topNormal, color: color),
+        MetalTerrainVertex(position: [-halfX, maxY, halfZ], normal: topNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, maxY, halfZ], normal: topNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, maxY, -halfZ], normal: topNormal, color: color, material: material),
+        MetalTerrainVertex(position: [-halfX, maxY, -halfZ], normal: topNormal, color: color, material: material),
 
-        MetalTerrainVertex(position: [-halfX, minY, -halfZ], normal: bottomNormal, color: color),
-        MetalTerrainVertex(position: [halfX, minY, -halfZ], normal: bottomNormal, color: color),
-        MetalTerrainVertex(position: [halfX, minY, halfZ], normal: bottomNormal, color: color),
-        MetalTerrainVertex(position: [-halfX, minY, halfZ], normal: bottomNormal, color: color),
+        MetalTerrainVertex(position: [-halfX, minY, -halfZ], normal: bottomNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, minY, -halfZ], normal: bottomNormal, color: color, material: material),
+        MetalTerrainVertex(position: [halfX, minY, halfZ], normal: bottomNormal, color: color, material: material),
+        MetalTerrainVertex(position: [-halfX, minY, halfZ], normal: bottomNormal, color: color, material: material),
     ]
 }
 
@@ -703,7 +683,7 @@ private func boxIndices() -> [UInt32] {
     return indices
 }
 
-private struct MetalTerrainUniforms {
+struct MetalTerrainUniforms {
     let modelViewProjectionMatrix: matrix_float4x4
     let modelMatrix: matrix_float4x4
 }
@@ -716,18 +696,24 @@ private func makeBuffer<T>(
         return nil
     }
 
-    return device.makeBuffer(
-        bytes: values,
-        length: MemoryLayout<T>.stride * values.count,
-        options: []
-    )
+    return values.withUnsafeBytes { bytes in
+        guard let baseAddress = bytes.baseAddress else {
+            return nil
+        }
+
+        return device.makeBuffer(
+            bytes: baseAddress,
+            length: bytes.count,
+            options: []
+        )
+    }
 }
 
-private func vector(from position: WorldPosition) -> SIMD3<Float> {
+func vector(from position: WorldPosition) -> SIMD3<Float> {
     SIMD3<Float>(position.x, position.y, position.z)
 }
 
-private func vector(from vector: PropVector3) -> SIMD3<Float> {
+func vector(from vector: PropVector3) -> SIMD3<Float> {
     SIMD3<Float>(vector.x, vector.y, vector.z)
 }
 
@@ -747,7 +733,7 @@ private func transformDirection(
     return SIMD3<Float>(transformed.x, transformed.y, transformed.z)
 }
 
-private func matrixTranslation(_ translation: SIMD3<Float>) -> matrix_float4x4 {
+func matrixTranslation(_ translation: SIMD3<Float>) -> matrix_float4x4 {
     matrix_float4x4(columns: (
         SIMD4<Float>(1, 0, 0, 0),
         SIMD4<Float>(0, 1, 0, 0),

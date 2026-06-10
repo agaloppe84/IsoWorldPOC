@@ -39,6 +39,22 @@ public struct BiomeSampler: Sendable {
         return biome(at: position)
     }
 
+    public func terrainVertexMaterial(
+        for coordinate: ChunkCoordinate,
+        localX: Int,
+        localZ: Int,
+        samplesPerChunk: Int = 64
+    ) -> TerrainVertexMaterial {
+        TerrainVertexMaterial(
+            biome: biome(
+                for: coordinate,
+                localX: localX,
+                localZ: localZ,
+                samplesPerChunk: samplesPerChunk
+            )
+        )
+    }
+
     public func dominantBiome(
         for coordinate: ChunkCoordinate,
         samplesPerChunk: Int = 64

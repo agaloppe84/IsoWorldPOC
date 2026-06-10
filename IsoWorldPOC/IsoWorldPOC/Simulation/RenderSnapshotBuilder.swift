@@ -22,6 +22,7 @@ struct RenderSnapshotBuilder {
     func makeSnapshot(
         chunkStreamer: ChunkDataStreamer,
         camera: CameraRenderState,
+        lighting: LightingState,
         debugOptions: RenderSnapshotDebugOptions
     ) -> RenderWorldSnapshot {
         let chunks = chunkStreamer.activeChunkData().map { renderData in
@@ -30,6 +31,7 @@ struct RenderSnapshotBuilder {
 
         return RenderWorldSnapshot(
             camera: camera,
+            lighting: lighting,
             chunks: chunks,
             debugOptions: RenderDebugOptions(
                 showChunkBounds: debugOptions.showChunkBounds,
@@ -48,6 +50,7 @@ struct RenderSnapshotBuilder {
             terrainGeometry: data.terrainGeometry,
             biome: data.biome,
             terrainMaterial: data.biome.terrainMaterial,
+            terrainVertexMaterials: data.terrainVertexMaterials,
             props: renderProps(from: data, isVisible: renderData.isVisible),
             debugBounds: RenderChunkDebugBounds(
                 coordinate: data.coordinate,

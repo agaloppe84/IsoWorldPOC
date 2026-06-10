@@ -37,6 +37,16 @@ final class DebugMetrics: ObservableObject {
     @Published var chunkUploadsThisFrame = 0
     @Published var averageChunkDataGenerationMs: Float?
     @Published var averageChunkUploadMs: Float?
+    @Published var metalDrawCallCount = 0
+    @Published var metalTerrainDrawCallCount = 0
+    @Published var metalPropDrawCallCount = 0
+    @Published var metalPlayerDrawCallCount = 0
+    @Published var metalDebugDrawCallCount = 0
+    @Published var metalBufferCount = 0
+    @Published var metalRenderedChunkCount = 0
+    @Published var metalRenderedPropCount = 0
+    @Published var metalVisibleTerrainMaterialCount = 0
+    @Published var metalVisiblePropMaterialCount = 0
     @Published var showChunkBounds = true
     @Published var showChunkLabels = true
     @Published var cameraYaw: Float = 0
