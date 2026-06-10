@@ -10,11 +10,13 @@ import EngineCore
 struct RenderSnapshotDebugOptions {
     static let defaults = RenderSnapshotDebugOptions(
         showChunkBounds: true,
-        showChunkLabels: true
+        showChunkLabels: true,
+        terrainMaterialDebugMode: .normal
     )
 
     let showChunkBounds: Bool
     let showChunkLabels: Bool
+    let terrainMaterialDebugMode: TerrainMaterialDebugMode
 }
 
 @MainActor
@@ -35,7 +37,8 @@ struct RenderSnapshotBuilder {
             chunks: chunks,
             debugOptions: RenderDebugOptions(
                 showChunkBounds: debugOptions.showChunkBounds,
-                showChunkLabels: debugOptions.showChunkLabels
+                showChunkLabels: debugOptions.showChunkLabels,
+                terrainMaterialDebugMode: debugOptions.terrainMaterialDebugMode
             )
         )
     }

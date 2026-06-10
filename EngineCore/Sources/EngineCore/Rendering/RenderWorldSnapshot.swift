@@ -1,10 +1,36 @@
+public enum TerrainMaterialDebugMode: String, CaseIterable, Codable, Sendable {
+    case normal
+    case primaryBiome
+    case secondaryBiome
+    case blendWeight
+
+    public var displayName: String {
+        switch self {
+        case .normal:
+            "Normal"
+        case .primaryBiome:
+            "Primary biome"
+        case .secondaryBiome:
+            "Secondary biome"
+        case .blendWeight:
+            "Blend weight"
+        }
+    }
+}
+
 public struct RenderDebugOptions: Equatable, Codable, Sendable {
     public let showChunkBounds: Bool
     public let showChunkLabels: Bool
+    public let terrainMaterialDebugMode: TerrainMaterialDebugMode
 
-    public init(showChunkBounds: Bool = false, showChunkLabels: Bool = false) {
+    public init(
+        showChunkBounds: Bool = false,
+        showChunkLabels: Bool = false,
+        terrainMaterialDebugMode: TerrainMaterialDebugMode = .normal
+    ) {
         self.showChunkBounds = showChunkBounds
         self.showChunkLabels = showChunkLabels
+        self.terrainMaterialDebugMode = terrainMaterialDebugMode
     }
 }
 

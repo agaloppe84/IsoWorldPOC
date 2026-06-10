@@ -22,6 +22,10 @@ struct MetalFrameContext {
     var lightingUniforms: MetalLightingUniforms {
         MetalLightingUniforms(state: snapshot.lighting)
     }
+
+    var debugUniforms: MetalRenderDebugUniforms {
+        MetalRenderDebugUniforms(options: snapshot.debugOptions)
+    }
 }
 
 struct MetalLightingUniforms {
@@ -47,6 +51,32 @@ struct MetalLightingUniforms {
             0,
             0
         )
+    }
+}
+
+struct MetalRenderDebugUniforms {
+    let terrainMaterialModeAndFlags: SIMD4<Float>
+
+    init(options: RenderDebugOptions) {
+        self.terrainMaterialModeAndFlags = SIMD4<Float>(
+            Self.modeID(options.terrainMaterialDebugMode),
+            0,
+            0,
+            0
+        )
+    }
+
+    private static func modeID(_ mode: TerrainMaterialDebugMode) -> Float {
+        switch mode {
+        case .normal:
+            0
+        case .primaryBiome:
+            1
+        case .secondaryBiome:
+            2
+        case .blendWeight:
+            3
+        }
     }
 }
 

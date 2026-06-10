@@ -50,7 +50,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         self.runtime = WorldRuntime(
             debugOptions: RenderSnapshotDebugOptions(
                 showChunkBounds: debugMetrics.showChunkBounds,
-                showChunkLabels: debugMetrics.showChunkLabels
+                showChunkLabels: debugMetrics.showChunkLabels,
+                terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode
             )
         )
         self.snapshot = runtime.snapshot
@@ -86,7 +87,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             deltaTime: deltaTime,
             debugOptions: RenderSnapshotDebugOptions(
                 showChunkBounds: debugMetrics.showChunkBounds,
-                showChunkLabels: debugMetrics.showChunkLabels
+                showChunkLabels: debugMetrics.showChunkLabels,
+                terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode
             )
         )
     }
@@ -125,10 +127,16 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             viewProjectionMatrix: makeViewProjectionMatrix(from: snapshot.camera)
         )
         var lightingUniforms = frameContext.lightingUniforms
+        var debugUniforms = frameContext.debugUniforms
         renderEncoder.setVertexBytes(
             &lightingUniforms,
             length: MemoryLayout<MetalLightingUniforms>.stride,
             index: 2
+        )
+        renderEncoder.setVertexBytes(
+            &debugUniforms,
+            length: MemoryLayout<MetalRenderDebugUniforms>.stride,
+            index: 3
         )
 
         var drawMetrics = MetalFrameDrawMetrics.empty
@@ -268,7 +276,16 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             if chunk.terrainVertexMaterials.isEmpty {
                 [chunk.terrainMaterial.identifier]
             } else {
-                chunk.terrainVertexMaterials.map(\.materialIdentifier)
+                chunk.terrainVertexMaterials.flatMap { material in
+                    if material.hasBlend {
+                        [
+                            material.materialIdentifier,
+                            material.secondaryMaterialIdentifier,
+                        ]
+                    } else {
+                        [material.materialIdentifier]
+                    }
+                }
             }
         }).count
     }
@@ -432,12 +449,15 @@ struct MetalChunkBuffers {
             let position = pair.0
             let normal = pair.1
             let vertexMaterial = hasPerVertexMaterials ? vertexMaterials[index] : nil
+            let primaryColor = vertexMaterial.map { color(from: $0.baseColor) } ?? fallbackColor
+            let secondaryColor = vertexMaterial.map { color(from: $0.secondaryBaseColor) } ?? fallbackColor
 
             return MetalTerrainVertex(
                 position: SIMD3<Float>(position.x, position.y, position.z),
                 normal: SIMD3<Float>(normal.x, normal.y, normal.z),
-                color: vertexMaterial.map { color(from: $0.baseColor) } ?? fallbackColor,
-                material: vertexMaterial.map(MetalMaterialPayload.terrain) ?? fallbackPayload
+                color: primaryColor,
+                material: vertexMaterial.map(MetalMaterialPayload.terrain) ?? fallbackPayload,
+                secondaryColor: secondaryColor
             )
         }
     }
@@ -497,7 +517,8 @@ struct MetalChunkBuffers {
             position: finalPosition,
             normal: finalNormal,
             color: vertex.color,
-            material: vertex.material
+            material: vertex.material,
+            secondaryColor: vertex.secondaryColor
         )
     }
 
@@ -612,7 +633,22 @@ struct MetalTerrainVertex {
     let position: SIMD3<Float>
     let normal: SIMD3<Float>
     let color: SIMD4<Float>
+    let secondaryColor: SIMD4<Float>
     let material: SIMD4<Float>
+
+    init(
+        position: SIMD3<Float>,
+        normal: SIMD3<Float>,
+        color: SIMD4<Float>,
+        material: SIMD4<Float>,
+        secondaryColor: SIMD4<Float>? = nil
+    ) {
+        self.position = position
+        self.normal = normal
+        self.color = color
+        self.secondaryColor = secondaryColor ?? color
+        self.material = material
+    }
 }
 
 private func makeBoxVertices(

@@ -183,3 +183,25 @@ Consequence: `BiomeSampler` derive un materiau terrain pour chaque sample a part
 Garantie: les tests EngineCore verifient que deux chunks voisins produisent les memes materiaux sur leurs bords partages, y compris avec des coordonnees negatives.
 
 Limite actuelle: le rendu reste en vertex colors et payloads simples. Les transitions entre biomes peuvent encore etre franches; le prochain niveau sera d'introduire des poids de materiaux/splat data deterministes avant d'ajouter textures ou atlas.
+
+## 020 - Transitions douces de materiaux terrain
+
+Decision: enrichir `TerrainVertexMaterial` avec un materiau primaire, un materiau secondaire et un `blendWeight` par sample.
+
+Raison: les transitions de biomes ne doivent pas rester des aplats durs. Une transition par vertex donne un premier lissage visuel tout en gardant un seul draw call terrain par chunk.
+
+Consequence: `BiomeSampler` echantillonne un voisinage deterministic autour de chaque position monde pour choisir un biome secondaire et un poids borne. Le vertex buffer Metal transporte une couleur secondaire et le shader mixe couleur + roughness.
+
+Garantie: les poids restent normalises (`primaryWeight + secondaryWeight = 1`) et les tests verifient determinisme, existence de transitions et raccord exact des bords entre chunks.
+
+Limite actuelle: le mix se fait en vertex color. Ce n'est pas encore une splat map ni un vrai systeme de textures; les prochains travaux devront introduire des poids de materiaux plus explicites, puis des texture arrays/atlas.
+
+## 021 - Debug visuel des materiaux terrain
+
+Decision: ajouter `TerrainMaterialDebugMode` dans `RenderDebugOptions` avec les modes `normal`, `primaryBiome`, `secondaryBiome` et `blendWeight`.
+
+Raison: les transitions de biomes doivent etre inspectables dans le jeu avant d'investir dans des textures, splat maps ou regles plus complexes.
+
+Consequence: l'overlay expose un picker de mode terrain. `WorldRuntime` transporte ce mode dans le snapshot, `MetalFrameContext` le convertit en uniform, et le shader Metal applique le debug seulement aux materiaux terrain.
+
+Limite actuelle: le mode `blendWeight` est une heatmap de debug et non un rendu artistique. Il sert a verifier ou les transitions existent, pas a representer le style final.

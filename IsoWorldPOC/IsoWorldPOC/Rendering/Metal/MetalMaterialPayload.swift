@@ -16,7 +16,7 @@ enum MetalMaterialPayload {
         SIMD4<Float>(
             clampedRoughness(material.roughness),
             Float(terrainKindID(material.kind)),
-            0,
+            clampedRoughness(material.roughness),
             0
         )
     }
@@ -25,8 +25,8 @@ enum MetalMaterialPayload {
         SIMD4<Float>(
             clampedRoughness(material.roughness),
             Float(terrainKindID(material.materialKind)),
-            0,
-            0
+            clampedRoughness(material.secondaryRoughness),
+            min(max(material.blendWeight, 0), 1)
         )
     }
 

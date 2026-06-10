@@ -57,5 +57,6 @@ final class DebugMetrics: ObservableObject {
     @Published var sunIntensity: Float = 0
     @Published var ambientIntensity: Float = 0
     @Published var shadowsEnabled = false
+    @Published var terrainMaterialDebugMode: TerrainMaterialDebugMode = .normal
     @Published var rendererMode = RendererMode.activeMode
 }

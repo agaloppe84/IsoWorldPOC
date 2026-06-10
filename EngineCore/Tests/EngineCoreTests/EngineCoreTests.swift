@@ -458,6 +458,116 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(material.roughness, biome.terrainMaterial.roughness)
     }
 
+    func testTerrainVertexMaterialBlendWeightsAreNormalized() {
+        let sampler = BiomeSampler(seed: WorldSeed(99))
+        let coordinates = [
+            ChunkCoordinate.origin,
+            ChunkCoordinate(x: -3, y: 0, z: 4),
+            ChunkCoordinate(x: 5, y: 0, z: -2),
+        ]
+
+        for coordinate in coordinates {
+            for localZ in stride(from: 0, through: ChunkHeightmap.resolution - 1, by: 9) {
+                for localX in stride(from: 0, through: ChunkHeightmap.resolution - 1, by: 11) {
+                    let material = sampler.terrainVertexMaterial(
+                        for: coordinate,
+                        localX: localX,
+                        localZ: localZ
+                    )
+
+                    XCTAssertGreaterThanOrEqual(material.primaryWeight, 0)
+                    XCTAssertLessThanOrEqual(material.primaryWeight, 1)
+                    XCTAssertGreaterThanOrEqual(material.secondaryWeight, 0)
+                    XCTAssertLessThanOrEqual(material.secondaryWeight, 1)
+                    XCTAssertEqual(
+                        material.primaryWeight + material.secondaryWeight,
+                        1,
+                        accuracy: 0.0001
+                    )
+
+                    if material.blendWeight == 0 {
+                        XCTAssertEqual(material.secondaryBiomeType, material.biomeType)
+                        XCTAssertEqual(material.secondaryMaterialIdentifier, material.materialIdentifier)
+                    }
+                }
+            }
+        }
+    }
+
+    func testTerrainVertexMaterialProducesDeterministicSoftTransitions() throws {
+        let sampler = BiomeSampler(seed: WorldSeed(99))
+        var transitionMaterial: TerrainVertexMaterial?
+
+        for z in stride(from: -512, through: 512, by: 16) {
+            for x in stride(from: -512, through: 512, by: 16) {
+                let material = sampler.terrainVertexMaterial(at: WorldPosition(
+                    x: Float(x),
+                    y: 0,
+                    z: Float(z)
+                ))
+
+                if material.hasBlend {
+                    transitionMaterial = material
+                    break
+                }
+            }
+
+            if transitionMaterial != nil {
+                break
+            }
+        }
+
+        let material = try XCTUnwrap(transitionMaterial)
+        XCTAssertNotEqual(material.biomeType, material.secondaryBiomeType)
+        XCTAssertNotEqual(material.materialIdentifier, material.secondaryMaterialIdentifier)
+        XCTAssertGreaterThan(material.blendWeight, 0)
+        XCTAssertLessThanOrEqual(material.blendWeight, 0.45)
+
+        let repeatMaterial = sampler.terrainVertexMaterial(at: WorldPosition(
+            x: -512,
+            y: 0,
+            z: -512
+        ))
+        XCTAssertEqual(
+            repeatMaterial,
+            sampler.terrainVertexMaterial(at: WorldPosition(x: -512, y: 0, z: -512))
+        )
+    }
+
+    func testTerrainVertexMaterialBlendsColorAndRoughness() {
+        let primary = Biome.definition(for: .grassland)
+        let secondary = Biome.definition(for: .rockyHighlands)
+        let material = TerrainVertexMaterial(
+            primaryBiome: primary,
+            secondaryBiome: secondary,
+            blendWeight: 0.25
+        )
+        let blendedColor = material.blendedBaseColor
+
+        XCTAssertEqual(material.primaryWeight, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(material.secondaryWeight, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(
+            blendedColor.red,
+            primary.terrainMaterial.baseColor.red * 0.75 + secondary.terrainMaterial.baseColor.red * 0.25,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            blendedColor.green,
+            primary.terrainMaterial.baseColor.green * 0.75 + secondary.terrainMaterial.baseColor.green * 0.25,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            blendedColor.blue,
+            primary.terrainMaterial.baseColor.blue * 0.75 + secondary.terrainMaterial.baseColor.blue * 0.25,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            material.blendedRoughness,
+            primary.terrainMaterial.roughness * 0.75 + secondary.terrainMaterial.roughness * 0.25,
+            accuracy: 0.0001
+        )
+    }
+
     func testBiomeSamplerSharesTerrainVertexMaterialsBetweenAdjacentChunks() {
         let sampler = BiomeSampler(seed: WorldSeed(99))
         let left = ChunkCoordinate(x: 0, y: 0, z: 0)
@@ -874,7 +984,11 @@ final class EngineCoreTests: XCTestCase {
         let snapshot = RenderWorldSnapshot(
             camera: sampleCameraRenderState(),
             chunks: [visibleChunk, hiddenChunk],
-            debugOptions: RenderDebugOptions(showChunkBounds: true, showChunkLabels: true)
+            debugOptions: RenderDebugOptions(
+                showChunkBounds: true,
+                showChunkLabels: true,
+                terrainMaterialDebugMode: .blendWeight
+            )
         )
 
         XCTAssertEqual(snapshot.visibleChunkCount, 1)
@@ -882,6 +996,19 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(snapshot.approximateTriangleCount, 128)
         XCTAssertTrue(snapshot.debugOptions.showChunkBounds)
         XCTAssertTrue(snapshot.debugOptions.showChunkLabels)
+        XCTAssertEqual(snapshot.debugOptions.terrainMaterialDebugMode, .blendWeight)
+    }
+
+    func testRenderDebugOptionsDefaultToNormalTerrainMaterialMode() {
+        let options = RenderDebugOptions()
+
+        XCTAssertFalse(options.showChunkBounds)
+        XCTAssertFalse(options.showChunkLabels)
+        XCTAssertEqual(options.terrainMaterialDebugMode, .normal)
+        XCTAssertEqual(
+            TerrainMaterialDebugMode.allCases.map(\.rawValue),
+            ["normal", "primaryBiome", "secondaryBiome", "blendWeight"]
+        )
     }
 
     func testRenderContractsRoundTripThroughJSON() throws {
@@ -895,7 +1022,11 @@ final class EngineCoreTests: XCTestCase {
                     approximateTriangleCount: 64
                 )
             ],
-            debugOptions: RenderDebugOptions(showChunkBounds: true, showChunkLabels: false)
+            debugOptions: RenderDebugOptions(
+                showChunkBounds: true,
+                showChunkLabels: false,
+                terrainMaterialDebugMode: .secondaryBiome
+            )
         )
 
         let data = try JSONEncoder().encode(snapshot)
@@ -903,6 +1034,7 @@ final class EngineCoreTests: XCTestCase {
 
         XCTAssertEqual(decoded, snapshot)
         XCTAssertEqual(decoded.chunks.first?.debugBounds?.state, .current)
+        XCTAssertEqual(decoded.debugOptions.terrainMaterialDebugMode, .secondaryBiome)
     }
 
     private func flatHeightmap(height: Float) -> ChunkHeightmap {

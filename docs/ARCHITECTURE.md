@@ -83,6 +83,7 @@ Le rendu Metal est organise en passes legeres, sans RenderGraph complet pour l'i
 - position joueur;
 - matrice view-projection.
 - uniforms de lumiere derives de `LightingState`.
+- uniforms debug derives de `RenderDebugOptions`.
 
 Chaque passe retourne des metriques de draw simples. L'overlay expose les draw calls, buffers GPU, chunks dessines et props dessines. Cette structure prepare les futures passes lighting/shadow/material sans imposer encore un graphe de rendu complexe.
 
@@ -95,6 +96,10 @@ Le rendu Metal utilise un payload materiau par vertex:
 - identifiant numerique simple de type materiau.
 
 Pour le terrain, `BiomeSampler` produit maintenant un `TerrainVertexMaterial` par sample/vertex. Ces materiaux restent deterministes par seed, chunk et coordonnee locale. Les bords utilisent les memes coordonnees monde que la generation de biome, ce qui permet aux chunks voisins de partager les memes couleurs/materiaux sur leurs frontieres.
+
+Chaque sample peut porter un materiau primaire, un materiau secondaire et un poids de transition. Le shader Metal mixe couleur et roughness dans le vertex shader. Cela donne une premiere transition douce entre biomes sans ajouter de draw call et sans introduire encore de textures.
+
+L'overlay peut basculer le debug terrain entre rendu normal, biome primaire, biome secondaire et heatmap du poids de transition. Le mode est stocke dans `RenderDebugOptions`, passe au shader par uniform, et ne s'applique qu'aux vertices terrain.
 
 Cette approche garde les props et terrains batchables par chunk. Elle evite de multiplier les draw calls avant d'avoir une vraie strategie texture/atlas/splat map. Le shader utilise actuellement la roughness pour adoucir la reponse diffuse des materiaux rugueux.
 
