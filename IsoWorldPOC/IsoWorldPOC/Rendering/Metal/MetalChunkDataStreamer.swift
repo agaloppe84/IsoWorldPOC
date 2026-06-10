@@ -33,7 +33,7 @@ final class MetalChunkDataStreamer {
     private(set) var generatedChunkCount = 0
 
     init() {
-        let initialData = ProceduralTerrainFactory.makeChunkData(coordinate: .origin)
+        let initialData = ProceduralChunkDataFactory.makeChunkData(coordinate: .origin)
         loadChunkData(initialData)
         generatedChunkCount = 1
     }
@@ -51,7 +51,7 @@ final class MetalChunkDataStreamer {
     }
 
     var approximateTriangleCount: Int {
-        visibleChunkCount * ProceduralTerrainFactory.triangleCountPerChunk
+        visibleChunkCount * ProceduralChunkDataFactory.triangleCountPerChunk
     }
 
     var approximatePropCount: Int {
@@ -199,7 +199,7 @@ final class MetalChunkDataStreamer {
             generatingChunkSet.insert(coordinate)
 
             Task.detached(priority: .utility) { [weak self] in
-                let data = ProceduralTerrainFactory.makeChunkData(coordinate: coordinate)
+                let data = ProceduralChunkDataFactory.makeChunkData(coordinate: coordinate)
                 await self?.handleGeneratedChunkData(data)
             }
         }
@@ -250,19 +250,47 @@ final class MetalChunkDataStreamer {
             terrainGeometry: data.terrainGeometry,
             biome: data.biome,
             terrainMaterial: data.biome.terrainMaterial,
+            props: renderProps(from: data),
             debugBounds: RenderChunkDebugBounds(
                 coordinate: data.coordinate,
                 origin: WorldPosition(x: data.originX, y: 0, z: data.originZ),
                 size: PropVector3(
-                    x: ProceduralTerrainFactory.chunkWorldSize,
+                    x: ProceduralChunkDataFactory.chunkWorldSize,
                     y: 2.5,
-                    z: ProceduralTerrainFactory.chunkWorldSize
+                    z: ProceduralChunkDataFactory.chunkWorldSize
                 ),
                 state: debugState
             ),
             isVisible: activeChunkSet.contains(data.coordinate),
             approximateTriangleCount: data.meshIndices.count / 3
         )
+    }
+
+    private func renderProps(from data: ProceduralChunkData) -> [RenderProp] {
+        let sampler = TerrainSampler(
+            geometry: data.terrainGeometry,
+            originX: data.originX,
+            originZ: data.originZ
+        )
+
+        return data.propVariants.map { variant in
+            let localX = variant.placement.localX * ProceduralChunkDataFactory.horizontalScale
+            let localZ = variant.placement.localZ * ProceduralChunkDataFactory.horizontalScale
+            let worldX = data.originX + localX
+            let worldZ = data.originZ + localZ
+            let terrainHeight = sampler.heightAt(x: worldX, z: worldZ)
+
+            return RenderProp(
+                variant: variant,
+                worldPosition: WorldPosition(
+                    x: worldX,
+                    y: terrainHeight + 0.02,
+                    z: worldZ
+                ),
+                rotationRadians: variant.placement.rotationRadians,
+                isVisible: activeChunkSet.contains(data.coordinate)
+            )
+        }
     }
 
     private func debugState(for coordinate: ChunkCoordinate) -> RenderChunkDebugState {
@@ -278,7 +306,7 @@ final class MetalChunkDataStreamer {
     }
 
     private func chunkCoordinate(containing playerPosition: SIMD3<Float>) -> ChunkCoordinate {
-        let halfChunkSize = ProceduralTerrainFactory.chunkWorldSize * 0.5
+        let halfChunkSize = ProceduralChunkDataFactory.chunkWorldSize * 0.5
 
         return ChunkCoordinate(
             x: chunkIndex(for: playerPosition.x + halfChunkSize),
@@ -307,7 +335,7 @@ final class MetalChunkDataStreamer {
     }
 
     private func chunkIndex(for value: Float) -> Int {
-        Int((value / ProceduralTerrainFactory.chunkWorldSize).rounded(.down))
+        Int((value / ProceduralChunkDataFactory.chunkWorldSize).rounded(.down))
     }
 
     private func sortedByLoadPriority(

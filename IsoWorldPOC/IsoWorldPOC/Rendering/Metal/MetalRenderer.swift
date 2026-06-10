@@ -137,6 +137,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             )
         }
 
+        drawProps(with: renderEncoder)
         drawPlayer(with: renderEncoder)
 
         if snapshot.debugOptions.showChunkBounds {
@@ -298,7 +299,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         let camera = snapshot.camera
         let position = playerController.position
 
-        debugMetrics.rendererMode = .metalExperimental
+        debugMetrics.rendererMode = .metal
         debugMetrics.inputState = inputManager.state
         debugMetrics.controllerName = inputManager.controllerName
         debugMetrics.playerPosition = position
@@ -348,6 +349,34 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             indexBuffer: playerBuffers.indexBuffer,
             indexBufferOffset: 0
         )
+    }
+
+    private func drawProps(with renderEncoder: MTLRenderCommandEncoder?) {
+        for chunk in snapshot.chunks where chunk.isVisible {
+            guard
+                let buffers = chunkBuffersByCoordinate[chunk.coordinate],
+                let propVertexBuffer = buffers.propVertexBuffer,
+                let propIndexBuffer = buffers.propIndexBuffer,
+                buffers.propIndexCount > 0
+            else {
+                continue
+            }
+
+            var uniforms = makeTerrainUniforms(for: chunk)
+            renderEncoder?.setVertexBuffer(propVertexBuffer, offset: 0, index: 0)
+            renderEncoder?.setVertexBytes(
+                &uniforms,
+                length: MemoryLayout<MetalTerrainUniforms>.stride,
+                index: 1
+            )
+            renderEncoder?.drawIndexedPrimitives(
+                type: .triangle,
+                indexCount: buffers.propIndexCount,
+                indexType: .uint32,
+                indexBuffer: propIndexBuffer,
+                indexBufferOffset: 0
+            )
+        }
     }
 
     private func makePlayerUniforms() -> MetalTerrainUniforms {
@@ -459,6 +488,9 @@ private struct MetalChunkBuffers {
     let terrainVertexBuffer: MTLBuffer
     let terrainIndexBuffer: MTLBuffer
     let terrainIndexCount: Int
+    let propVertexBuffer: MTLBuffer?
+    let propIndexBuffer: MTLBuffer?
+    let propIndexCount: Int
     let debugBoundsLineVertexBuffer: MTLBuffer?
     let debugBoundsLineVertexCount: Int
 
@@ -468,6 +500,7 @@ private struct MetalChunkBuffers {
             from: geometry,
             color: renderChunk.terrainMaterial.baseColor
         )
+        let propMesh = Self.propMesh(for: renderChunk)
         let debugLineVertices = Self.debugBoundsLineVertices(for: renderChunk)
 
         guard
@@ -491,6 +524,9 @@ private struct MetalChunkBuffers {
         self.terrainVertexBuffer = terrainVertexBuffer
         self.terrainIndexBuffer = terrainIndexBuffer
         self.terrainIndexCount = geometry.indices.count
+        self.propVertexBuffer = makeBuffer(device: device, values: propMesh.vertices)
+        self.propIndexBuffer = makeBuffer(device: device, values: propMesh.indices)
+        self.propIndexCount = propMesh.indices.count
         self.debugBoundsLineVertexBuffer = device.makeBuffer(
             bytes: debugLineVertices,
             length: MemoryLayout<MetalTerrainVertex>.stride * debugLineVertices.count,
@@ -512,6 +548,118 @@ private struct MetalChunkBuffers {
                 color: vertexColor
             )
         }
+    }
+
+    private static func propMesh(for chunk: RenderChunk) -> (
+        vertices: [MetalTerrainVertex],
+        indices: [UInt32]
+    ) {
+        var vertices: [MetalTerrainVertex] = []
+        var indices: [UInt32] = []
+
+        for prop in chunk.props where prop.isVisible {
+            let propPosition = vector(from: prop.worldPosition) - vector(from: chunk.origin)
+
+            for part in prop.variant.geometry.parts {
+                let baseIndex = UInt32(vertices.count)
+                let color = propColor(for: prop.variant.material(for: part.materialSlot))
+                let partVertices = centeredBoxVertices(
+                    size: vector(from: part.size),
+                    color: color
+                ).map { vertex in
+                    transformedPropVertex(
+                        vertex,
+                        part: part,
+                        propPosition: propPosition,
+                        propRotationY: prop.rotationRadians
+                    )
+                }
+
+                vertices.append(contentsOf: partVertices)
+                indices.append(contentsOf: boxIndices().map { baseIndex + $0 })
+            }
+        }
+
+        return (vertices, indices)
+    }
+
+    private static func transformedPropVertex(
+        _ vertex: MetalTerrainVertex,
+        part: PropGeometryPart,
+        propPosition: SIMD3<Float>,
+        propRotationY: Float
+    ) -> MetalTerrainVertex {
+        let partRotation = matrixRotationXYZ(vector(from: part.rotationRadians))
+        let propRotation = matrixRotationY(propRotationY)
+        let partOffset = vector(from: part.position)
+        let rotatedPosition = transformPoint(vertex.position, by: partRotation) + partOffset
+        let finalPosition = transformPoint(rotatedPosition, by: propRotation) + propPosition
+        let finalNormal = simd_normalize(transformDirection(
+            transformDirection(vertex.normal, by: partRotation),
+            by: propRotation
+        ))
+
+        return MetalTerrainVertex(
+            position: finalPosition,
+            normal: finalNormal,
+            color: vertex.color
+        )
+    }
+
+    private static func centeredBoxVertices(
+        size: SIMD3<Float>,
+        color: SIMD4<Float>
+    ) -> [MetalTerrainVertex] {
+        let halfX = size.x * 0.5
+        let halfY = size.y * 0.5
+        let halfZ = size.z * 0.5
+        let frontNormal = SIMD3<Float>(0, 0, 1)
+        let backNormal = SIMD3<Float>(0, 0, -1)
+        let leftNormal = SIMD3<Float>(-1, 0, 0)
+        let rightNormal = SIMD3<Float>(1, 0, 0)
+        let topNormal = SIMD3<Float>(0, 1, 0)
+        let bottomNormal = SIMD3<Float>(0, -1, 0)
+
+        return [
+            MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: frontNormal, color: color),
+            MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: frontNormal, color: color),
+            MetalTerrainVertex(position: [halfX, halfY, halfZ], normal: frontNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, halfY, halfZ], normal: frontNormal, color: color),
+
+            MetalTerrainVertex(position: [halfX, -halfY, -halfZ], normal: backNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, -halfY, -halfZ], normal: backNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, halfY, -halfZ], normal: backNormal, color: color),
+            MetalTerrainVertex(position: [halfX, halfY, -halfZ], normal: backNormal, color: color),
+
+            MetalTerrainVertex(position: [-halfX, -halfY, -halfZ], normal: leftNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: leftNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, halfY, halfZ], normal: leftNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, halfY, -halfZ], normal: leftNormal, color: color),
+
+            MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: rightNormal, color: color),
+            MetalTerrainVertex(position: [halfX, -halfY, -halfZ], normal: rightNormal, color: color),
+            MetalTerrainVertex(position: [halfX, halfY, -halfZ], normal: rightNormal, color: color),
+            MetalTerrainVertex(position: [halfX, halfY, halfZ], normal: rightNormal, color: color),
+
+            MetalTerrainVertex(position: [-halfX, halfY, halfZ], normal: topNormal, color: color),
+            MetalTerrainVertex(position: [halfX, halfY, halfZ], normal: topNormal, color: color),
+            MetalTerrainVertex(position: [halfX, halfY, -halfZ], normal: topNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, halfY, -halfZ], normal: topNormal, color: color),
+
+            MetalTerrainVertex(position: [-halfX, -halfY, -halfZ], normal: bottomNormal, color: color),
+            MetalTerrainVertex(position: [halfX, -halfY, -halfZ], normal: bottomNormal, color: color),
+            MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: bottomNormal, color: color),
+            MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: bottomNormal, color: color),
+        ]
+    }
+
+    private static func propColor(for material: PropMaterialDescriptor) -> SIMD4<Float> {
+        SIMD4<Float>(
+            material.color.red,
+            material.color.green,
+            material.color.blue,
+            1
+        )
     }
 
     private static func debugBoundsLineVertices(for chunk: RenderChunk) -> [MetalTerrainVertex] {
@@ -635,6 +783,21 @@ private struct MetalTerrainUniforms {
     let modelMatrix: matrix_float4x4
 }
 
+private func makeBuffer<T>(
+    device: MTLDevice,
+    values: [T]
+) -> MTLBuffer? {
+    guard !values.isEmpty else {
+        return nil
+    }
+
+    return device.makeBuffer(
+        bytes: values,
+        length: MemoryLayout<T>.stride * values.count,
+        options: []
+    )
+}
+
 private func vector(from position: WorldPosition) -> SIMD3<Float> {
     SIMD3<Float>(position.x, position.y, position.z)
 }
@@ -643,12 +806,68 @@ private func vector(from vector: PropVector3) -> SIMD3<Float> {
     SIMD3<Float>(vector.x, vector.y, vector.z)
 }
 
+private func transformPoint(
+    _ point: SIMD3<Float>,
+    by matrix: matrix_float4x4
+) -> SIMD3<Float> {
+    let transformed = matrix * SIMD4<Float>(point.x, point.y, point.z, 1)
+    return SIMD3<Float>(transformed.x, transformed.y, transformed.z)
+}
+
+private func transformDirection(
+    _ direction: SIMD3<Float>,
+    by matrix: matrix_float4x4
+) -> SIMD3<Float> {
+    let transformed = matrix * SIMD4<Float>(direction.x, direction.y, direction.z, 0)
+    return SIMD3<Float>(transformed.x, transformed.y, transformed.z)
+}
+
 private func matrixTranslation(_ translation: SIMD3<Float>) -> matrix_float4x4 {
     matrix_float4x4(columns: (
         SIMD4<Float>(1, 0, 0, 0),
         SIMD4<Float>(0, 1, 0, 0),
         SIMD4<Float>(0, 0, 1, 0),
         SIMD4<Float>(translation.x, translation.y, translation.z, 1)
+    ))
+}
+
+private func matrixRotationXYZ(_ rotation: SIMD3<Float>) -> matrix_float4x4 {
+    matrixRotationZ(rotation.z) * matrixRotationY(rotation.y) * matrixRotationX(rotation.x)
+}
+
+private func matrixRotationX(_ angle: Float) -> matrix_float4x4 {
+    let c = cos(angle)
+    let s = sin(angle)
+
+    return matrix_float4x4(columns: (
+        SIMD4<Float>(1, 0, 0, 0),
+        SIMD4<Float>(0, c, s, 0),
+        SIMD4<Float>(0, -s, c, 0),
+        SIMD4<Float>(0, 0, 0, 1)
+    ))
+}
+
+private func matrixRotationY(_ angle: Float) -> matrix_float4x4 {
+    let c = cos(angle)
+    let s = sin(angle)
+
+    return matrix_float4x4(columns: (
+        SIMD4<Float>(c, 0, -s, 0),
+        SIMD4<Float>(0, 1, 0, 0),
+        SIMD4<Float>(s, 0, c, 0),
+        SIMD4<Float>(0, 0, 0, 1)
+    ))
+}
+
+private func matrixRotationZ(_ angle: Float) -> matrix_float4x4 {
+    let c = cos(angle)
+    let s = sin(angle)
+
+    return matrix_float4x4(columns: (
+        SIMD4<Float>(c, s, 0, 0),
+        SIMD4<Float>(-s, c, 0, 0),
+        SIMD4<Float>(0, 0, 1, 0),
+        SIMD4<Float>(0, 0, 0, 1)
     ))
 }
 

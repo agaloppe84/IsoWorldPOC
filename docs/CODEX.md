@@ -38,11 +38,13 @@ Les scripts locaux utilisent Xcode complet uniquement via `DEVELOPER_DIR`, sans 
 ## Contraintes d'architecture
 
 - L'app macOS est une app SwiftUI.
-- RealityKit est utilise pour le rendu 3D initial.
+- Metal est le renderer actif du projet.
+- RealityKit ne doit pas etre reintroduit dans le code app.
 - GameController est utilise pour la manette PS5.
 - `EngineCore` doit etre un Swift Package local a la racine du repo.
 - `EngineCore` ne doit pas importer SwiftUI.
 - `EngineCore` ne doit pas importer RealityKit.
+- `EngineCore` ne doit pas importer Metal.
 
 ## Hygiene d'intervention
 

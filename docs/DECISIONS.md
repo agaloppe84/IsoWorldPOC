@@ -80,11 +80,11 @@ Objectif futur: introduire progressivement textures PBR, splat maps, triplanar m
 
 ## 010 - Strategie visuel personnage
 
-Decision: isoler le visuel joueur dans `CharacterVisual`, avec chargement optionnel d'un modele local depuis `IsoWorldPOC/IsoWorldPOC/Assets/Models/`, humanoide procedural simple par defaut, et pilule debug comme fallback.
+Decision historique: le visuel joueur avait ete isole dans `CharacterVisual`, avec chargement optionnel d'un modele local depuis `IsoWorldPOC/IsoWorldPOC/Assets/Models/`, humanoide procedural simple par defaut, et pilule debug comme fallback.
 
 Raison: remplacer progressivement la capsule sans coupler le `PlayerController` a RealityKit, sans dependance externe et sans telechargement automatique.
 
-Consequence: les modeles `.usdz` ou `.reality` devront etre ajoutes manuellement au repo et verifies avant utilisation.
+Consequence actuelle: `CharacterVisual` a ete supprime avec le code RealityKit legacy. Le prochain visuel personnage devra passer par des descriptors neutres et un adaptateur Metal.
 
 Sources possibles: Kenney CC0, Poly Haven CC0, Sketchfab Creative Commons uniquement avec verification explicite de la licence, de l'attribution requise et du droit d'utilisation dans le projet.
 
@@ -100,12 +100,30 @@ Limites RealityKit connues: l'eclairage reste simple, le controle fin des ombres
 
 Budget performance: garder une seule source avec ombres actives au depart, limiter la distance d'ombre, et desactiver ou reduire les ombres si le frame time augmente sur Mac M1.
 
-## 012 - Choix progressif du backend de rendu
+## 012 - Metal comme renderer actif unique
 
-Decision: introduire `RendererMode` avec `realityKit` par defaut et `metalExperimental` comme option preparee mais non activee.
+Decision: l'app demarre directement sur Metal. `GameRootView` instancie `MetalGameView` sans switch de backend et l'overlay affiche `Renderer: Metal`.
 
-Raison: conserver le POC jouable pendant que l'architecture se prepare a recevoir un backend Metal. RealityKit reste temporairement le backend actif parce qu'il gere deja la scene, la camera, les chunks, les props, le debug visuel, la lumiere et les interactions actuelles.
+Raison: la direction du projet est Metal-only. Garder deux backends actifs complique l'architecture, masque les bugs Metal et retarde la separation avec RealityKit.
 
-Consequence: `GameRootView` choisit le backend via un mode explicite, l'overlay debug affiche le renderer actif, et le futur `MetalGameView` pourra etre injecte sans remplacer toute la scene RealityKit d'un seul coup.
+Consequence: RealityKit a ete retire du code app. Les prochains changements doivent renforcer les donnees procedurales neutres, les passes Metal et la testabilite du renderer.
 
-Migration Metal: Metal sera ajoute progressivement pour reduire le risque technique, commencer par le terrain seul, mesurer les performances, puis migrer les chunks, materiaux, debug 3D et props par etapes.
+Migration Metal: Metal devient la base du rendu. Les efforts suivants portent sur la testabilite du renderer, les contrats de rendu neutres, les passes de rendu et les ressources GPU.
+
+## 013 - Donnees procedurales separees de RealityKit
+
+Decision: extraire la generation des donnees de chunk dans `ProceduralChunkDataFactory`, cote app/simulation, sans import RealityKit ni Metal.
+
+Raison: le backend Metal ne doit pas dependre d'un factory qui melange generation procedurale et rendu.
+
+Consequence: `MetalChunkDataStreamer` genere ses chunks via `ProceduralChunkDataFactory`. L'ancien `ProceduralTerrainFactory` RealityKit a ete supprime.
+
+Prochaine cible: deplacer davantage de logique runtime vers des types testables et reduire le role direct de `MetalRenderer`.
+
+## 014 - Props rendus par Metal et suppression RealityKit legacy
+
+Decision: rendre les props proceduraux a partir des `propVariants` dans le backend Metal, puis supprimer les anciens fichiers RealityKit legacy.
+
+Raison: les props font partie du monde procedurale visible et doivent utiliser les memes donnees deterministes que le terrain. Garder les adaptateurs RealityKit apres le passage Metal-only entretiendrait une architecture ambigue.
+
+Consequence: chaque chunk Metal bake un mesh de props simple depuis les descriptors abstraits (`PropGeometryDescriptor`, materiaux par slot, position monde). Les fichiers `RealityKitGameView`, `RealityKitGameRenderer`, `RealityKitTerrainAdapter`, `RealityKitPropAdapter`, `ChunkTerrainManager`, `DebugSceneFactory`, `CharacterVisual`, `CameraController`, `ChunkDebugVisualFactory`, `ProceduralTerrainFactory` et `SceneLightingSettings` ont ete retires.

@@ -5,29 +5,15 @@
 //  Created by Work on 10/06/2026.
 //
 
-import Foundation
+enum RendererMode: String {
+    case metal
 
-enum RendererMode: String, CaseIterable {
-    case realityKit
-    case metalExperimental
-
-    static var defaultMode: RendererMode {
-        #if DEBUG
-        if let rawMode = UserDefaults.standard.string(forKey: "RendererMode"),
-           let mode = RendererMode(rawValue: rawMode) {
-            return mode
-        }
-        #endif
-
-        return .realityKit
-    }
+    static let activeMode: RendererMode = .metal
 
     var displayName: String {
         switch self {
-        case .realityKit:
-            "RealityKit"
-        case .metalExperimental:
-            "MetalExperimental"
+        case .metal:
+            "Metal"
         }
     }
 }

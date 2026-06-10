@@ -7,7 +7,7 @@ Le projet vise une separation nette entre l'application macOS, le rendu, les ent
 ```text
 IsoWorldPOC macOS app
 ├── SwiftUI
-├── RealityKit
+├── Metal
 ├── GameController
 └── EngineCore
     ├── simulation
@@ -29,15 +29,15 @@ Responsabilites:
 
 - Composition SwiftUI.
 - Cycle de vie macOS.
-- Integration RealityKit.
+- Integration Metal.
 - Integration GameController.
 - Adaptation entre l'etat moteur et le rendu.
 
-L'app peut importer SwiftUI, RealityKit, GameController et EngineCore.
+L'app peut importer SwiftUI, MetalKit, GameController et EngineCore. RealityKit a ete retire du code app et ne doit pas etre reintroduit.
 
 ## Rendu 3D
 
-RealityKit est le moteur de rendu initial.
+Metal est le renderer actif du projet.
 
 Responsabilites:
 
@@ -47,23 +47,36 @@ Responsabilites:
 - Materiaux et lumieres.
 - Synchronisation avec les donnees produites par le moteur.
 
-RealityKit doit rester cote application ou dans un module de presentation dedie. Il ne doit pas entrer dans `EngineCore`.
+RealityKit ne fait plus partie du chemin de rendu. Il ne doit pas entrer dans `EngineCore`.
 
 ### Backend actif
 
-Le backend actif temporaire est `RealityKitGameRenderer`.
+Le backend actif unique est `MetalRenderer`, heberge par `MetalGameView`.
 
 Responsabilites:
 
-- Configurer la scene RealityKit.
-- Posseder la camera RealityKit active.
-- Connecter les chunks streamés aux entites RealityKit.
-- Mettre a jour le joueur visible, les lumieres et les metriques debug.
-- Garder le comportement actuel du POC pendant la migration progressive.
+- Configurer `MTKView`.
+- Posseder les ressources GPU Metal.
+- Consommer les donnees de chunks et les contrats de rendu neutres.
+- Dessiner le terrain, les props placeholders, le joueur placeholder et le debug 3D.
+- Mettre a jour les metriques debug liees au renderer.
 
-`RealityKitGameView` reste un host macOS/SwiftUI: elle cree l'`ARView`, transmet les evenements clavier et laisse le backend renderer gerer la scene.
+`MetalGameView` reste un host macOS/SwiftUI: elle cree le `MTKView`, transmet les evenements clavier et laisse le backend renderer gerer le rendu.
 
-La prochaine cible est d'introduire un backend parallele `MetalGameRenderer` sans supprimer RealityKit. Les contrats de rendu purs vivent dans `EngineCore/Rendering` et ne doivent importer ni RealityKit ni Metal.
+Les contrats de rendu purs vivent dans `EngineCore/Rendering` et ne doivent importer ni RealityKit ni Metal.
+
+### Donnees de chunks procedurales
+
+`ProceduralChunkDataFactory` produit les donnees de chunks neutres consommees par Metal:
+
+- geometrie terrain issue d'`EngineCore`;
+- biome dominant;
+- materiau terrain abstrait;
+- placements et variants de props;
+- origine monde du chunk;
+- metriques simples de generation.
+
+Ce factory ne doit pas importer RealityKit ni Metal. Il remplace l'ancien melange entre generation de donnees et rendu RealityKit.
 
 ## Input
 
@@ -107,9 +120,9 @@ EngineCore
         ↓
 Etat monde / chunks / deltas
         ↓
-Adaptateur de rendu
+Contrats de rendu neutres
         ↓
-RealityKit
+Metal
 ```
 
 ## Build

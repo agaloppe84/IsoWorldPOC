@@ -13,14 +13,14 @@ Cette roadmap sert de fil conducteur pour le POC. Elle doit rester simple, concr
 
 - Conserver une app macOS SwiftUI dans `IsoWorldPOC/IsoWorldPOC/`.
 - Ajouter un point d'integration clair pour la vue 3D.
-- Introduire RealityKit pour un rendu 3D minimal.
-- Afficher une scene simple verifiable: camera, lumiere, sol, repere ou prototype de tuile.
+- Utiliser Metal comme renderer actif.
+- Afficher une scene simple verifiable: camera, terrain, props placeholders, joueur et debug overlay.
 
 ## Phase 2 - EngineCore
 
 - Creer un Swift Package local `EngineCore` a la racine du repo.
 - Deplacer la logique pure de jeu dans `EngineCore`.
-- Interdire les imports SwiftUI et RealityKit dans `EngineCore`.
+- Interdire les imports SwiftUI, RealityKit et Metal dans `EngineCore`.
 - Couvrir les premieres regles moteur par des tests unitaires.
 
 ## Phase 3 - Monde procedural
@@ -47,4 +47,3 @@ Cette roadmap sert de fil conducteur pour le POC. Elle doit rester simple, concr
 - Ajouter les premieres interactions avec le terrain.
 - Mesurer les performances de generation et rendu.
 - Identifier les limites du POC avant industrialisation.
-
