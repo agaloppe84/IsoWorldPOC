@@ -13,8 +13,31 @@ import simd
 @MainActor
 enum RealityKitPropAdapter {
     static func makeEntity(for variant: PropVariant) -> Entity {
+        switch variant.placement.type {
+        case .rock:
+            makeProceduralRockEntity(for: variant)
+        case .treePlaceholder:
+            makeProceduralTreeEntity(for: variant)
+        case .crystalPlaceholder:
+            makeProceduralCrystalEntity(for: variant)
+        }
+    }
+
+    private static func makeProceduralRockEntity(for variant: PropVariant) -> Entity {
+        makeDescriptorEntity(named: "ProceduralRock", for: variant)
+    }
+
+    private static func makeProceduralTreeEntity(for variant: PropVariant) -> Entity {
+        makeDescriptorEntity(named: "ProceduralTree", for: variant)
+    }
+
+    private static func makeProceduralCrystalEntity(for variant: PropVariant) -> Entity {
+        makeDescriptorEntity(named: "ProceduralCrystal", for: variant)
+    }
+
+    private static func makeDescriptorEntity(named baseName: String, for variant: PropVariant) -> Entity {
         let root = Entity()
-        root.name = "PropVariant_\(variant.archetypeID)_\(variant.placement.placementIndex)"
+        root.name = "\(baseName)_\(variant.archetypeID)_\(variant.placement.placementIndex)"
 
         for part in variant.geometry.parts {
             root.addChild(makeEntity(for: part, variant: variant))

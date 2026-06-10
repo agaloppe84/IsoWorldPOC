@@ -43,4 +43,8 @@ final class DebugMetrics: ObservableObject {
     @Published var cameraPitch: Float = 0
     @Published var cameraDistance: Float = 0
     @Published var movementMode = "cameraRelative"
+    @Published var sunDirection = SIMD3<Float>(0, -1, 0)
+    @Published var sunIntensity: Float = 0
+    @Published var ambientIntensity: Float = 0
+    @Published var shadowsEnabled = false
 }

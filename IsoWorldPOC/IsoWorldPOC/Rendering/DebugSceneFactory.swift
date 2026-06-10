@@ -13,21 +13,9 @@ import simd
 enum DebugSceneFactory {
     static func makePlayerEntity() -> Entity {
         let player = Entity()
-        player.name = "PlayerCapsule"
+        player.name = "Player"
 
-        let material = SimpleMaterial(
-            color: .systemYellow,
-            roughness: 0.35,
-            isMetallic: false
-        )
-
-        let capsule = ModelEntity(
-            mesh: .generateBox(size: [0.42, 0.95, 0.42], cornerRadius: 0.2),
-            materials: [material]
-        )
-        capsule.position = [0, 0.48, 0]
-
-        player.addChild(capsule)
+        player.addChild(CharacterVisual.makeEntity())
         player.addChild(
             makePhysicsDebugBox(
                 name: "PhysicsDebug_PlayerBody",
@@ -120,12 +108,37 @@ enum DebugSceneFactory {
         return axes
     }
 
-    static func makeLight() -> DirectionalLight {
-        let light = DirectionalLight()
-        light.light.color = .white
-        light.light.intensity = 1800
-        light.look(at: .zero, from: [2, 4, 3], relativeTo: nil)
-        return light
+    static func makeLighting(settings: SceneLightingSettings = .standard) -> Entity {
+        let lighting = Entity()
+        lighting.name = "SceneLighting"
+
+        let sun = DirectionalLight()
+        sun.name = "SunDirectionalLight"
+        sun.light.color = .init(calibratedRed: 1.0, green: 0.94, blue: 0.82, alpha: 1.0)
+        sun.light.intensity = settings.sunIntensity
+        sun.look(
+            at: .zero,
+            from: -settings.sunDirection * 6,
+            relativeTo: nil
+        )
+
+        if settings.shadowsEnabled {
+            sun.shadow = DirectionalLightComponent.Shadow(
+                maximumDistance: 24,
+                depthBias: 1.2
+            )
+        }
+
+        let fill = DirectionalLight()
+        fill.name = "AmbientFillDirectionalLight"
+        fill.light.color = .init(calibratedRed: 0.66, green: 0.76, blue: 1.0, alpha: 1.0)
+        fill.light.intensity = settings.ambientIntensity
+        fill.look(at: .zero, from: [-2, 3, -4], relativeTo: nil)
+
+        lighting.addChild(sun)
+        lighting.addChild(fill)
+
+        return lighting
     }
 
     private static func makePhysicsDebugBox(

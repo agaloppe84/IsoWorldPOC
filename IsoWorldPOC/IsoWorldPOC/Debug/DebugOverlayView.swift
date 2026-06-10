@@ -55,6 +55,14 @@ struct DebugOverlayView: View {
 
             Divider().overlay(.white.opacity(0.35))
 
+            sectionTitle("LIGHT")
+            Text("sunDirection: \(formatVector(metrics.sunDirection))")
+            Text("sunIntensity: \(format(metrics.sunIntensity))")
+            Text("ambientIntensity: \(format(metrics.ambientIntensity))")
+            Text("shadowsEnabled: \(format(metrics.shadowsEnabled))")
+
+            Divider().overlay(.white.opacity(0.35))
+
             sectionTitle("INPUT")
             Text("controller: \(input.isGamepadConnected ? "Connected" : "Not connected")")
             Text("name: \(metrics.controllerName)")
@@ -95,6 +103,10 @@ struct DebugOverlayView: View {
 
     private func formatDegrees(_ radians: Float) -> String {
         "\(format(radians * 180 / Float.pi)) deg"
+    }
+
+    private func formatVector(_ vector: SIMD3<Float>) -> String {
+        "\(format(vector.x)) / \(format(vector.y)) / \(format(vector.z))"
     }
 
     private func format(_ value: Bool) -> String {

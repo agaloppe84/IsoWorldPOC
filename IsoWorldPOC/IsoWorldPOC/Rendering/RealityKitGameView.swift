@@ -44,6 +44,7 @@ struct RealityKitGameView: NSViewRepresentable {
         private var playerController = PlayerController()
         private let playerGrounding = PlayerGrounding()
         private let cameraController = CameraController()
+        private let lightingSettings = SceneLightingSettings.standard
         private var playerEntity: Entity?
         private var terrainManager: ChunkTerrainManager?
         private var updateSubscription: (any Cancellable)?
@@ -72,7 +73,7 @@ struct RealityKitGameView: NSViewRepresentable {
 
             worldAnchor.addChild(DebugSceneFactory.makeAxisMarkers())
             worldAnchor.addChild(playerEntity)
-            worldAnchor.addChild(DebugSceneFactory.makeLight())
+            worldAnchor.addChild(DebugSceneFactory.makeLighting(settings: lightingSettings))
             worldAnchor.addChild(cameraController.camera)
 
             arView.scene.addAnchor(worldAnchor)
@@ -141,6 +142,10 @@ struct RealityKitGameView: NSViewRepresentable {
             debugMetrics.cameraPitch = cameraController.cameraPitch
             debugMetrics.cameraDistance = cameraController.cameraDistance
             debugMetrics.movementMode = "cameraRelative"
+            debugMetrics.sunDirection = lightingSettings.sunDirection
+            debugMetrics.sunIntensity = lightingSettings.sunIntensity
+            debugMetrics.ambientIntensity = lightingSettings.ambientIntensity
+            debugMetrics.shadowsEnabled = lightingSettings.shadowsEnabled
         }
 
         private func updatePerformanceMetrics(deltaTime: Float) {

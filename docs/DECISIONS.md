@@ -77,3 +77,25 @@ Raison: differencier visuellement les biomes sans importer de grosses textures e
 Consequence: les biomes exposent des materiaux semantiques simples (`grass`, `rock`, `dirt`, `sand`, `wetValley`, `snow` futur), tandis que l'app garde la responsabilite de creer les materiaux RealityKit.
 
 Objectif futur: introduire progressivement textures PBR, splat maps, triplanar mapping, normal maps, roughness maps et transitions douces entre biomes quand le terrain et le streaming seront stabilises.
+
+## 010 - Strategie visuel personnage
+
+Decision: isoler le visuel joueur dans `CharacterVisual`, avec chargement optionnel d'un modele local depuis `IsoWorldPOC/IsoWorldPOC/Assets/Models/`, humanoide procedural simple par defaut, et pilule debug comme fallback.
+
+Raison: remplacer progressivement la capsule sans coupler le `PlayerController` a RealityKit, sans dependance externe et sans telechargement automatique.
+
+Consequence: les modeles `.usdz` ou `.reality` devront etre ajoutes manuellement au repo et verifies avant utilisation.
+
+Sources possibles: Kenney CC0, Poly Haven CC0, Sketchfab Creative Commons uniquement avec verification explicite de la licence, de l'attribution requise et du droit d'utilisation dans le projet.
+
+## 011 - Lumiere RealityKit initiale
+
+Decision: utiliser une lumiere directionnelle principale type soleil, une seconde lumiere directionnelle faible comme remplissage ambiant, et des ombres directionnelles bornees par une distance courte.
+
+Raison: ameliorer la lecture du terrain et des props sans viser un rendu final ni ajouter de dependance externe.
+
+Consequence: les parametres `sunDirection`, `sunIntensity`, `ambientIntensity` et `shadowsEnabled` sont exposes dans l'overlay debug pour suivre le comportement courant.
+
+Limites RealityKit connues: l'eclairage reste simple, le controle fin des ombres est limite, les ombres peuvent couter cher avec beaucoup de chunks/props, et l'ambient actuel est une approximation via lumiere de remplissage plutot qu'un vrai systeme global illumination.
+
+Budget performance: garder une seule source avec ombres actives au depart, limiter la distance d'ombre, et desactiver ou reduire les ombres si le frame time augmente sur Mac M1.

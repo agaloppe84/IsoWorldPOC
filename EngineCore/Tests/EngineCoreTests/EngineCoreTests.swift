@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import EngineCore
 
@@ -735,6 +736,70 @@ final class EngineCoreTests: XCTestCase {
         }
     }
 
+    func testRenderWorldSnapshotCountsVisibleRenderData() {
+        let propVariant = ProceduralAssetGenerator(seed: WorldSeed(77)).variant(
+            for: samplePropPlacement(type: .rock),
+            biome: Biome.definition(for: .rockyHighlands),
+            chunk: .origin
+        )
+        let visibleChunk = sampleRenderChunk(
+            coordinate: .origin,
+            props: [
+                RenderProp(
+                    variant: propVariant,
+                    worldPosition: WorldPosition(x: 1, y: 2, z: 3),
+                    rotationRadians: 0.5
+                )
+            ],
+            isVisible: true,
+            approximateTriangleCount: 128
+        )
+        let hiddenChunk = sampleRenderChunk(
+            coordinate: ChunkCoordinate(x: 1, y: 0, z: 0),
+            props: [
+                RenderProp(
+                    variant: propVariant,
+                    worldPosition: WorldPosition(x: 4, y: 5, z: 6),
+                    rotationRadians: 0.2
+                )
+            ],
+            isVisible: false,
+            approximateTriangleCount: 256
+        )
+        let snapshot = RenderWorldSnapshot(
+            camera: sampleCameraRenderState(),
+            chunks: [visibleChunk, hiddenChunk],
+            debugOptions: RenderDebugOptions(showChunkBounds: true, showChunkLabels: true)
+        )
+
+        XCTAssertEqual(snapshot.visibleChunkCount, 1)
+        XCTAssertEqual(snapshot.visiblePropCount, 1)
+        XCTAssertEqual(snapshot.approximateTriangleCount, 128)
+        XCTAssertTrue(snapshot.debugOptions.showChunkBounds)
+        XCTAssertTrue(snapshot.debugOptions.showChunkLabels)
+    }
+
+    func testRenderContractsRoundTripThroughJSON() throws {
+        let snapshot = RenderWorldSnapshot(
+            camera: sampleCameraRenderState(),
+            chunks: [
+                sampleRenderChunk(
+                    coordinate: ChunkCoordinate(x: -1, y: 0, z: 2),
+                    props: [],
+                    isVisible: true,
+                    approximateTriangleCount: 64
+                )
+            ],
+            debugOptions: RenderDebugOptions(showChunkBounds: true, showChunkLabels: false)
+        )
+
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(RenderWorldSnapshot.self, from: data)
+
+        XCTAssertEqual(decoded, snapshot)
+        XCTAssertEqual(decoded.chunks.first?.debugBounds?.state, .current)
+    }
+
     private func flatHeightmap(height: Float) -> ChunkHeightmap {
         var samples: [TerrainSample] = []
         samples.reserveCapacity(ChunkHeightmap.sampleCount)
@@ -858,6 +923,51 @@ final class EngineCoreTests: XCTestCase {
             worldZ: -18.25,
             rotationRadians: 0.42,
             scale: 1.1
+        )
+    }
+
+    private func sampleCameraRenderState() -> CameraRenderState {
+        CameraRenderState(
+            position: WorldPosition(x: 2, y: 8, z: 10),
+            target: WorldPosition(x: 0, y: 0, z: 0),
+            fieldOfViewDegrees: 35,
+            yaw: 0.75,
+            pitch: 0.55,
+            distance: 9
+        )
+    }
+
+    private func sampleRenderChunk(
+        coordinate: ChunkCoordinate,
+        props: [RenderProp],
+        isVisible: Bool,
+        approximateTriangleCount: Int
+    ) -> RenderChunk {
+        let biome = Biome.definition(for: .grassland)
+
+        return RenderChunk(
+            coordinate: coordinate,
+            origin: WorldPosition(
+                x: Float(coordinate.x) * 16,
+                y: 0,
+                z: Float(coordinate.z) * 16
+            ),
+            terrainGeometry: flatGeometry(height: 0, horizontalScale: 1),
+            biome: biome,
+            terrainMaterial: biome.terrainMaterial,
+            props: props,
+            debugBounds: RenderChunkDebugBounds(
+                coordinate: coordinate,
+                origin: WorldPosition(
+                    x: Float(coordinate.x) * 16,
+                    y: 0,
+                    z: Float(coordinate.z) * 16
+                ),
+                size: PropVector3(x: 16, y: 4, z: 16),
+                state: .current
+            ),
+            isVisible: isVisible,
+            approximateTriangleCount: approximateTriangleCount
         )
     }
 
