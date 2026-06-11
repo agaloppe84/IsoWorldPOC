@@ -279,3 +279,11 @@ Decision: le viewport Metal de debug demarre en `slowInspection` a 15 FPS, avec 
 Raison: le rendu debug a 60 Hz par defaut fausse les mesures et provoque des publications SwiftUI trop frequentes.
 
 Consequence: le 60 Hz reste disponible, mais uniquement via `liveGameplay` ou `benchmark`; les metriques debug sont publiees a cadence reduite.
+
+## 029 - AppShell comme entree applicative
+
+Decision: l'app demarre sur `AppShellView` et une state machine `AppMode`, avec menu principal, debug world, loading mocke, real world et tools hub.
+
+Raison: le renderer Metal ne doit pas etre actif dans le menu, le loading ou les outils. Les futurs systemes moteur doivent etre ouverts via des transitions explicites plutot que par un demarrage direct dans le monde.
+
+Consequence: `GameRootView` reste le viewport monde, mais il est monte seulement depuis les modes runtime. Les prochaines etapes peuvent brancher `EngineCore`, save, jobs et generation reelle derriere le shell sans casser l'entree app.

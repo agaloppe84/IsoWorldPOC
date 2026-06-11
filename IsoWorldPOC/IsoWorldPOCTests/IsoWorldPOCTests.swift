@@ -36,4 +36,61 @@ struct IsoWorldPOCTests {
         #expect(policy.allowContinuousAnimation == true)
     }
 
+    @MainActor
+    @Test func appStoreStartsInMainMenu() {
+        let store = AppStore()
+
+        #expect(store.mode == .mainMenu)
+        #expect(store.loadingProgress == nil)
+        #expect(store.currentWorldSession == nil)
+    }
+
+    @MainActor
+    @Test func debugWorldTransitionDoesNotStartLoading() {
+        let store = AppStore()
+
+        store.openDebugWorld()
+
+        if case .debugWorld = store.mode {
+            #expect(true)
+        } else {
+            #expect(Bool(false), "Expected debug world mode")
+        }
+
+        #expect(store.loadingProgress == nil)
+        #expect(store.currentWorldSession == nil)
+    }
+
+    @MainActor
+    @Test func toolsHubTransitionDoesNotCreateWorldSession() {
+        let store = AppStore()
+
+        store.openToolsHub()
+
+        if case .toolsHub = store.mode {
+            #expect(true)
+        } else {
+            #expect(Bool(false), "Expected tools hub mode")
+        }
+
+        #expect(store.loadingProgress == nil)
+        #expect(store.currentWorldSession == nil)
+    }
+
+    @MainActor
+    @Test func prepareWorldNormalizesEmptySeedAndStartsLoading() {
+        let store = AppStore(seedInput: "   ")
+
+        store.prepareWorldFromSeed()
+
+        if case .preparingWorld = store.mode {
+            #expect(true)
+        } else {
+            #expect(Bool(false), "Expected preparing world mode")
+        }
+
+        #expect(store.loadingProgress?.seed == "isoworld-seed-001")
+        #expect(store.currentWorldSession == nil)
+    }
+
 }
