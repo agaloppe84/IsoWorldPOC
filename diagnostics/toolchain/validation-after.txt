@@ -1,0 +1,27 @@
+IsoWorld toolchain validation after Xcode project open
+Date: Thu Jun 11 16:11:34 CEST 2026
+
+Branch:
+  chore/update-xcode-toolchain
+
+Manual Xcode action:
+  Opened IsoWorldPOC/IsoWorldPOC.xcodeproj in Xcode 26.5.
+  Xcode did not present recommended settings.
+  No project.pbxproj migration diff was produced.
+
+Commands:
+  ./scripts/doctor.sh
+  ./scripts/xcodebuild-safe.sh -project IsoWorldPOC/IsoWorldPOC.xcodeproj -scheme IsoWorldPOC -destination 'platform=macOS' -configuration Debug build
+  ./scripts/swift-test-engine-safe.sh
+  ./scripts/xcodebuild-safe.sh -project IsoWorldPOC/IsoWorldPOC.xcodeproj -scheme IsoWorldPOC -destination 'platform=macOS' -configuration Release build
+
+Results:
+  Xcode: 26.5 (17F42)
+  Swift: 6.3.2
+  Debug build: passed
+  EngineCore tests: passed, 72 tests, 0 failures
+  Release build: passed
+
+Notes:
+  Global xcode-select remains /Library/Developer/CommandLineTools by repo policy.
+  Xcode commands use scripts/xcodebuild-safe.sh and DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer.

@@ -25,8 +25,17 @@ L'objectif est de construire progressivement un monde 3D procedural avec une vue
 │   └── IsoWorldPOCUITests/
 ├── docs/
 ├── scripts/
+│   ├── doctor.sh
 │   └── xcodebuild-safe.sh
 └── README.md
+```
+
+## Diagnostic toolchain
+
+Pour afficher la version Xcode/Swift/Metal et les chemins utilises sans modifier `xcode-select`:
+
+```sh
+./scripts/doctor.sh
 ```
 
 ## Build
@@ -45,4 +54,3 @@ Ce wrapper fixe `DEVELOPER_DIR` localement pour la commande et evite toute modif
 - [Architecture](docs/ARCHITECTURE.md)
 - [Regles Codex](docs/CODEX.md)
 - [Decisions](docs/DECISIONS.md)
-
