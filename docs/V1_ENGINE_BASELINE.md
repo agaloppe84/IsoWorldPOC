@@ -22,6 +22,7 @@ Le code actif ne doit plus adapter ses noms, alias ou tests a l'ancien pipeline.
 - `TerrainMaterialKind` contient les materiaux terrain V1: `grass`, `rock`, `dirt`, `sand`, `mud`, `snow`.
 - `PropType` contient les types de props V1: `rock`, `tree`, `crystal`.
 - `StableRNG` est le generateur deterministe public du moteur.
+- `LODPolicy` et `LODSelection` decrivent la visibilite et le niveau de detail des chunks avant upload GPU.
 - `RenderWorldSnapshot` transporte les donnees neutres consommees par le renderer, sans dependance Metal ni option debug non consommee.
 - `TerrainTextureCatalog.makePreview` genere les texture arrays temporaires de preview pour valider le pipeline PBR.
 
@@ -40,12 +41,16 @@ Le code actif ne doit plus adapter ses noms, alias ou tests a l'ancien pipeline.
 - Garder l'overlay debug court: perf, jobs chunks, rendu Metal et position joueur.
 - Ajouter les prochains travaux LOD au-dessus de `RenderWorldSnapshot` et des donnees chunk existantes, sans creer un chemin de rendu parallele.
 
-## Prochaine cible
+## Step 10 livre
 
-Step 10 peut introduire le LOD terrain/chunks a condition de garder le meme flux:
+Step 10 introduit un LOD terrain/chunks baseline en gardant le meme flux:
 
 ```text
 chunk data V1 -> snapshot V1 -> upload GPU -> passes Metal
 ```
 
-Toute optimisation LOD doit rester deterministe, testable dans `EngineCore` quand elle touche aux donnees monde, et observable via des metriques debug limitees.
+La selection LOD reste deterministe et testable dans `EngineCore`. Le streamer applique un budget de chunks visibles et de props rendus, le snapshot transporte la selection, le renderer upload uniquement les chunks visibles et l'index buffer terrain suit le niveau LOD choisi.
+
+## Prochaine cible
+
+Step 11 peut ajouter les props naturels simples au-dessus de ce budget LOD. Les nouveaux props doivent respecter la selection LOD existante et ne pas creer de chemin d'instancing parallele sans contrat moteur.

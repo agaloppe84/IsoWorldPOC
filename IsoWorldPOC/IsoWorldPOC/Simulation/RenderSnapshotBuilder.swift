@@ -54,7 +54,10 @@ struct RenderSnapshotBuilder {
             biome: data.biome,
             terrainMaterial: data.biome.terrainMaterial,
             terrainVertexMaterials: data.terrainVertexMaterials,
-            props: renderProps(from: data, isVisible: renderData.isVisible),
+            props: renderProps(
+                from: data,
+                isVisible: renderData.isVisible && renderData.lodSelection.rendersProps
+            ),
             debugBounds: RenderChunkDebugBounds(
                 coordinate: data.coordinate,
                 origin: origin,
@@ -66,7 +69,8 @@ struct RenderSnapshotBuilder {
                 state: renderData.debugState
             ),
             isVisible: renderData.isVisible,
-            approximateTriangleCount: data.meshIndices.count / 3
+            lodSelection: renderData.lodSelection,
+            approximateTriangleCount: data.terrainGeometry.triangleCount(for: renderData.lodSelection.level)
         )
     }
 

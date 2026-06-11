@@ -11,11 +11,14 @@ import simd
 
 @MainActor
 final class ChunkDataStreamer {
-    private let activeRadiusValue = 1
+    private let activeRadiusValue = 2
     private let preloadRadiusValue = 2
     private let maxConcurrentChunkJobs = 2
     private let maxReadyChunksPerFrame = 1
     private let chunkJobScheduler = JobScheduler()
+    private let lodPolicy = LODPolicy.chunkBaseline(
+        chunkWorldExtent: ProceduralChunkDataFactory.chunkWorldSize
+    )
 
     private var loadedChunkData: [ChunkCoordinate: ProceduralChunkData] = [:]
     private var samplers: [ChunkCoordinate: TerrainSampler] = [:]
@@ -25,6 +28,8 @@ final class ChunkDataStreamer {
     private var readyChunkData: [ChunkCoordinate: ProceduralChunkData] = [:]
     private var activeChunkSet = Set<ChunkCoordinate>()
     private var desiredPreloadChunks = Set<ChunkCoordinate>()
+    private var lodSelectionsByCoordinate: [ChunkCoordinate: LODSelection] = [:]
+    private var currentLODStats = LODFrameStats.empty
 
     private var chunkDataGenerationSampleCount = 0
     private var totalChunkDataGenerationTimeMs: Float = 0
@@ -48,7 +53,7 @@ final class ChunkDataStreamer {
     }
 
     var visibleChunkCount: Int {
-        loadedChunkData.keys.filter { activeChunkSet.contains($0) }.count
+        currentLODStats.visibleChunkCount
     }
 
     var cachedChunkCount: Int {
@@ -56,12 +61,27 @@ final class ChunkDataStreamer {
     }
 
     var approximateTriangleCount: Int {
-        visibleChunkCount * ProceduralChunkDataFactory.triangleCountPerChunk
+        loadedChunkData.reduce(0) { total, entry in
+            guard
+                activeChunkSet.contains(entry.key),
+                let selection = lodSelectionsByCoordinate[entry.key],
+                selection.isVisible
+            else {
+                return total
+            }
+
+            return total + entry.value.terrainGeometry.triangleCount(for: selection.level)
+        }
     }
 
     var approximatePropCount: Int {
         loadedChunkData.reduce(0) { total, entry in
-            guard activeChunkSet.contains(entry.key) else {
+            guard
+                activeChunkSet.contains(entry.key),
+                let selection = lodSelectionsByCoordinate[entry.key],
+                selection.isVisible,
+                selection.rendersProps
+            else {
                 return total
             }
 
@@ -89,6 +109,10 @@ final class ChunkDataStreamer {
         average(totalChunkDataGenerationTimeMs, sampleCount: chunkDataGenerationSampleCount)
     }
 
+    var lodStats: LODFrameStats {
+        currentLODStats
+    }
+
     var jobSchedulerSnapshot: JobSchedulerSnapshot {
         chunkJobScheduler.snapshot
     }
@@ -102,7 +126,8 @@ final class ChunkDataStreamer {
             return ChunkStreamerRenderData(
                 data: data,
                 debugState: debugState(for: coordinate),
-                isVisible: activeChunkSet.contains(coordinate)
+                isVisible: lodSelectionsByCoordinate[coordinate]?.isVisible ?? false,
+                lodSelection: lodSelectionsByCoordinate[coordinate] ?? .visibleLOD0
             )
         }
     }
@@ -124,11 +149,15 @@ final class ChunkDataStreamer {
             jobs: jobSchedulerSnapshot,
             chunksReadyForUpload: chunksReadyForUpload,
             chunkUploadsThisFrame: readyChunksActivatedThisFrame,
-            averageChunkDataGenerationTimeMs: averageChunkDataGenerationMs
+            averageChunkDataGenerationTimeMs: averageChunkDataGenerationMs,
+            lodStats: currentLODStats
         )
     }
 
-    func update(around playerPosition: SIMD3<Float>) {
+    func update(
+        around playerPosition: SIMD3<Float>,
+        fieldOfViewDegrees: Float = 35
+    ) {
         lastReadyChunksActivatedThisFrame = 0
         currentChunk = chunkCoordinate(containing: playerPosition)
 
@@ -142,11 +171,16 @@ final class ChunkDataStreamer {
         enqueueMissingChunks(preloadChunks: preloadChunks, activeChunks: activeChunks)
         startGenerationJobsIfNeeded()
         activateReadyChunks(preloadChunks: preloadChunks, activeChunks: activeChunks)
+        updateLODSelections(around: playerPosition, fieldOfViewDegrees: fieldOfViewDegrees)
     }
 
-    func updateActiveVisibility(around playerPosition: SIMD3<Float>) {
+    func updateActiveVisibility(
+        around playerPosition: SIMD3<Float>,
+        fieldOfViewDegrees: Float = 35
+    ) {
         currentChunk = chunkCoordinate(containing: playerPosition)
         activeChunkSet = requiredChunks(around: currentChunk, radius: activeRadiusValue)
+        updateLODSelections(around: playerPosition, fieldOfViewDegrees: fieldOfViewDegrees)
     }
 
     func terrainGroundSample(at playerPosition: SIMD3<Float>) -> TerrainGroundSample? {
@@ -176,6 +210,7 @@ final class ChunkDataStreamer {
         for coordinate in sorted(staleCoordinates) {
             loadedChunkData.removeValue(forKey: coordinate)
             samplers.removeValue(forKey: coordinate)
+            lodSelectionsByCoordinate.removeValue(forKey: coordinate)
         }
     }
 
@@ -297,6 +332,79 @@ final class ChunkDataStreamer {
         }
     }
 
+    private func updateLODSelections(
+        around playerPosition: SIMD3<Float>,
+        fieldOfViewDegrees: Float
+    ) {
+        let candidateCoordinates = sorted(activeChunkSet).filter { loadedChunkData[$0] != nil }
+        var nextSelections: [ChunkCoordinate: LODSelection] = [:]
+        nextSelections.reserveCapacity(candidateCoordinates.count)
+
+        for coordinate in candidateCoordinates {
+            let distance = distanceFromPlayer(playerPosition, toChunkCenter: coordinate)
+            let previousLevel = lodSelectionsByCoordinate[coordinate]?.level
+
+            nextSelections[coordinate] = LODSelection.select(
+                distance: distance,
+                fieldOfViewDegrees: fieldOfViewDegrees,
+                policy: lodPolicy,
+                previousLevel: previousLevel
+            )
+        }
+
+        let visibleCoordinatesByPriority = candidateCoordinates
+            .filter { nextSelections[$0]?.isVisible == true }
+            .sorted { first, second in
+                let firstSelection = nextSelections[first] ?? .visibleLOD0
+                let secondSelection = nextSelections[second] ?? .visibleLOD0
+
+                if firstSelection.distance != secondSelection.distance {
+                    return firstSelection.distance < secondSelection.distance
+                }
+
+                if firstSelection.level != secondSelection.level {
+                    return firstSelection.level < secondSelection.level
+                }
+
+                return isCoordinate(first, orderedBefore: second)
+            }
+        let maxVisibleTerrainChunks = min(
+            lodPolicy.budget.maxVisibleChunks,
+            lodPolicy.budget.maxTerrainDrawCalls
+        )
+        let visibleBudget = Set(visibleCoordinatesByPriority.prefix(maxVisibleTerrainChunks))
+
+        for coordinate in candidateCoordinates where nextSelections[coordinate]?.isVisible == true {
+            if !visibleBudget.contains(coordinate) {
+                nextSelections[coordinate] = nextSelections[coordinate]?.culledByBudget()
+            }
+        }
+
+        let propsByPriority = visibleCoordinatesByPriority.filter { coordinate in
+            visibleBudget.contains(coordinate) && nextSelections[coordinate]?.rendersProps == true
+        }
+        let propsBudget = Set(propsByPriority.prefix(lodPolicy.budget.maxPropDrawCalls))
+
+        for coordinate in propsByPriority where !propsBudget.contains(coordinate) {
+            nextSelections[coordinate] = nextSelections[coordinate]?.withoutProps()
+        }
+
+        lodSelectionsByCoordinate = nextSelections
+        currentLODStats = LODFrameStats(selections: candidateCoordinates.compactMap { nextSelections[$0] })
+    }
+
+    private func distanceFromPlayer(
+        _ playerPosition: SIMD3<Float>,
+        toChunkCenter coordinate: ChunkCoordinate
+    ) -> Float {
+        let centerX = Float(coordinate.x) * ProceduralChunkDataFactory.chunkWorldSize
+        let centerZ = Float(coordinate.z) * ProceduralChunkDataFactory.chunkWorldSize
+        let deltaX = playerPosition.x - centerX
+        let deltaZ = playerPosition.z - centerZ
+
+        return (deltaX * deltaX + deltaZ * deltaZ).squareRoot()
+    }
+
     private func debugState(for coordinate: ChunkCoordinate) -> RenderChunkDebugState {
         if coordinate == currentChunk {
             return .current
@@ -387,16 +495,23 @@ final class ChunkDataStreamer {
 
     private func sorted(_ coordinates: Set<ChunkCoordinate>) -> [ChunkCoordinate] {
         coordinates.sorted { first, second in
-            if first.z != second.z {
-                return first.z < second.z
-            }
-
-            if first.x != second.x {
-                return first.x < second.x
-            }
-
-            return first.y < second.y
+            isCoordinate(first, orderedBefore: second)
         }
+    }
+
+    private func isCoordinate(
+        _ first: ChunkCoordinate,
+        orderedBefore second: ChunkCoordinate
+    ) -> Bool {
+        if first.z != second.z {
+            return first.z < second.z
+        }
+
+        if first.x != second.x {
+            return first.x < second.x
+        }
+
+        return first.y < second.y
     }
 }
 
@@ -404,4 +519,5 @@ struct ChunkStreamerRenderData {
     let data: ProceduralChunkData
     let debugState: RenderChunkDebugState
     let isVisible: Bool
+    let lodSelection: LODSelection
 }

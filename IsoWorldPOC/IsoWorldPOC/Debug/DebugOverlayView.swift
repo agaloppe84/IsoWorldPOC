@@ -50,6 +50,8 @@ struct DebugOverlayView: View {
 
             sectionTitle("CHUNKS")
             Text("active / visible / cached: \(metrics.activeChunkCount) / \(metrics.visibleChunkCount) / \(metrics.cachedChunkCount)")
+            Text("lod candidates / culled: \(metrics.lodCandidateChunkCount) / \(metrics.lodCulledChunkCount)")
+            Text("lod 0/1/2/3: \(metrics.lod0ChunkCount) / \(metrics.lod1ChunkCount) / \(metrics.lod2ChunkCount) / \(metrics.lod3ChunkCount)")
             Text("triangles / props: \(metrics.approximateTriangleCount) / \(metrics.approximatePropCount)")
             Text("drawn chunks / props: \(metrics.metalRenderedChunkCount) / \(metrics.metalRenderedPropCount)")
             Text("jobs queued / gen / ready: \(metrics.chunkJobsQueued) / \(metrics.chunkJobsGenerating) / \(metrics.chunksReadyForUpload)")

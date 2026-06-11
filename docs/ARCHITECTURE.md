@@ -109,6 +109,20 @@ L'overlay peut basculer le debug terrain entre rendu normal, biome primaire, bio
 
 Cette approche garde les props et terrains batchables par chunk. Elle evite de multiplier les draw calls par biome ou materiau. Le shader utilise actuellement la roughness pour adoucir la reponse diffuse des materiaux rugueux.
 
+### LOD baseline
+
+Le LOD V1 est un systeme classique et explicite, avant tout HLOD ou virtual geometry.
+
+Responsabilites:
+
+- `EngineCore/LOD` definit `LODPolicy`, `LODSelection`, `ScreenError`, `Hysteresis` et `LODBudget`.
+- `ChunkDataStreamer` garde un rayon de chunks candidats, calcule une selection LOD deterministe depuis la position joueur et applique un budget de chunks visibles et de props rendus.
+- `RenderChunk` transporte sa `LODSelection`, afin que le renderer ne reinvente pas la decision.
+- `RenderPayloadUploader` charge uniquement les chunks visibles.
+- `MetalChunkBuffers` genere l'index buffer terrain selon le niveau LOD selectionne, avec des bords de chunk conserves en pleine resolution.
+
+Cette baseline ne fait pas encore de meshlets, HLOD, visibility buffer, occlusion culling GPU ou collision LOD avancee.
+
 ### Lumiere
 
 La lumiere de base est portee par `LightingState` dans les contrats `EngineCore/Rendering`.

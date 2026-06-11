@@ -89,6 +89,12 @@ final class WorldRuntime {
         debugMetrics.currentChunk = chunkStreamer.currentChunk
         debugMetrics.activeChunkCount = chunkStreamer.activeChunkCount
         debugMetrics.visibleChunkCount = chunkStreamer.visibleChunkCount
+        debugMetrics.lodCandidateChunkCount = frameSnapshot.debug.lodStats.candidateChunkCount
+        debugMetrics.lodCulledChunkCount = frameSnapshot.debug.lodStats.culledChunkCount
+        debugMetrics.lod0ChunkCount = frameSnapshot.debug.lodStats.lod0ChunkCount
+        debugMetrics.lod1ChunkCount = frameSnapshot.debug.lodStats.lod1ChunkCount
+        debugMetrics.lod2ChunkCount = frameSnapshot.debug.lodStats.lod2ChunkCount
+        debugMetrics.lod3ChunkCount = frameSnapshot.debug.lodStats.lod3ChunkCount
         debugMetrics.generatedChunkCount = chunkStreamer.generatedChunkCount
         debugMetrics.cachedChunkCount = chunkStreamer.cachedChunkCount
         debugMetrics.approximateTriangleCount = chunkStreamer.approximateTriangleCount
@@ -116,7 +122,13 @@ final class WorldRuntime {
 
     private func updateSimulation(deltaTime: Float) {
         cameraController.updateOrbit(deltaTime: deltaTime, input: inputManager.state)
-        chunkStreamer.update(around: playerController.position)
+        var cameraFieldOfView = cameraController
+            .renderState(following: playerController.position)
+            .fieldOfViewDegrees
+        chunkStreamer.update(
+            around: playerController.position,
+            fieldOfViewDegrees: cameraFieldOfView
+        )
 
         let previousPosition = playerController.position
         let proposedPosition = playerController.proposedHorizontalPosition(
@@ -135,7 +147,13 @@ final class WorldRuntime {
         )
 
         _ = playerController.applyGroundedPosition(grounding.position)
-        chunkStreamer.updateActiveVisibility(around: playerController.position)
+        cameraFieldOfView = cameraController
+            .renderState(following: playerController.position)
+            .fieldOfViewDegrees
+        chunkStreamer.updateActiveVisibility(
+            around: playerController.position,
+            fieldOfViewDegrees: cameraFieldOfView
+        )
         lastGrounding = grounding
     }
 

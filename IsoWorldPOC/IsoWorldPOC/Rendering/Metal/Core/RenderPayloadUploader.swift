@@ -36,7 +36,7 @@ final class RenderPayloadUploader {
     ) {
         chunkUploadsThisFrame = 0
 
-        let requiredCoordinates = Set(snapshot.chunks.map(\.coordinate))
+        let requiredCoordinates = Set(snapshot.chunks.filter(\.isVisible).map(\.coordinate))
         registry.removeChunks(except: requiredCoordinates)
 
         for chunk in uploadCandidates(from: snapshot, registry: registry) {
@@ -61,12 +61,8 @@ final class RenderPayloadUploader {
         registry: GPUResourceRegistry
     ) -> [RenderChunk] {
         snapshot.chunks
-            .filter { !registry.hasChunkBuffer(for: $0.coordinate) }
+            .filter { $0.isVisible && registry.needsChunkBufferUpload(for: $0) }
             .sorted { lhs, rhs in
-                if lhs.isVisible != rhs.isVisible {
-                    return lhs.isVisible
-                }
-
                 return isCoordinate(lhs.coordinate, orderedBefore: rhs.coordinate)
             }
     }

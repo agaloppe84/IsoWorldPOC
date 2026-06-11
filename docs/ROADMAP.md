@@ -45,5 +45,6 @@ Cette roadmap sert de fil conducteur pour le POC. Elle doit rester simple, concr
 ## Phase 6 - Iteration gameplay
 
 - Ajouter les premieres interactions avec le terrain.
+- Garder un LOD/culling baseline avant d'augmenter la densite de props.
 - Mesurer les performances de generation et rendu.
 - Identifier les limites du POC avant industrialisation.

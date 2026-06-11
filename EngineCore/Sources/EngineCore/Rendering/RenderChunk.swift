@@ -34,6 +34,7 @@ public struct RenderChunk: Equatable, Codable, Sendable {
     public let props: [RenderProp]
     public let debugBounds: RenderChunkDebugBounds?
     public let isVisible: Bool
+    public let lodSelection: LODSelection
     public let approximateTriangleCount: Int
 
     public init(
@@ -46,6 +47,7 @@ public struct RenderChunk: Equatable, Codable, Sendable {
         props: [RenderProp] = [],
         debugBounds: RenderChunkDebugBounds? = nil,
         isVisible: Bool = true,
+        lodSelection: LODSelection = .visibleLOD0,
         approximateTriangleCount: Int
     ) {
         precondition(
@@ -63,6 +65,7 @@ public struct RenderChunk: Equatable, Codable, Sendable {
         self.props = props
         self.debugBounds = debugBounds
         self.isVisible = isVisible
+        self.lodSelection = lodSelection
         self.approximateTriangleCount = approximateTriangleCount
     }
 }

@@ -26,6 +26,12 @@ final class DebugMetrics: ObservableObject {
     @Published var currentGroundChunk: ChunkCoordinate?
     @Published var activeChunkCount = 0
     @Published var visibleChunkCount = 0
+    @Published var lodCandidateChunkCount = 0
+    @Published var lodCulledChunkCount = 0
+    @Published var lod0ChunkCount = 0
+    @Published var lod1ChunkCount = 0
+    @Published var lod2ChunkCount = 0
+    @Published var lod3ChunkCount = 0
     @Published var generatedChunkCount = 0
     @Published var cachedChunkCount = 0
     @Published var approximateTriangleCount = 0

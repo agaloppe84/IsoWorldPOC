@@ -33,8 +33,13 @@ final class GPUResourceRegistry {
         }
     }
 
-    func hasChunkBuffer(for coordinate: ChunkCoordinate) -> Bool {
-        chunkBuffersByCoordinate[coordinate] != nil
+    func needsChunkBufferUpload(for chunk: RenderChunk) -> Bool {
+        guard let buffers = chunkBuffersByCoordinate[chunk.coordinate] else {
+            return true
+        }
+
+        return buffers.renderChunk.lodSelection.level != chunk.lodSelection.level ||
+            buffers.renderChunk.lodSelection.rendersProps != chunk.lodSelection.rendersProps
     }
 
     func store(_ buffers: MetalChunkBuffers, for coordinate: ChunkCoordinate) {

@@ -319,3 +319,15 @@ Raison: la V1 doit avancer sur une architecture unique. Les noms de transition, 
 Consequence: le code actif utilise les noms V1, les snapshots ne transportent plus d'option debug non consommee, l'overlay debug est recentre sur perf/world/render et le renderer Metal consomme le pipeline material/texture V1.
 
 Garantie: les tests EngineCore et Xcode doivent couvrir la serialisation des snapshots, les biomes V1, les splats terrain, les slots PBR, les payloads Metal et le rendu app avant Step 10.
+
+## 033 - LOD baseline chunks/terrain
+
+Decision: introduire un LOD classique dans `EngineCore/LOD` et le brancher au streaming de chunks avant l'upload GPU.
+
+Raison: avant d'ajouter davantage de props ou de densite visuelle, le moteur doit savoir distinguer chunks candidats, chunks visibles, chunks culles et niveau de detail. La V1 doit rester simple, deterministe et debuggable.
+
+Consequence: `ChunkDataStreamer` utilise un rayon candidat de 2 chunks, applique `LODPolicy.chunkBaseline`, budgete les chunks visibles et expose `LODFrameStats`. `RenderChunk` transporte sa `LODSelection`, `RenderPayloadUploader` ignore les chunks non visibles et `MetalChunkBuffers` construit un index buffer terrain adapte au niveau LOD.
+
+Garantie: les tests couvrent selection par distance, hysteresis, screen error, stats LOD et indices terrain edge-preserving.
+
+Limite actuelle: pas encore de HLOD, occlusion culling GPU, meshlets, indirect draw, collision LOD avancee ou instancing GPU dedie.

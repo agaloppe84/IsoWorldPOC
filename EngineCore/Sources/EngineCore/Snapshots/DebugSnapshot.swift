@@ -12,6 +12,7 @@ public struct DebugSnapshot: Equatable, Codable, Sendable {
     public let chunksReadyForUpload: Int
     public let chunkUploadsThisFrame: Int
     public let averageChunkDataGenerationTimeMs: Float?
+    public let lodStats: LODFrameStats
 
     public init(
         frameIndex: UInt64,
@@ -32,7 +33,8 @@ public struct DebugSnapshot: Equatable, Codable, Sendable {
         ),
         chunksReadyForUpload: Int = 0,
         chunkUploadsThisFrame: Int = 0,
-        averageChunkDataGenerationTimeMs: Float? = nil
+        averageChunkDataGenerationTimeMs: Float? = nil,
+        lodStats: LODFrameStats = .empty
     ) {
         self.frameIndex = frameIndex
         self.currentChunk = currentChunk
@@ -47,5 +49,6 @@ public struct DebugSnapshot: Equatable, Codable, Sendable {
         self.chunksReadyForUpload = chunksReadyForUpload
         self.chunkUploadsThisFrame = chunkUploadsThisFrame
         self.averageChunkDataGenerationTimeMs = averageChunkDataGenerationTimeMs
+        self.lodStats = lodStats
     }
 }

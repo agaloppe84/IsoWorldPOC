@@ -410,6 +410,7 @@ struct MetalChunkBuffers {
 
     init?(device: MTLDevice?, renderChunk: RenderChunk) {
         let geometry = renderChunk.terrainGeometry
+        let terrainIndices = geometry.indices(for: renderChunk.lodSelection.level)
         let terrainVertices = Self.terrainVertices(
             from: geometry,
             fallbackMaterial: renderChunk.terrainMaterial,
@@ -427,8 +428,8 @@ struct MetalChunkBuffers {
                 options: []
             ),
             let terrainIndexBuffer = device.makeBuffer(
-                bytes: geometry.indices,
-                length: MemoryLayout<UInt32>.stride * geometry.indices.count,
+                bytes: terrainIndices,
+                length: MemoryLayout<UInt32>.stride * terrainIndices.count,
                 options: []
             )
         else {
@@ -438,7 +439,7 @@ struct MetalChunkBuffers {
         self.renderChunk = renderChunk
         self.terrainVertexBuffer = terrainVertexBuffer
         self.terrainIndexBuffer = terrainIndexBuffer
-        self.terrainIndexCount = geometry.indices.count
+        self.terrainIndexCount = terrainIndices.count
         self.propVertexBuffer = makeBuffer(device: device, values: propMesh.vertices)
         self.propIndexBuffer = makeBuffer(device: device, values: propMesh.indices)
         self.propIndexCount = propMesh.indices.count
