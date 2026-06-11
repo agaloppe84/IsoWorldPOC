@@ -263,3 +263,19 @@ Consequence: chaque `RenderMaterial` terrain expose maintenant ses slots PBR pla
 Garantie: les tests EngineCore verifient que chaque materiau terrain possede les quatre maps PBR, avec des indices de couches stables et des echelles UV coherentes.
 
 Limite actuelle: les maps PBR sont encore des placeholders 2x2. Le shader reste volontairement simple et ne fait pas encore de normal mapping, BRDF PBR complete, image-based lighting ou texture streaming.
+
+## 027 - DS_Store hors suivi Git
+
+Decision: retirer `.DS_Store` de l'index Git et le laisser ignore par `.gitignore`.
+
+Raison: le fichier est un etat local Finder/macOS qui change hors du projet et pollue `git status`.
+
+Consequence: chaque clone peut garder son `.DS_Store` local sans le publier ni le voir comme changement versionne.
+
+## 028 - Cadence debug explicite
+
+Decision: le viewport Metal de debug demarre en `slowInspection` a 15 FPS, avec modes explicites `pausedInspection`, `liveGameplay` et `benchmark`.
+
+Raison: le rendu debug a 60 Hz par defaut fausse les mesures et provoque des publications SwiftUI trop frequentes.
+
+Consequence: le 60 Hz reste disponible, mais uniquement via `liveGameplay` ou `benchmark`; les metriques debug sont publiees a cadence reduite.

@@ -10,8 +10,30 @@ import Testing
 
 struct IsoWorldPOCTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test func slowInspectionUsesThrottledCadence() {
+        let policy = DebugWorldRunMode.slowInspection.cadencePolicy
+
+        #expect(policy.mode == .throttled(fps: 15))
+        #expect(policy.maxFPS == 15)
+        #expect(policy.renderOnlyWhenDirty == false)
+        #expect(policy.allowContinuousAnimation == true)
+    }
+
+    @Test func pausedInspectionRendersOnlyWhenDirty() {
+        let policy = DebugWorldRunMode.pausedInspection.cadencePolicy
+
+        #expect(policy.mode == .onDemand)
+        #expect(policy.renderOnlyWhenDirty == true)
+        #expect(policy.allowContinuousAnimation == false)
+    }
+
+    @Test func liveGameplayIsTheOnlyNormalDisplayLinkedMode() {
+        let policy = DebugWorldRunMode.liveGameplay.cadencePolicy
+
+        #expect(policy.mode == .displayLinked)
+        #expect(policy.maxFPS == 60)
+        #expect(policy.renderOnlyWhenDirty == false)
+        #expect(policy.allowContinuousAnimation == true)
     }
 
 }

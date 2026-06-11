@@ -13,6 +13,13 @@ import simd
 final class DebugMetrics: ObservableObject {
     @Published var framesPerSecond: Float = 0
     @Published var frameTimeMilliseconds: Float = 0
+    @Published var debugWorldRunMode: DebugWorldRunMode = .slowInspection
+    @Published var renderCadenceDescription = DebugWorldRunMode.slowInspection.cadencePolicy.displayName
+    @Published var renderCadenceMaxFPS = DebugWorldRunMode.slowInspection.cadencePolicy.maxFPS
+    @Published var renderOnlyWhenDirty = DebugWorldRunMode.slowInspection.cadencePolicy.renderOnlyWhenDirty
+    @Published var continuousAnimationAllowed = DebugWorldRunMode.slowInspection.cadencePolicy.allowContinuousAnimation
+    @Published var debugMetricsRefreshFPS: Float = Float(1 / DebugWorldRunMode.slowInspection.metricsRefreshInterval)
+    @Published var renderedFrameCount = 0
     @Published var inputState = PlayerInputState()
     @Published var controllerName = "None"
     @Published var playerPosition = SIMD3<Float>(0, 0, 0)
@@ -62,4 +69,30 @@ final class DebugMetrics: ObservableObject {
     @Published var terrainMaterialDebugMode: TerrainMaterialDebugMode = .normal
     @Published var terrainSplatDebugLayerIndex = 0
     @Published var rendererMode = RendererMode.activeMode
+
+    func applyCadencePolicy(_ policy: RenderCadencePolicy, metricsRefreshInterval: Double) {
+        assignIfNeeded(\.renderCadenceDescription, policy.displayName)
+        assignIfNeeded(\.renderCadenceMaxFPS, policy.maxFPS)
+        assignIfNeeded(\.renderOnlyWhenDirty, policy.renderOnlyWhenDirty)
+        assignIfNeeded(\.continuousAnimationAllowed, policy.allowContinuousAnimation)
+        assignIfNeeded(\.debugMetricsRefreshFPS, Float(1 / metricsRefreshInterval))
+    }
+
+    func applyFrameTiming(
+        framesPerSecond: Float,
+        frameTimeMilliseconds: Float,
+        renderedFrameCount: Int
+    ) {
+        assignIfNeeded(\.framesPerSecond, framesPerSecond)
+        assignIfNeeded(\.frameTimeMilliseconds, frameTimeMilliseconds)
+        assignIfNeeded(\.renderedFrameCount, renderedFrameCount)
+    }
+
+    private func assignIfNeeded<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<DebugMetrics, Value>, _ value: Value) {
+        guard self[keyPath: keyPath] != value else {
+            return
+        }
+
+        self[keyPath: keyPath] = value
+    }
 }

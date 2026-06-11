@@ -20,6 +20,16 @@ struct DebugOverlayView: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("PERF")
             Text("renderer: \(metrics.rendererMode.displayName)")
+            Picker("run mode", selection: $metrics.debugWorldRunMode) {
+                ForEach(DebugWorldRunMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            Text("cadence: \(metrics.renderCadenceDescription), max \(metrics.renderCadenceMaxFPS) fps")
+            Text("dirty-only / continuous: \(format(metrics.renderOnlyWhenDirty)) / \(format(metrics.continuousAnimationAllowed))")
+            Text("metrics refresh: \(format(metrics.debugMetricsRefreshFPS)) fps")
+            Text("rendered frames: \(metrics.renderedFrameCount)")
             Text("fps / frame: \(format(metrics.framesPerSecond)) / \(format(metrics.frameTimeMilliseconds)) ms")
             Text("chunk data avg: \(format(metrics.averageChunkDataGenerationMs)) ms")
             Text("chunk upload avg: \(format(metrics.averageChunkUploadMs)) ms")

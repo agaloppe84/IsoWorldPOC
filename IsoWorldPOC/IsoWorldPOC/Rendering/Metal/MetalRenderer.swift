@@ -39,6 +39,10 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private var chunkUploadsThisFrame = 0
     private var chunkUploadSampleCount = 0
     private var totalChunkUploadTimeMs: Float = 0
+    private var latestFramesPerSecond: Float = 0
+    private var latestFrameTimeMilliseconds: Float = 0
+    private var renderedFrameCount = 0
+    private var lastDebugMetricsPublishTime = 0.0
 
     init(debugMetrics: DebugMetrics) {
         let device = MTLCreateSystemDefaultDevice()
@@ -65,7 +69,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         super.init()
 
         syncBuffers(with: snapshot)
-        updateDebugMetrics()
+        updateDebugMetrics(force: true)
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
@@ -170,6 +174,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
 
         commandBuffer.present(drawable)
         commandBuffer.commit()
+        renderedFrameCount += 1
         updateDebugMetrics()
     }
 
@@ -261,8 +266,20 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         return projection * view
     }
 
-    private func updateDebugMetrics() {
+    private func updateDebugMetrics(force: Bool = false) {
+        let now = CACurrentMediaTime()
+        let publishInterval = debugMetrics.debugWorldRunMode.metricsRefreshInterval
+        guard force || now - lastDebugMetricsPublishTime >= publishInterval else {
+            return
+        }
+
+        lastDebugMetricsPublishTime = now
         debugMetrics.rendererMode = .metal
+        debugMetrics.applyFrameTiming(
+            framesPerSecond: latestFramesPerSecond,
+            frameTimeMilliseconds: latestFrameTimeMilliseconds,
+            renderedFrameCount: renderedFrameCount
+        )
         runtime.applyDebugMetrics(to: debugMetrics)
         debugMetrics.cachedChunkCount = chunkBuffersByCoordinate.count
         debugMetrics.averageChunkUploadMs = average(totalChunkUploadTimeMs, sampleCount: chunkUploadSampleCount)
@@ -332,8 +349,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             return min(deltaTime, 1.0 / 15.0)
         }
 
-        debugMetrics.frameTimeMilliseconds = smoothedFrameTime * 1_000
-        debugMetrics.framesPerSecond = 1 / smoothedFrameTime
+        latestFrameTimeMilliseconds = smoothedFrameTime * 1_000
+        latestFramesPerSecond = 1 / smoothedFrameTime
 
         return min(deltaTime, 1.0 / 15.0)
     }

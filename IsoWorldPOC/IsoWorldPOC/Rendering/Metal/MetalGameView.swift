@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import EngineCore
 import MetalKit
 import SwiftUI
 
@@ -23,30 +24,81 @@ struct MetalGameView: NSViewRepresentable {
         metalView.depthStencilPixelFormat = .depth32Float
         metalView.clearColor = context.coordinator.renderer.clearColor
         metalView.framebufferOnly = true
-        metalView.preferredFramesPerSecond = 60
-        metalView.enableSetNeedsDisplay = false
-        metalView.isPaused = false
+        context.coordinator.attach(to: metalView)
+        context.coordinator.syncDebugState(from: debugMetrics)
         metalView.onKeyDown = { keyCode in
             context.coordinator.renderer.handleKeyDown(keyCode: keyCode)
+            context.coordinator.requestDraw()
         }
         metalView.onKeyUp = { keyCode in
             context.coordinator.renderer.handleKeyUp(keyCode: keyCode)
+            context.coordinator.requestDraw()
         }
         metalView.onKeyboardReset = {
             context.coordinator.renderer.resetKeyboard()
+            context.coordinator.requestDraw()
+        }
+        metalView.onViewChanged = {
+            context.coordinator.requestDraw()
         }
         return metalView
     }
 
-    func updateNSView(_ nsView: MTKView, context: Context) {}
+    func updateNSView(_ nsView: MTKView, context: Context) {
+        context.coordinator.syncDebugState(from: debugMetrics)
+    }
 
     @MainActor
     final class Coordinator {
         let renderer: MetalRenderer
+        private let cadenceController = DebugCadenceController()
+        private var debugState: DebugViewportState?
 
         init(debugMetrics: DebugMetrics) {
             self.renderer = MetalRenderer(debugMetrics: debugMetrics)
         }
+
+        func attach(to view: MTKView) {
+            cadenceController.attach(view: view)
+        }
+
+        func syncDebugState(from metrics: DebugMetrics) {
+            let nextState = DebugViewportState(metrics: metrics)
+            guard nextState != debugState else {
+                return
+            }
+
+            let policy = metrics.debugWorldRunMode.cadencePolicy
+            cadenceController.apply(policy: policy)
+            metrics.applyCadencePolicy(
+                policy,
+                metricsRefreshInterval: metrics.debugWorldRunMode.metricsRefreshInterval
+            )
+
+            debugState = nextState
+            cadenceController.requestDraw()
+        }
+
+        func requestDraw() {
+            cadenceController.requestDraw()
+        }
+    }
+}
+
+private struct DebugViewportState: Equatable {
+    let runMode: DebugWorldRunMode
+    let showChunkBounds: Bool
+    let showChunkLabels: Bool
+    let terrainMaterialDebugMode: TerrainMaterialDebugMode
+    let terrainSplatDebugLayerIndex: Int
+
+    @MainActor
+    init(metrics: DebugMetrics) {
+        self.runMode = metrics.debugWorldRunMode
+        self.showChunkBounds = metrics.showChunkBounds
+        self.showChunkLabels = metrics.showChunkLabels
+        self.terrainMaterialDebugMode = metrics.terrainMaterialDebugMode
+        self.terrainSplatDebugLayerIndex = metrics.terrainSplatDebugLayerIndex
     }
 }
 
@@ -54,6 +106,7 @@ private final class KeyboardControllableMTKView: MTKView {
     var onKeyDown: ((UInt16) -> Void)?
     var onKeyUp: ((UInt16) -> Void)?
     var onKeyboardReset: (() -> Void)?
+    var onViewChanged: (() -> Void)?
 
     override var acceptsFirstResponder: Bool {
         true
@@ -62,6 +115,12 @@ private final class KeyboardControllableMTKView: MTKView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         window?.makeFirstResponder(self)
+        onViewChanged?()
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        onViewChanged?()
     }
 
     override func keyDown(with event: NSEvent) {
