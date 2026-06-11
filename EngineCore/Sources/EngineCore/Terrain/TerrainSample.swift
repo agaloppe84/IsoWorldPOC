@@ -64,6 +64,8 @@ public struct TerrainSample: Equatable, Hashable, Codable, Sendable {
     public let moisture: Float
     public let temperature: Float
     public let materialWeights: MaterialWeights
+    public let waterDepth: Float
+    public let featureMasks: TerrainFeatureMasks
     public let walkability: Float
     public let climbability: Float
 
@@ -80,6 +82,8 @@ public struct TerrainSample: Equatable, Hashable, Codable, Sendable {
         moisture: Float = 0,
         temperature: Float = 0,
         materialWeights: MaterialWeights = .grassland,
+        waterDepth: Float = 0,
+        featureMasks: TerrainFeatureMasks = .zero,
         walkability: Float = 1,
         climbability: Float = 0
     ) {
@@ -95,6 +99,8 @@ public struct TerrainSample: Equatable, Hashable, Codable, Sendable {
         self.moisture = Self.clamped01(moisture)
         self.temperature = Self.clamped01(temperature)
         self.materialWeights = materialWeights
+        self.waterDepth = max(waterDepth, 0)
+        self.featureMasks = featureMasks
         self.walkability = Self.clamped01(walkability)
         self.climbability = Self.clamped01(climbability)
     }
@@ -114,6 +120,11 @@ public struct TerrainSample: Equatable, Hashable, Codable, Sendable {
         hasher.combine(moisture)
         hasher.combine(temperature)
         materialWeights.stableHash(into: &hasher)
+        hasher.combine(waterDepth)
+        hasher.combine(featureMasks.water)
+        hasher.combine(featureMasks.shore)
+        hasher.combine(featureMasks.mountain)
+        hasher.combine(featureMasks.cliff)
         hasher.combine(walkability)
         hasher.combine(climbability)
     }

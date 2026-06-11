@@ -32,4 +32,5 @@ public extension SeedDomain {
     static let entities = SeedDomain("entities")
     static let climate = SeedDomain("climate")
     static let heightmap = SeedDomain("heightmap")
+    static let terrainFeatures = SeedDomain("terrain-features")
 }

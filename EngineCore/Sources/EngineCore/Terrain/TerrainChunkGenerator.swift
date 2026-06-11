@@ -62,6 +62,8 @@ public struct TerrainChunkGenerator: Sendable {
             moisture: fields.moisture,
             temperature: fields.temperature,
             materialWeights: fields.materialWeights,
+            waterDepth: fields.waterDepth,
+            featureMasks: fields.featureMasks,
             walkability: fields.walkability,
             climbability: fields.climbability
         )
@@ -71,6 +73,10 @@ public struct TerrainChunkGenerator: Sendable {
         generateSampleGrid(for: coordinate).samples.map { sample in
             sample.materialWeights.terrainVertexMaterial()
         }
+    }
+
+    public func featureGraph() -> TerrainFeatureGraph {
+        fieldProvider.featureGraphSnapshot()
     }
 
     private var gridStride: Int {

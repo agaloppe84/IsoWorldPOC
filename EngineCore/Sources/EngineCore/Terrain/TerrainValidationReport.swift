@@ -10,6 +10,8 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
     public let maxHeight: Float
     public let maxSlope: Float
     public let averageRoughness: Float
+    public let waterCoverage: Float
+    public let shoreCoverage: Float
     public let walkableRatio: Float
     public let climbableRatio: Float
     public let materialCoverage: [String: Float]
@@ -25,6 +27,8 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
             self.maxHeight = 0
             self.maxSlope = 0
             self.averageRoughness = 0
+            self.waterCoverage = 0
+            self.shoreCoverage = 0
             self.walkableRatio = 0
             self.climbableRatio = 0
             self.materialCoverage = [:]
@@ -36,6 +40,8 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
         var maxHeight = -Float.greatestFiniteMagnitude
         var maxSlope: Float = 0
         var roughnessTotal: Float = 0
+        var waterCoverageTotal: Float = 0
+        var shoreCoverageTotal: Float = 0
         var walkableCount = 0
         var climbableCount = 0
         var coverage: [String: Float] = [:]
@@ -54,6 +60,8 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
             maxHeight = max(maxHeight, sample.height)
             maxSlope = max(maxSlope, sample.slope)
             roughnessTotal += sample.roughness
+            waterCoverageTotal += sample.featureMasks.water
+            shoreCoverageTotal += sample.featureMasks.shore
 
             if sample.walkability > 0.5 {
                 walkableCount += 1
@@ -73,6 +81,8 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
         self.maxHeight = maxHeight
         self.maxSlope = maxSlope
         self.averageRoughness = roughnessTotal / sampleCount
+        self.waterCoverage = waterCoverageTotal / sampleCount
+        self.shoreCoverage = shoreCoverageTotal / sampleCount
         self.walkableRatio = Float(walkableCount) / sampleCount
         self.climbableRatio = Float(climbableCount) / sampleCount
         self.materialCoverage = coverage.mapValues { $0 / sampleCount }
@@ -94,6 +104,11 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
             sample.roughness.isFinite &&
             sample.moisture.isFinite &&
             sample.temperature.isFinite &&
+            sample.waterDepth.isFinite &&
+            sample.featureMasks.water.isFinite &&
+            sample.featureMasks.shore.isFinite &&
+            sample.featureMasks.mountain.isFinite &&
+            sample.featureMasks.cliff.isFinite &&
             sample.walkability.isFinite &&
             sample.climbability.isFinite
     }

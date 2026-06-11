@@ -159,8 +159,6 @@ Step 12-DEBUG-LEAN reduit le cout propre au panneau Debug World:
 
 Le Debug World doit maintenant etre un outil de diagnostic leger par defaut. Les modes detailles restent assumement plus couteux et doivent servir aux investigations ponctuelles.
 
-## Prochaine cible
-
 ## Step 13 livre
 
 Step 13 ouvre le `Tools Hub` minimal comme surface isolee du vrai monde:
@@ -173,6 +171,19 @@ Step 13 ouvre le `Tools Hub` minimal comme surface isolee du vrai monde:
 
 La V1 ne branche pas encore de preview Metal dediee dans les outils. Le hub fournit le shell data-driven, les documents et la validation necessaires avant d'ajouter des previews specialisees.
 
+## Step 14 livre
+
+Step 14 remplace le terrain purement bruite par un premier `TerrainFeatureGraph` V1:
+
+- `EngineCore/Terrain/Features` contient les contrats `TerrainFeature`, `TerrainFeatureGraph`, `RiverFeature`, `LakeFeature`, `MountainRangeFeature` et `CliffBandFeature`.
+- Le graph est deterministe par `WorldSeed` et expose une query par chunk via `features(intersecting:)`.
+- `DefaultTerrainFieldProvider` applique les contributions du graph avant de produire les samples terrain.
+- Les samples transportent maintenant `waterDepth` et `TerrainFeatureMasks` pour eau, berge, montagne et falaise.
+- Les rivieres/lacs creusent le terrain, les montagnes relevent les ranges, les falaises ajoutent une marche locale, et les masques influencent humidite, walkability/climbability et splats de materiaux shore.
+- `TerrainValidationReport` expose `waterCoverage` et `shoreCoverage`.
+
+Cette passe ne rend pas encore de mesh d'eau dedie. L'eau V1 est un contrat de generation et de material masks, pret pour debug/renderer/gameplay dans les prochains steps.
+
 ## Prochaine cible
 
-Step 14 peut connecter les premiers outils a des donnees moteur specialisees, en gardant le meme contrat: document d'outil -> validation -> preview snapshot isolee -> export futur.
+Step 15 peut ajouter la verticalite gameplay V1 au-dessus des nouveaux masques terrain: surfaces walkable/steep/climbable/dangerous/blocked, candidats ledges, cordes et escaliers.

@@ -6,6 +6,10 @@ public enum TerrainDebugLayer: String, CaseIterable, Codable, Sendable {
     case moisture
     case temperature
     case primaryMaterialWeight
+    case waterMask
+    case shoreMask
+    case mountainMask
+    case cliffMask
     case walkability
     case climbability
 }
@@ -50,6 +54,14 @@ public struct TerrainDebugLayers: Sendable {
             return sample.temperature
         case .primaryMaterialWeight:
             return sample.materialWeights.primaryLayer.weight
+        case .waterMask:
+            return sample.featureMasks.water
+        case .shoreMask:
+            return sample.featureMasks.shore
+        case .mountainMask:
+            return sample.featureMasks.mountain
+        case .cliffMask:
+            return sample.featureMasks.cliff
         case .walkability:
             return sample.walkability
         case .climbability:

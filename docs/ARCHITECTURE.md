@@ -145,6 +145,22 @@ Les types de preparation vivent dans `IsoWorldPOC/IsoWorldPOC/GameRuntime/WorldP
 
 Cette baseline ne precompile pas encore les pipelines GPU hors `MetalRenderer`. Le warmup Step 12 signifie que les payloads CPU critiques sont prets avant la premiere frame.
 
+### Terrain FeatureGraph V1
+
+Le terrain V1 est structure par un `TerrainFeatureGraph` deterministe dans `EngineCore/Terrain/Features`.
+
+Responsabilites:
+
+- declarer les features terrain V1: `RiverFeature`, `LakeFeature`, `MountainRangeFeature`, `CliffBandFeature`;
+- permettre une query par chunk pour savoir quelles features affectent une zone;
+- produire des contributions de hauteur et de masques depuis les coordonnees monde;
+- appliquer carving, ranges, falaises, water masks et shore masks avant la creation des samples;
+- rester independant de Metal, SwiftUI et du runtime monde.
+
+`DefaultTerrainFieldProvider` combine la height function de base avec les contributions du graph. Les `TerrainSample` transportent `waterDepth` et `TerrainFeatureMasks` (`water`, `shore`, `mountain`, `cliff`). Ces masks influencent humidite, materiaux terrain, walkability et climbability, tout en gardant les bords de chunks stables car les features sont echantillonnees en coordonnees monde.
+
+Le renderer ne dessine pas encore de surface d'eau dediee. Pour l'instant, l'hydrologie V1 existe comme donnees moteur et comme splats de materiaux shore/mud, afin de preparer debug, gameplay traversal et rendu d'eau futur.
+
 ### Tools Hub V1
 
 Le Tools Hub est une surface app separee du monde runtime.

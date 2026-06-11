@@ -9,6 +9,8 @@ public struct TerrainFieldSample: Equatable, Hashable, Codable, Sendable {
     public let moisture: Float
     public let temperature: Float
     public let materialWeights: MaterialWeights
+    public let waterDepth: Float
+    public let featureMasks: TerrainFeatureMasks
     public let walkability: Float
     public let climbability: Float
 }
@@ -23,11 +25,13 @@ public struct DefaultTerrainFieldProvider: TerrainFieldProvider {
 
     private let heightFunction: TerrainHeightFunction
     private let biomeSampler: BiomeSampler
+    private let featureGraph: TerrainFeatureGraph
 
     public init(seed: WorldSeed) {
         self.seed = seed
         self.heightFunction = TerrainHeightFunction(seed: seed)
         self.biomeSampler = BiomeSampler(seed: seed)
+        self.featureGraph = TerrainFeatureGraph.make(seed: seed)
     }
 
     public func heightAt(
@@ -35,7 +39,7 @@ public struct DefaultTerrainFieldProvider: TerrainFieldProvider {
         worldZ: Int,
         verticalChunk: Int = 0
     ) -> Float {
-        heightFunction.heightAt(worldX: worldX, worldZ: worldZ, verticalChunk: verticalChunk)
+        shapedHeightAt(worldX: worldX, worldZ: worldZ, verticalChunk: verticalChunk).height
     }
 
     public func sampleAt(
@@ -43,7 +47,8 @@ public struct DefaultTerrainFieldProvider: TerrainFieldProvider {
         worldZ: Int,
         verticalChunk: Int = 0
     ) -> TerrainFieldSample {
-        let height = heightAt(worldX: worldX, worldZ: worldZ, verticalChunk: verticalChunk)
+        let shapedHeight = shapedHeightAt(worldX: worldX, worldZ: worldZ, verticalChunk: verticalChunk)
+        let height = shapedHeight.height
         let left = heightAt(worldX: worldX - 1, worldZ: worldZ, verticalChunk: verticalChunk)
         let right = heightAt(worldX: worldX + 1, worldZ: worldZ, verticalChunk: verticalChunk)
         let back = heightAt(worldX: worldX, worldZ: worldZ - 1, verticalChunk: verticalChunk)
@@ -58,7 +63,12 @@ public struct DefaultTerrainFieldProvider: TerrainFieldProvider {
             y: height,
             z: Float(worldZ)
         ))
-        let moisture = normalizedClimateValue(climate.moisture)
+        let featureMasks = shapedHeight.contribution.masks
+        let moisture = clamped01(
+            normalizedClimateValue(climate.moisture) +
+                featureMasks.water * 0.42 +
+                featureMasks.shore * 0.24
+        )
         let temperature = normalizedClimateValue(climate.temperature)
         let materialWeights = materialWeights(
             worldX: worldX,
@@ -66,8 +76,14 @@ public struct DefaultTerrainFieldProvider: TerrainFieldProvider {
             height: height,
             slope: slope,
             moisture: moisture,
-            temperature: temperature
+            temperature: temperature,
+            featureMasks: featureMasks
         )
+        let baseWalkability = 1 - smoothStep(edge0: 0.45, edge1: 1.15, slope)
+        let baseClimbability = smoothStep(edge0: 0.85, edge1: 1.8, slope) *
+            (1 - smoothStep(edge0: 3.2, edge1: 5.0, slope))
+        let waterPenalty = featureMasks.water * 0.85
+        let cliffClimbBonus = featureMasks.cliff * 0.35
 
         return TerrainFieldSample(
             height: height,
@@ -78,10 +94,34 @@ public struct DefaultTerrainFieldProvider: TerrainFieldProvider {
             moisture: moisture,
             temperature: temperature,
             materialWeights: materialWeights,
-            walkability: 1 - smoothStep(edge0: 0.45, edge1: 1.15, slope),
-            climbability: smoothStep(edge0: 0.85, edge1: 1.8, slope) *
-                (1 - smoothStep(edge0: 3.2, edge1: 5.0, slope))
+            waterDepth: shapedHeight.contribution.waterDepth,
+            featureMasks: featureMasks,
+            walkability: clamped01(baseWalkability * (1 - waterPenalty)),
+            climbability: clamped01((baseClimbability + cliffClimbBonus) * (1 - featureMasks.water))
         )
+    }
+
+    public func featureGraphSnapshot() -> TerrainFeatureGraph {
+        featureGraph
+    }
+
+    private func shapedHeightAt(
+        worldX: Int,
+        worldZ: Int,
+        verticalChunk: Int
+    ) -> (height: Float, contribution: TerrainFeatureContribution) {
+        let baseHeight = heightFunction.heightAt(
+            worldX: worldX,
+            worldZ: worldZ,
+            verticalChunk: verticalChunk
+        )
+        let contribution = featureGraph.contribution(at: TerrainFeaturePoint(
+            worldX: Float(worldX),
+            worldZ: Float(worldZ),
+            baseHeight: baseHeight
+        ))
+
+        return (baseHeight + contribution.heightOffset, contribution)
     }
 
     private func materialWeights(
@@ -90,18 +130,26 @@ public struct DefaultTerrainFieldProvider: TerrainFieldProvider {
         height: Float,
         slope: Float,
         moisture: Float,
-        temperature: Float
+        temperature: Float,
+        featureMasks: TerrainFeatureMasks
     ) -> MaterialWeights {
         let position = WorldPosition(x: Float(worldX), y: height, z: Float(worldZ))
         let primaryBiome = biomeSampler.biome(at: position)
         let baseSplat = biomeSampler.terrainMaterialSplat(at: position)
-        let rockWeight = smoothStep(edge0: 0.18, edge1: 0.55, slope) * 0.55
+        let rockWeight = min(
+            smoothStep(edge0: 0.18, edge1: 0.55, slope) * 0.55 +
+                featureMasks.mountain * 0.24 +
+                featureMasks.cliff * 0.55,
+            0.82
+        )
         let snowWeight = smoothStep(edge0: 4.8, edge1: 6.8, height) *
             (1 - smoothStep(edge0: 0.55, edge1: 0.85, temperature)) * 0.50
         let wetWeight = smoothStep(edge0: 0.68, edge1: 0.92, moisture) *
             (1 - smoothStep(edge0: 1.5, edge1: 4.5, abs(height))) * 0.32
-        let derivedWeight = min(rockWeight + snowWeight + wetWeight, 0.70)
-        let baseWeight = max(1 - derivedWeight, 0.30)
+        let shoreWeight = featureMasks.shore * 0.46
+        let waterMudWeight = featureMasks.water * 0.62
+        let derivedWeight = min(rockWeight + snowWeight + wetWeight + shoreWeight + waterMudWeight, 0.82)
+        let baseWeight = max(1 - derivedWeight, 0.18)
         var layers = baseSplat.layers.map { layer in
             layer.withWeight(layer.weight * baseWeight)
         }
@@ -121,6 +169,18 @@ public struct DefaultTerrainFieldProvider: TerrainFieldProvider {
         appendDerivedLayer(
             kind: .mud,
             weight: wetWeight,
+            biome: primaryBiome,
+            layers: &layers
+        )
+        appendDerivedLayer(
+            kind: .sand,
+            weight: shoreWeight,
+            biome: primaryBiome,
+            layers: &layers
+        )
+        appendDerivedLayer(
+            kind: .mud,
+            weight: waterMudWeight,
             biome: primaryBiome,
             layers: &layers
         )

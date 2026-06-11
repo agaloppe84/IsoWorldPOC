@@ -28,6 +28,14 @@ public struct TerrainSystem: Sendable {
         chunkGenerator.terrainVertexMaterials(for: coordinate)
     }
 
+    public func featureGraph() -> TerrainFeatureGraph {
+        chunkGenerator.featureGraph()
+    }
+
+    public func features(intersecting coordinate: ChunkCoordinate) -> TerrainFeatureChunkQuery {
+        chunkGenerator.featureGraph().features(intersecting: coordinate)
+    }
+
     public func validationReport(for coordinate: ChunkCoordinate) -> TerrainValidationReport {
         sampleGrid(for: coordinate).validationReport
     }

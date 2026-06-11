@@ -443,3 +443,13 @@ Raison: les generateurs V1 doivent pouvoir etre inspectes sans ouvrir un vrai mo
 Consequence: `ToolRegistry.v1` declare les outils initiaux, `ToolDocument` porte les parametres de travail, la validation reste locale au hub et les previews produisent un `ToolPreviewSnapshot` EngineCore deterministe sans payload monde.
 
 Garantie: les tests verifient l'inventaire des outils Step 13, la preview deterministe et la transition AppStore avec `ToolSession` mais sans `WorldSession`.
+
+## 044 - Terrain FeatureGraph et hydrologie V1
+
+Decision: ajouter un `TerrainFeatureGraph` deterministe dans `EngineCore` et le faire consommer par `DefaultTerrainFieldProvider`.
+
+Raison: le terrain V1 ne doit plus etre uniquement une somme de bruits. Il doit commencer a exprimer des structures lisibles: ranges de montagne, rivieres continues, lacs, falaises, masques d'eau et materiaux de berge.
+
+Consequence: les features restent des donnees moteur pures, queryables par chunk et independantes de Metal/SwiftUI. Les samples terrain transportent `waterDepth` et `TerrainFeatureMasks`, puis les masks influencent hauteur, humidite, walkability, climbability et splats de materiaux shore.
+
+Garantie: les tests EngineCore couvrent familles de features, determinisme, query chunk, carving de riviere, masks hydrologie, continuite aux bords de chunks, debug layers et coverage validation.
