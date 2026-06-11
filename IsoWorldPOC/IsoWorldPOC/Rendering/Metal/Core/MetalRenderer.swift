@@ -41,6 +41,11 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private var drawableSize = SIMD2<Float>(1, 1)
     private var latestFramesPerSecond: Float = 0
     private var latestFrameTimeMilliseconds: Float = 0
+    private var latestRawFrameIntervalMs: Float = 0
+    private var latestFrameSchedulingGapMs: Float = 0
+    private var lastDrawTotalMs: Float = 0
+    private var lastDebugMetricsPublishMs: Float = 0
+    private var lastUnaccountedDrawMs: Float = 0
     private var lastBufferSyncMs: Float = 0
     private var lastRenderEncodeMs: Float = 0
     private var renderedFrameCount = 0
@@ -101,6 +106,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     }
 
     func draw(in view: MTKView) {
+        let drawStart = currentTimeMilliseconds()
         let deltaTime = updatePerformanceMetrics()
         update(deltaTime: deltaTime)
 
@@ -118,6 +124,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             let commandBuffer = commandQueue.makeCommandBuffer(),
             let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)
         else {
+            lastDrawTotalMs = Float(currentTimeMilliseconds() - drawStart)
             return
         }
 
@@ -173,7 +180,15 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         commandBuffer.present(drawable)
         commandBuffer.commit()
         renderedFrameCount += 1
-        updateDebugMetrics()
+
+        lastDrawTotalMs = Float(currentTimeMilliseconds() - drawStart)
+        lastUnaccountedDrawMs = unaccountedDrawTime(publishMs: lastDebugMetricsPublishMs)
+        let publishStart = currentTimeMilliseconds()
+        if updateDebugMetrics() {
+            lastDebugMetricsPublishMs = Float(currentTimeMilliseconds() - publishStart)
+        }
+        lastDrawTotalMs = Float(currentTimeMilliseconds() - drawStart)
+        lastUnaccountedDrawMs = unaccountedDrawTime(publishMs: lastDebugMetricsPublishMs)
     }
 
     private static func makePipelineState(device: MTLDevice?) -> MTLRenderPipelineState? {
@@ -287,11 +302,15 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         return projection * view
     }
 
-    private func updateDebugMetrics() {
+    private func updateDebugMetrics() -> Bool {
+        guard !debugMetrics.pauseDebugMetricPublishing else {
+            return false
+        }
+
         let now = CACurrentMediaTime()
         let publishInterval = debugMetrics.debugWorldRunMode.metricsRefreshInterval
         guard now - lastDebugMetricsPublishTime >= publishInterval else {
-            return
+            return false
         }
 
         lastDebugMetricsPublishTime = now
@@ -299,6 +318,11 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         debugMetrics.applyFrameTiming(
             framesPerSecond: latestFramesPerSecond,
             frameTimeMilliseconds: latestFrameTimeMilliseconds,
+            rawFrameIntervalMs: latestRawFrameIntervalMs,
+            drawTotalMs: lastDrawTotalMs,
+            frameSchedulingGapMs: latestFrameSchedulingGapMs,
+            debugMetricsPublishMs: lastDebugMetricsPublishMs,
+            unaccountedDrawMs: lastUnaccountedDrawMs,
             renderedFrameCount: renderedFrameCount
         )
         debugMetrics.applyPipelineTiming(
@@ -328,6 +352,19 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         debugMetrics.metalTerrainTextureArrayCount = materialBindingTable.terrainTextureArrayCount
         debugMetrics.metalVisibleTerrainMaterialCount = visibleTerrainMaterialCount
         debugMetrics.metalVisiblePropMaterialCount = visiblePropMaterialCount
+        return true
+    }
+
+    private func unaccountedDrawTime(publishMs: Float) -> Float {
+        max(
+            lastDrawTotalMs -
+                runtime.simulationUpdateMs -
+                runtime.snapshotBuildMs -
+                lastBufferSyncMs -
+                lastRenderEncodeMs -
+                publishMs,
+            0
+        )
     }
 
     private var visibleTerrainMaterialCount: Int {
@@ -358,6 +395,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         let now = CACurrentMediaTime()
         let deltaTime = Float(now - lastFrameTime)
         lastFrameTime = now
+        latestRawFrameIntervalMs = deltaTime * 1_000
+        latestFrameSchedulingGapMs = max(latestRawFrameIntervalMs - lastDrawTotalMs, 0)
 
         guard deltaTime > 0 else {
             return 0

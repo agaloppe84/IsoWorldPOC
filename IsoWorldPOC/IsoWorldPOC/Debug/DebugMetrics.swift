@@ -17,8 +17,19 @@ final class DebugMetrics: ObservableObject {
     @Published var renderedFrameCount = 0
     @Published var simulationUpdateMs: Float = 0
     @Published var snapshotBuildMs: Float = 0
+    @Published var rawFrameIntervalMs: Float = 0
+    @Published var drawTotalMs: Float = 0
+    @Published var frameSchedulingGapMs: Float = 0
+    @Published var debugMetricsPublishMs: Float = 0
+    @Published var unaccountedDrawMs: Float = 0
     @Published var bufferSyncMs: Float = 0
     @Published var renderEncodeMs: Float = 0
+    @Published var snapshotActiveChunkDataMs: Float = 0
+    @Published var snapshotRenderChunksMs: Float = 0
+    @Published var snapshotRenderPropsMs: Float = 0
+    @Published var snapshotTerrainSamplePropsMs: Float = 0
+    @Published var snapshotChunkCount = 0
+    @Published var snapshotPropCount = 0
     @Published var inputState = PlayerInputState()
     @Published var controllerName = "None"
     @Published var playerPosition = SIMD3<Float>(0, 0, 0)
@@ -71,6 +82,7 @@ final class DebugMetrics: ObservableObject {
     @Published var freezeSimulation: Bool
     @Published var freezeChunkStreaming: Bool
     @Published var forcedLODLevel: LODLevel?
+    @Published var pauseDebugMetricPublishing: Bool
     @Published var cameraYaw: Float = 0
     @Published var cameraPitch: Float = 0
     @Published var cameraDistance: Float = 0
@@ -91,7 +103,8 @@ final class DebugMetrics: ObservableObject {
         renderPlayer: Bool = true,
         freezeSimulation: Bool = false,
         freezeChunkStreaming: Bool = false,
-        forcedLODLevel: LODLevel? = nil
+        forcedLODLevel: LODLevel? = nil,
+        pauseDebugMetricPublishing: Bool = false
     ) {
         self.debugWorldRunMode = debugWorldRunMode
         self.showChunkBounds = showChunkBounds
@@ -101,6 +114,7 @@ final class DebugMetrics: ObservableObject {
         self.freezeSimulation = freezeSimulation
         self.freezeChunkStreaming = freezeChunkStreaming
         self.forcedLODLevel = forcedLODLevel
+        self.pauseDebugMetricPublishing = pauseDebugMetricPublishing
     }
 
     var renderCadenceDescription: String {
@@ -126,10 +140,20 @@ final class DebugMetrics: ObservableObject {
     func applyFrameTiming(
         framesPerSecond: Float,
         frameTimeMilliseconds: Float,
+        rawFrameIntervalMs: Float,
+        drawTotalMs: Float,
+        frameSchedulingGapMs: Float,
+        debugMetricsPublishMs: Float,
+        unaccountedDrawMs: Float,
         renderedFrameCount: Int
     ) {
         assignIfNeeded(\.framesPerSecond, framesPerSecond)
         assignIfNeeded(\.frameTimeMilliseconds, frameTimeMilliseconds)
+        assignIfNeeded(\.rawFrameIntervalMs, rawFrameIntervalMs)
+        assignIfNeeded(\.drawTotalMs, drawTotalMs)
+        assignIfNeeded(\.frameSchedulingGapMs, frameSchedulingGapMs)
+        assignIfNeeded(\.debugMetricsPublishMs, debugMetricsPublishMs)
+        assignIfNeeded(\.unaccountedDrawMs, unaccountedDrawMs)
         assignIfNeeded(\.renderedFrameCount, renderedFrameCount)
     }
 
@@ -143,6 +167,15 @@ final class DebugMetrics: ObservableObject {
         assignIfNeeded(\.snapshotBuildMs, snapshotBuildMs)
         assignIfNeeded(\.bufferSyncMs, bufferSyncMs)
         assignIfNeeded(\.renderEncodeMs, renderEncodeMs)
+    }
+
+    func applySnapshotTiming(_ timing: RenderSnapshotBuildTiming) {
+        assignIfNeeded(\.snapshotActiveChunkDataMs, timing.activeChunkDataMs)
+        assignIfNeeded(\.snapshotRenderChunksMs, timing.renderChunksMs)
+        assignIfNeeded(\.snapshotRenderPropsMs, timing.renderPropsMs)
+        assignIfNeeded(\.snapshotTerrainSamplePropsMs, timing.terrainSamplePropsMs)
+        assignIfNeeded(\.snapshotChunkCount, timing.chunkCount)
+        assignIfNeeded(\.snapshotPropCount, timing.propCount)
     }
 
     private func assignIfNeeded<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<DebugMetrics, Value>, _ value: Value) {

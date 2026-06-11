@@ -367,3 +367,15 @@ Consequence: `DebugMetrics` porte les toggles et timings utiles, `RenderSnapshot
 Garantie: les tests verifient les flags `RenderDebugOptions`, le profil Real World sans chunk bounds et les flags terrain/props envoyes aux uniforms Metal.
 
 Limite actuelle: les mesures restent CPU-side et approximatives pour la memoire GPU. Un profiling Metal plus fin pourra arriver quand les passes seront plus nombreuses.
+
+## 037 - Diagnostic MTKView/SwiftUI Step 12-TER
+
+Decision: mesurer la boucle complete de rendu et le detail du snapshot avant toute optimisation renderer.
+
+Raison: les tests manuels montrent une chute FPS alors que `buffer sync` et `encode` restent tres bas. Il faut distinguer cout reel de `draw(in:)`, intervalle entre callbacks MTKView, publication `@Published`, scheduling main thread et reconstruction snapshot.
+
+Consequence: l'overlay affiche `frame raw`, `draw`, `gap`, `publish`, `unaccounted` et le detail `snapshot active/chunks/props/sample`. Un toggle `pause metrics publish` permet de figer les updates SwiftUI. `render props` coupe maintenant la conversion des props dans le snapshot pour isoler ce cout en amont du renderer.
+
+Garantie: les tests Xcode couvrent le stockage des metriques de boucle et l'absence de props dans le snapshot quand `renderProps` est desactive.
+
+Limite actuelle: les mesures restent faites sur le main thread de l'app. Elles isolent la zone du probleme, mais ne remplacent pas encore un profil Instruments/Metal System Trace.

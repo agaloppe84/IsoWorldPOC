@@ -23,8 +23,12 @@ struct DebugOverlayView: View {
             }
             .pickerStyle(.segmented)
             Text("fps / frame: \(format(metrics.framesPerSecond)) / \(format(metrics.frameTimeMilliseconds)) ms")
+            Text("frame raw / draw / gap: \(format(metrics.rawFrameIntervalMs)) / \(format(metrics.drawTotalMs)) / \(format(metrics.frameSchedulingGapMs)) ms")
             Text("cpu sim / snapshot: \(format(metrics.simulationUpdateMs)) / \(format(metrics.snapshotBuildMs)) ms")
             Text("buffer sync / encode: \(format(metrics.bufferSyncMs)) / \(format(metrics.renderEncodeMs)) ms")
+            Text("publish / unaccounted: \(format(metrics.debugMetricsPublishMs)) / \(format(metrics.unaccountedDrawMs)) ms")
+            Text("snapshot active/chunks/props/sample: \(format(metrics.snapshotActiveChunkDataMs)) / \(format(metrics.snapshotRenderChunksMs)) / \(format(metrics.snapshotRenderPropsMs)) / \(format(metrics.snapshotTerrainSamplePropsMs)) ms")
+            Text("snapshot chunks / props: \(metrics.snapshotChunkCount) / \(metrics.snapshotPropCount)")
             Text("chunk data avg: \(format(metrics.averageChunkDataGenerationMs)) ms")
             Text("chunk upload avg: \(format(metrics.averageChunkUploadMs)) ms")
             Text("draw calls total: \(metrics.metalDrawCallCount)")
@@ -41,6 +45,7 @@ struct DebugOverlayView: View {
             Toggle("show chunk bounds", isOn: $metrics.showChunkBounds)
             Toggle("freeze simulation", isOn: $metrics.freezeSimulation)
             Toggle("freeze streaming", isOn: $metrics.freezeChunkStreaming)
+            Toggle("pause metrics publish", isOn: $metrics.pauseDebugMetricPublishing)
             Picker("force LOD", selection: $metrics.forcedLODLevel) {
                 Text("Auto").tag(nil as LODLevel?)
                 ForEach(LODLevel.allCases, id: \.self) { level in

@@ -23,6 +23,7 @@ final class WorldRuntime {
     private var simulationTime: Float = 0
     private var lastSimulationUpdateMs: Float = 0
     private var lastSnapshotBuildMs: Float = 0
+    private var lastSnapshotBuildTiming = RenderSnapshotBuildTiming.empty
     private var lastGrounding = PlayerGroundingResult(
         position: .zero,
         groundSample: nil,
@@ -71,7 +72,9 @@ final class WorldRuntime {
         )
         lastSimulationUpdateMs = 0
         let snapshotStart = currentTimeMilliseconds()
-        snapshot = makeSnapshot(debugOptions: debugOptions)
+        let snapshotResult = makeSnapshot(debugOptions: debugOptions)
+        snapshot = snapshotResult.snapshot
+        lastSnapshotBuildTiming = snapshotResult.timing
         lastSnapshotBuildMs = Float(currentTimeMilliseconds() - snapshotStart)
         frameSnapshot = makeFrameSnapshot(deltaTime: 0)
     }
@@ -101,7 +104,9 @@ final class WorldRuntime {
         }
 
         let snapshotStart = currentTimeMilliseconds()
-        snapshot = makeSnapshot(debugOptions: debugOptions)
+        let snapshotResult = makeSnapshot(debugOptions: debugOptions)
+        snapshot = snapshotResult.snapshot
+        lastSnapshotBuildTiming = snapshotResult.timing
         lastSnapshotBuildMs = Float(currentTimeMilliseconds() - snapshotStart)
         frameSnapshot = makeFrameSnapshot(deltaTime: deltaTime)
 
@@ -152,6 +157,7 @@ final class WorldRuntime {
         debugMetrics.shadowsEnabled = snapshot.lighting.shadowsEnabled
         debugMetrics.terrainMaterialDebugMode = snapshot.debugOptions.terrainMaterialDebugMode
         debugMetrics.terrainSplatDebugLayerIndex = snapshot.debugOptions.terrainSplatDebugLayerIndex
+        debugMetrics.applySnapshotTiming(lastSnapshotBuildTiming)
     }
 
     var simulationUpdateMs: Float {
@@ -160,6 +166,10 @@ final class WorldRuntime {
 
     var snapshotBuildMs: Float {
         lastSnapshotBuildMs
+    }
+
+    var snapshotBuildTiming: RenderSnapshotBuildTiming {
+        lastSnapshotBuildTiming
     }
 
     private func updateSimulation(
@@ -241,8 +251,8 @@ final class WorldRuntime {
         )
     }
 
-    private func makeSnapshot(debugOptions: RenderSnapshotDebugOptions) -> RenderWorldSnapshot {
-        snapshotBuilder.makeSnapshot(
+    private func makeSnapshot(debugOptions: RenderSnapshotDebugOptions) -> RenderSnapshotBuildResult {
+        snapshotBuilder.makeInstrumentedSnapshot(
             chunkStreamer: chunkStreamer,
             camera: cameraController.renderState(following: playerController.position),
             lighting: lightingState,

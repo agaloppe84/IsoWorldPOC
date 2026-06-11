@@ -94,6 +94,7 @@ private struct DebugViewportState: Equatable {
     let freezeSimulation: Bool
     let freezeChunkStreaming: Bool
     let forcedLODLevel: LODLevel?
+    let pauseDebugMetricPublishing: Bool
     let terrainMaterialDebugMode: TerrainMaterialDebugMode
     let terrainSplatDebugLayerIndex: Int
 
@@ -107,6 +108,7 @@ private struct DebugViewportState: Equatable {
         self.freezeSimulation = metrics.freezeSimulation
         self.freezeChunkStreaming = metrics.freezeChunkStreaming
         self.forcedLODLevel = metrics.forcedLODLevel
+        self.pauseDebugMetricPublishing = metrics.pauseDebugMetricPublishing
         self.terrainMaterialDebugMode = metrics.terrainMaterialDebugMode
         self.terrainSplatDebugLayerIndex = metrics.terrainSplatDebugLayerIndex
     }

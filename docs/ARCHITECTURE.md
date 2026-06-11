@@ -214,6 +214,16 @@ Le vrai monde et le monde debug utilisent le meme pipeline V1, mais pas le meme 
 
 Les metriques prioritaires sont: frame time, simulation, snapshot, sync buffers, encode render, chunks visibles, indices terrain/props et estimation memoire CPU/GPU. Elles servent a isoler les couts avant toute optimisation plus invasive.
 
+Le diagnostic Step 12-TER separe aussi:
+
+- l'intervalle brut entre callbacks MTKView;
+- le cout total de `draw(in:)`;
+- le gap entre callback et travail mesure;
+- le cout de publication des metriques SwiftUI;
+- le detail du snapshot: chunks actifs, conversion chunks, props et sampling terrain des props.
+
+Si le gap reste eleve pendant que `draw(in:)` reste bas, le probleme est dans la cadence/scheduling plutot que dans les passes Metal. Si `pause metrics publish` remonte la cadence, la publication `ObservableObject` doit etre decouplee du rendu.
+
 ### Donnees de chunks procedurales
 
 `ProceduralChunkDataFactory` produit les donnees de chunks neutres consommees par Metal:

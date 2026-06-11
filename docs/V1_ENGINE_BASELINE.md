@@ -92,6 +92,17 @@ Step 12-BIS ajoute une baseline performance et separe clairement le vrai monde d
 
 Cette etape ne corrige pas encore toutes les causes possibles de chute FPS. Elle donne un banc d'isolation propre pour identifier si le cout vient de la simulation, du snapshot, du streaming chunks, des buffers GPU, du terrain, des props ou de l'overlay debug.
 
+## Step 12-TER livre
+
+Step 12-TER affine le diagnostic performance quand le FPS chute sans que les draw calls Metal soient couteux:
+
+- `MetalRenderer` mesure maintenant l'intervalle brut entre callbacks MTKView, le cout total de `draw(in:)`, le gap de scheduling, le cout de publication des metriques et le temps de draw non explique.
+- `RenderSnapshotBuilder` expose le detail du snapshot: lecture des chunks actifs, conversion des chunks, conversion props et sampling terrain des props.
+- Le toggle `pause metrics publish` permet de figer les `@Published` pour confirmer ou eliminer SwiftUI/ObservableObject comme cause de chute FPS.
+- `render props` coupe aussi la construction des props dans le snapshot, pas uniquement leur draw Metal.
+
+Les mesures doivent etre lues ainsi: si `frame raw` reste haut mais `draw` reste bas, le probleme est hors travail renderer direct. Si `publish` fait chuter le FPS, la priorite devient decoupler les metriques de SwiftUI. Si `snapshot props/sample` est haut, la priorite devient cache/eviter la reconstruction des props par frame.
+
 ## Prochaine cible
 
 Step 13 peut ouvrir le `Tools Hub` minimal. Il doit rester data-driven et consommer les systemes V1 existants sans contourner `EngineCore`.

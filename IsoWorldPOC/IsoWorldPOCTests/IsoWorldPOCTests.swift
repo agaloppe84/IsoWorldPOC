@@ -53,6 +53,31 @@ struct IsoWorldPOCTests {
         #expect(metrics.freezeSimulation == false)
         #expect(metrics.freezeChunkStreaming == false)
         #expect(metrics.forcedLODLevel == nil)
+        #expect(metrics.pauseDebugMetricPublishing == false)
+    }
+
+    @MainActor
+    @Test func debugMetricsStoreFrameLoopDiagnostics() {
+        let metrics = DebugMetrics()
+
+        metrics.applyFrameTiming(
+            framesPerSecond: 30,
+            frameTimeMilliseconds: 33.33,
+            rawFrameIntervalMs: 45,
+            drawTotalMs: 12,
+            frameSchedulingGapMs: 33,
+            debugMetricsPublishMs: 2,
+            unaccountedDrawMs: 1,
+            renderedFrameCount: 7
+        )
+
+        #expect(metrics.framesPerSecond == 30)
+        #expect(metrics.rawFrameIntervalMs == 45)
+        #expect(metrics.drawTotalMs == 12)
+        #expect(metrics.frameSchedulingGapMs == 33)
+        #expect(metrics.debugMetricsPublishMs == 2)
+        #expect(metrics.unaccountedDrawMs == 1)
+        #expect(metrics.renderedFrameCount == 7)
     }
 
     @Test func renderSnapshotDebugOptionsDefaultToDebugInspection() {
@@ -204,6 +229,32 @@ struct IsoWorldPOCTests {
         _ = runtime.update(deltaTime: 1.0, debugOptions: debugOptions)
 
         #expect(runtime.frameSnapshot.simulationTime == initialSimulationTime)
+    }
+
+    @MainActor
+    @Test func worldRuntimeOmitsPropsFromSnapshotWhenRenderPropsIsDisabled() async throws {
+        let pipeline = WorldPreparePipeline()
+        let session = try await pipeline.prepareWorld(
+            request: WorldPrepareRequest(seedText: "snapshot-props-off", initialChunkRadius: 0)
+        ) { _ in }
+        let debugOptions = RenderSnapshotDebugOptions(
+            showChunkBounds: false,
+            renderTerrain: true,
+            renderProps: false,
+            renderPlayer: true,
+            terrainMaterialDebugMode: .normal,
+            terrainSplatDebugLayerIndex: 0,
+            freezeSimulation: false,
+            freezeChunkStreaming: false,
+            forcedLODLevel: nil
+        )
+        let runtime = WorldRuntime(worldSession: session, debugOptions: debugOptions)
+
+        let snapshot = runtime.update(deltaTime: 0, debugOptions: debugOptions)
+
+        #expect(snapshot.debugOptions.renderProps == false)
+        #expect(snapshot.chunks.allSatisfy { $0.props.isEmpty })
+        #expect(runtime.snapshotBuildTiming.propCount == 0)
     }
 
     @Test func materialBindingTableKeepsTerrainPBRTextureSlotsStable() {
