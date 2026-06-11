@@ -1,4 +1,5 @@
 import Foundation
+import EngineCore
 
 struct WorldSessionID: Hashable, Identifiable {
     let rawValue: UUID
@@ -12,12 +13,37 @@ struct WorldSessionID: Hashable, Identifiable {
     }
 }
 
-struct WorldSession: Equatable, Identifiable {
+struct WorldSession: Identifiable {
     let id: WorldSessionID
     let seed: String
+    let worldSeed: WorldSeed
+    let dna: WorldDNA
+    let spawnPosition: WorldPosition
+    let initialChunkRadius: Int
+    let initialChunks: [ProceduralChunkData]
+    let openRequirements: WorldOpenRequirements
 
-    init(id: WorldSessionID = WorldSessionID(), seed: String) {
+    var initialChunkCount: Int {
+        initialChunks.count
+    }
+
+    init(
+        id: WorldSessionID = WorldSessionID(),
+        seed: String,
+        worldSeed: WorldSeed,
+        dna: WorldDNA,
+        spawnPosition: WorldPosition,
+        initialChunkRadius: Int,
+        initialChunks: [ProceduralChunkData],
+        openRequirements: WorldOpenRequirements
+    ) {
         self.id = id
         self.seed = seed
+        self.worldSeed = worldSeed
+        self.dna = dna
+        self.spawnPosition = spawnPosition
+        self.initialChunkRadius = initialChunkRadius
+        self.initialChunks = initialChunks
+        self.openRequirements = openRequirements
     }
 }

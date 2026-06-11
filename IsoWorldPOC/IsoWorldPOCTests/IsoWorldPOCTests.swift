@@ -106,6 +106,42 @@ struct IsoWorldPOCTests {
         #expect(store.currentWorldSession == nil)
     }
 
+    @MainActor
+    @Test func worldPreparePipelineBuildsRequiredSessionBeforeOpening() async throws {
+        let pipeline = WorldPreparePipeline()
+        var updates: [LoadingProgress] = []
+
+        let session = try await pipeline.prepareWorld(
+            request: WorldPrepareRequest(seedText: "step-12-test", initialChunkRadius: 1)
+        ) { progress in
+            updates.append(progress)
+        }
+
+        #expect(session.seed == "step-12-test")
+        #expect(session.initialChunkCount == 9)
+        #expect(session.openRequirements.isSatisfied)
+        #expect(session.openRequirements.requiredInitialChunkCount == 9)
+        #expect(session.initialChunks.contains { $0.coordinate == .origin })
+        #expect(updates.first?.currentPhase == .validateSeed)
+        #expect(updates.last?.currentPhase == .openSession)
+        #expect(updates.last?.globalProgress == 1)
+    }
+
+    @MainActor
+    @Test func worldRuntimeStartsFromPreparedWorldSession() async throws {
+        let pipeline = WorldPreparePipeline()
+        let session = try await pipeline.prepareWorld(
+            request: WorldPrepareRequest(seedText: "runtime-prepared-session", initialChunkRadius: 0)
+        ) { _ in }
+
+        let runtime = WorldRuntime(worldSession: session)
+
+        #expect(runtime.frameSnapshot.worldSeed == session.worldSeed)
+        #expect(runtime.playerPosition.x == session.spawnPosition.x)
+        #expect(runtime.playerPosition.z == session.spawnPosition.z)
+        #expect(runtime.frameSnapshot.debug.cachedChunkCount >= session.initialChunkCount)
+    }
+
     @Test func materialBindingTableKeepsTerrainPBRTextureSlotsStable() {
         let descriptors = TerrainTextureSlot.allTerrainPBRSlots.map { slot in
             TerrainTextureDescriptor(slot: slot, debugColor: SIMD4<Float>.zero)

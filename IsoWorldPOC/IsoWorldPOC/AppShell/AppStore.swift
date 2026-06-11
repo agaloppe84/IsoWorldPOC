@@ -71,7 +71,8 @@ final class AppStore: ObservableObject {
 
     private func runWorldPreparation(seed: String) async {
         do {
-            let session = try await worldPreparePipeline.prepareWorld(seed: seed) { [weak self] progress in
+            let request = WorldPrepareRequest(seedText: seed)
+            let session = try await worldPreparePipeline.prepareWorld(request: request) { [weak self] progress in
                 self?.loadingProgress = progress
             }
 
@@ -82,12 +83,23 @@ final class AppStore: ObservableObject {
             currentWorldSession = session
             mode = .realWorld(session.id)
             loadingTask = nil
-        } catch {
+        } catch is CancellationError {
             guard !Task.isCancelled else {
                 return
             }
 
             loadingProgress = LoadingProgress(seed: seed, phase: "Cancelled", progress: 0)
+            loadingTask = nil
+        } catch {
+            guard !Task.isCancelled else {
+                return
+            }
+
+            mode = .error(AppErrorState(
+                title: "World preparation failed",
+                message: error.localizedDescription
+            ))
+            loadingProgress = nil
             loadingTask = nil
         }
     }

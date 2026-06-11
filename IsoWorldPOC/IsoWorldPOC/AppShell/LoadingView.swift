@@ -16,11 +16,20 @@ struct LoadingView: View {
                 Text(progress.seed)
                     .font(.headline)
 
-                Text(progress.phase)
+                Text(progress.phaseName)
                     .foregroundStyle(.secondary)
 
-                ProgressView(value: progress.progress)
-                    .frame(width: 420)
+                if let globalProgress = progress.globalProgress {
+                    ProgressView(value: globalProgress)
+                        .frame(width: 420)
+                } else {
+                    ProgressView()
+                        .frame(width: 420)
+                }
+
+                Text(progress.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Button {
@@ -30,6 +39,7 @@ struct LoadingView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            .disabled(!progress.canCancel)
         }
         .padding(44)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)

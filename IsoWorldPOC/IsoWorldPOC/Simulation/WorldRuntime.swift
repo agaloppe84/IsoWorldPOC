@@ -11,12 +11,13 @@ import simd
 @MainActor
 final class WorldRuntime {
     private let inputManager = InputManager()
-    private var playerController = PlayerController()
+    private var playerController: PlayerController
     private let playerGrounding = PlayerGrounding()
     private let cameraController = OrbitCameraController()
-    private let chunkStreamer = ChunkDataStreamer()
+    private let chunkStreamer: ChunkDataStreamer
     private let snapshotBuilder = RenderSnapshotBuilder()
     private let lightingState = LightingState.defaultDay
+    private let worldSeed: WorldSeed
     private var frameIndex: UInt64 = 0
     private var simulationTime: Float = 0
     private var lastGrounding = PlayerGroundingResult(
@@ -33,19 +34,35 @@ final class WorldRuntime {
         playerController.position
     }
 
-    init(debugOptions: RenderSnapshotDebugOptions = .defaults) {
+    init(
+        worldSession: WorldSession? = nil,
+        debugOptions: RenderSnapshotDebugOptions = .defaults
+    ) {
+        let resolvedWorldSeed = worldSession?.worldSeed ?? ProceduralChunkDataFactory.activeSeed
+        let spawnPosition = worldSession?.spawnPosition
+        self.worldSeed = resolvedWorldSeed
+        self.playerController = PlayerController(position: SIMD3<Float>(
+            spawnPosition?.x ?? 0,
+            spawnPosition?.y ?? 0,
+            spawnPosition?.z ?? 0
+        ))
+        self.chunkStreamer = ChunkDataStreamer(
+            worldSeed: resolvedWorldSeed,
+            initialChunks: worldSession?.initialChunks ?? []
+        )
+
         let emptySnapshot = Self.makeEmptySnapshot()
         self.snapshot = emptySnapshot
         self.frameSnapshot = EngineFrameSnapshot(
             frameIndex: 0,
-            worldSeed: ProceduralChunkDataFactory.activeSeed,
+            worldSeed: resolvedWorldSeed,
             simulationTime: 0,
             deltaTime: 0,
             render: emptySnapshot,
             debug: DebugSnapshot(frameIndex: 0)
         )
 
-        chunkStreamer.update(around: .zero)
+        chunkStreamer.update(around: playerController.position)
         snapshot = makeSnapshot(debugOptions: debugOptions)
         frameSnapshot = makeFrameSnapshot(deltaTime: 0)
     }
@@ -169,7 +186,7 @@ final class WorldRuntime {
     private func makeFrameSnapshot(deltaTime: Float) -> EngineFrameSnapshot {
         EngineFrameSnapshot(
             frameIndex: frameIndex,
-            worldSeed: ProceduralChunkDataFactory.activeSeed,
+            worldSeed: worldSeed,
             simulationTime: simulationTime,
             deltaTime: deltaTime,
             render: snapshot,

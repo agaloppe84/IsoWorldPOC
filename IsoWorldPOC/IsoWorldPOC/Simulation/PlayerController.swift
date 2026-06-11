@@ -15,6 +15,10 @@ struct PlayerController {
     var inputDeadZone: Float = 0.08
     var terrainSurfaceOffset: Float = 0.02
 
+    init(position: SIMD3<Float> = SIMD3<Float>(0, 0, 0)) {
+        self.position = position
+    }
+
     mutating func update(deltaTime: Float, input: PlayerInputState) -> SIMD3<Float> {
         let proposedPosition = proposedHorizontalPosition(
             deltaTime: deltaTime,

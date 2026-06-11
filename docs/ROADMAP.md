@@ -47,5 +47,6 @@ Cette roadmap sert de fil conducteur pour le POC. Elle doit rester simple, concr
 - Ajouter les premieres interactions avec le terrain.
 - Garder un LOD/culling baseline avant d'augmenter la densite de props.
 - Faire evoluer les props naturels via `PropSystem` avant les props interactifs ou manufactures.
+- Ouvrir les mondes reels uniquement via `WorldPreparePipeline` et une `WorldSession` validee.
 - Mesurer les performances de generation et rendu.
 - Identifier les limites du POC avant industrialisation.

@@ -343,3 +343,15 @@ Consequence: `PropSystem` produit `PropChunkData` depuis `TerrainSampleGrid`, bi
 Garantie: les tests couvrent catalogue naturel, determinisme, filtrage terrain, IDs stables, alignement sur le stride terrain et bake Metal des shapes naturelles.
 
 Limite actuelle: pas encore de GPU instancing dedie, prop LOD par instance, imposteurs, billboards, collisions detaillees, animation de vegetation ou debug placement interactif.
+
+## 035 - WorldPreparePipeline reel avant ouverture monde
+
+Decision: introduire un `WorldPreparePipeline` V1 progressif, pondere et annulable qui produit une `WorldSession` complete avant de passer en mode `realWorld`.
+
+Raison: le bouton de generation ne doit pas afficher un faux loading ni ouvrir un monde froid. La V1 doit garantir que le seed utilisateur, le `WorldDNA`, les regles V1 et les chunks initiaux sont prets avant la premiere frame.
+
+Consequence: les types `WorldPrepareRequest`, `LoadingProgress`, `WorldPreparePhase`, `WorldOpenRequirements` et `WorldPreparePipeline` vivent dans `GameRuntime/WorldPrepare`. `WorldSession` transporte `worldSeed`, `WorldDNA`, `spawnPosition`, `initialChunks` et les exigences d'ouverture. `ChunkDataStreamer`, `WorldRuntime`, `GameRootView`, `MetalGameView` et `MetalRenderer` acceptent maintenant cette session pour demarrer depuis les donnees preparees.
+
+Garantie: les tests Xcode couvrent la creation d'une session preparee, les exigences d'ouverture, la progression jusqu'a `openSession` et le demarrage du runtime depuis le seed/chunks de session.
+
+Limite actuelle: le warmup renderer valide les payloads CPU critiques, mais la precompilation explicite de pipelines GPU Metal reste dans `MetalRenderer` et sera traitee plus tard.

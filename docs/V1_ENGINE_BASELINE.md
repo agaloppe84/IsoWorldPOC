@@ -66,4 +66,20 @@ La V1 ne cree pas encore de GPU instancing dedie, d'imposteurs, de prop LOD par 
 
 ## Prochaine cible
 
-Step 12 peut ouvrir le `WorldPreparePipeline` reel. Il doit consommer les donnees V1 existantes sans recreer un second flux de generation de chunks, props ou snapshots.
+## Step 12 livre
+
+Step 12 remplace le loading cosmetique par un `WorldPreparePipeline` reel:
+
+- `GameRuntime/WorldPrepare` contient `WorldPrepareRequest`, `WorldPreparePhase`, `LoadingProgress`, `WorldOpenRequirements` et `WorldPreparePipeline`.
+- Le pipeline normalise le seed, genere `WorldDNA`, initialise les regles V1 et prepare terrain/biomes autour du spawn.
+- Le spawn joueur est resolu depuis les samples terrain/biome.
+- Les chunks initiaux sont generes avant ouverture avec le `WorldSeed` de la session.
+- `WorldSession` transporte seed, `WorldDNA`, spawn, chunks initiaux et exigences d'ouverture.
+- `WorldRuntime` et `ChunkDataStreamer` demarrent depuis la session preparee au lieu de refaire un demarrage froid avec le seed debug.
+- La progression de loading est determinee par phases ponderees et l'annulation reste cooperative.
+
+La V1 ne precompile pas encore les pipelines GPU Metal hors renderer. Le warmup Step 12 valide les payloads CPU critiques avant premiere frame.
+
+## Prochaine cible
+
+Step 13 peut ouvrir le `Tools Hub` minimal. Il doit rester data-driven et consommer les systemes V1 existants sans contourner `EngineCore`.

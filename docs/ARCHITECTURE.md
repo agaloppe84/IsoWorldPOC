@@ -122,6 +122,29 @@ Les props naturels V1 restent dans le pipeline chunk existant:
 
 Cette baseline ne cree pas encore de chemin d'instancing GPU parallele, de billboards, d'imposteurs ou de collisions detaillees par prop.
 
+### WorldPreparePipeline V1
+
+Le monde reel ne s'ouvre plus directement depuis le menu. `WorldPreparePipeline` fabrique une `WorldSession` minimale avant de passer en `realWorld`.
+
+Responsabilites:
+
+- normaliser le seed texte et produire un `WorldSeed`;
+- generer `WorldDNA`;
+- initialiser les regles V1 terrain, biomes et props;
+- preparer les champs terrain/biome autour du spawn;
+- resoudre un spawn joueur praticable;
+- generer les chunks initiaux autour du spawn avec le meme seed que la session;
+- valider les payloads CPU de rendu et le bootstrap collision minimal;
+- publier une progression determinee par phases ponderees;
+- respecter l'annulation cooperative avant l'ouverture du monde.
+
+Les types de preparation vivent dans `IsoWorldPOC/IsoWorldPOC/GameRuntime/WorldPrepare`.
+`WorldOpenRequirements` decrit les conditions minimales avant ouverture. Le runtime ne doit pas creer une session monde si ces exigences ne sont pas satisfaites.
+
+`WorldSession` transporte maintenant `worldSeed`, `WorldDNA`, `spawnPosition`, `initialChunks` et `openRequirements`. `RealWorldView` transmet cette session a `GameRootView`, puis a `MetalRenderer` et `WorldRuntime`.
+
+Cette baseline ne precompile pas encore les pipelines GPU hors `MetalRenderer`. Le warmup Step 12 signifie que les payloads CPU critiques sont prets avant la premiere frame.
+
 ### LOD baseline
 
 Le LOD V1 est un systeme classique et explicite, avant tout HLOD ou virtual geometry.
@@ -166,6 +189,7 @@ Responsabilites:
 - Resoudre le suivi terrain du joueur.
 - Produire le `RenderWorldSnapshot` courant.
 - Remplir les metriques debug gameplay/monde.
+- Demarrer depuis les chunks et le spawn d'une `WorldSession` preparee quand on ouvre un monde reel.
 
 `RenderSnapshotBuilder` convertit l'etat runtime en contrats de rendu neutres:
 

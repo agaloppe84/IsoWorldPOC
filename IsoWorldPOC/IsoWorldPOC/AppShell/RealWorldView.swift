@@ -5,7 +5,11 @@ struct RealWorldView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            GameRootView(showsDebugOverlay: false, initialRunMode: .liveGameplay)
+            GameRootView(
+                showsDebugOverlay: false,
+                initialRunMode: .liveGameplay,
+                worldSession: store.currentWorldSession
+            )
 
             HStack(spacing: 12) {
                 if let seed = store.currentWorldSession?.seed {

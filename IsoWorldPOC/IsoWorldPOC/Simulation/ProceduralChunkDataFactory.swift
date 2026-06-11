@@ -33,13 +33,28 @@ enum ProceduralChunkDataFactory {
     static let chunkWorldSize = Float(chunkResolution - 1) * horizontalScale
     static let triangleCountPerChunk = (chunkResolution - 1) * (chunkResolution - 1) * 2
 
-    private static let biomeSampler = BiomeSampler(seed: activeSeed)
-    private static let terrainSystem = TerrainSystem(seed: activeSeed)
-    private static let propSystem = PropSystem(seed: activeSeed, maxPropsPerChunk: 28)
-
     static func makeChunkData(coordinate: ChunkCoordinate) -> ProceduralChunkData {
         do {
-            return try makeChunkData(coordinate: coordinate, cancellationToken: nil)
+            return try makeChunkData(
+                coordinate: coordinate,
+                worldSeed: activeSeed,
+                cancellationToken: nil
+            )
+        } catch {
+            preconditionFailure("Unexpected cancellation while generating a chunk without a cancellation token.")
+        }
+    }
+
+    static func makeChunkData(
+        coordinate: ChunkCoordinate,
+        worldSeed: WorldSeed
+    ) -> ProceduralChunkData {
+        do {
+            return try makeChunkData(
+                coordinate: coordinate,
+                worldSeed: worldSeed,
+                cancellationToken: nil
+            )
         } catch {
             preconditionFailure("Unexpected cancellation while generating a chunk without a cancellation token.")
         }
@@ -49,12 +64,27 @@ enum ProceduralChunkDataFactory {
         coordinate: ChunkCoordinate,
         cancellationToken: CancellationToken?
     ) throws -> ProceduralChunkData {
+        try makeChunkData(
+            coordinate: coordinate,
+            worldSeed: activeSeed,
+            cancellationToken: cancellationToken
+        )
+    }
+
+    static func makeChunkData(
+        coordinate: ChunkCoordinate,
+        worldSeed: WorldSeed,
+        cancellationToken: CancellationToken?
+    ) throws -> ProceduralChunkData {
         let dataGenerationStart = currentTimeMilliseconds()
+        let biomeSampler = BiomeSampler(seed: worldSeed)
+        let terrainSystem = TerrainSystem(seed: worldSeed)
+        let propSystem = PropSystem(seed: worldSeed, maxPropsPerChunk: 28)
 
         try cancellationToken?.checkCancellation()
 
         let terrainGeometry = coordinate.makeTerrainGeometry(
-            seed: activeSeed,
+            seed: worldSeed,
             horizontalScale: horizontalScale,
             verticalScale: verticalScale
         )
@@ -87,9 +117,7 @@ enum ProceduralChunkDataFactory {
 
         try cancellationToken?.checkCancellation()
 
-        let halfExtent = chunkWorldSize * 0.5
-        let originX = Float(coordinate.x) * chunkWorldSize - halfExtent
-        let originZ = Float(coordinate.z) * chunkWorldSize - halfExtent
+        let origin = origin(for: coordinate)
 
         return ProceduralChunkData(
             coordinate: coordinate,
@@ -102,9 +130,18 @@ enum ProceduralChunkDataFactory {
             meshIndices: terrainGeometry.indices,
             propPlacements: propChunkData.placements,
             propVariants: propChunkData.variants,
-            originX: originX,
-            originZ: originZ,
+            originX: origin.x,
+            originZ: origin.z,
             dataGenerationTimeMs: Float(currentTimeMilliseconds() - dataGenerationStart)
+        )
+    }
+
+    static func origin(for coordinate: ChunkCoordinate) -> (x: Float, z: Float) {
+        let halfExtent = chunkWorldSize * 0.5
+
+        return (
+            x: Float(coordinate.x) * chunkWorldSize - halfExtent,
+            z: Float(coordinate.z) * chunkWorldSize - halfExtent
         )
     }
 

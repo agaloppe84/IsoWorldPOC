@@ -44,7 +44,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private var renderedFrameCount = 0
     private var lastDebugMetricsPublishTime = 0.0
 
-    init(debugMetrics: DebugMetrics) {
+    init(debugMetrics: DebugMetrics, worldSession: WorldSession? = nil) {
         let device = MTLCreateSystemDefaultDevice()
         let terrainTextureCatalog = TerrainTextureCatalog.makePreview(device: device)
 
@@ -62,6 +62,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         )
         self.payloadUploader = RenderPayloadUploader(device: device)
         self.runtime = WorldRuntime(
+            worldSession: worldSession,
             debugOptions: RenderSnapshotDebugOptions(
                 showChunkBounds: debugMetrics.showChunkBounds,
                 terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode,

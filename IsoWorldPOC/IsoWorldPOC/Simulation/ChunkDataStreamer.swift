@@ -11,6 +11,7 @@ import simd
 
 @MainActor
 final class ChunkDataStreamer {
+    private let worldSeed: WorldSeed
     private let activeRadiusValue = 2
     private let preloadRadiusValue = 2
     private let maxConcurrentChunkJobs = 2
@@ -38,10 +39,24 @@ final class ChunkDataStreamer {
     private(set) var currentChunk = ChunkCoordinate.origin
     private(set) var generatedChunkCount = 0
 
-    init() {
-        let initialData = ProceduralChunkDataFactory.makeChunkData(coordinate: .origin)
-        loadChunkData(initialData)
-        generatedChunkCount = 1
+    init(
+        worldSeed: WorldSeed = ProceduralChunkDataFactory.activeSeed,
+        initialChunks: [ProceduralChunkData] = []
+    ) {
+        self.worldSeed = worldSeed
+
+        if initialChunks.isEmpty {
+            loadChunkData(ProceduralChunkDataFactory.makeChunkData(
+                coordinate: .origin,
+                worldSeed: worldSeed
+            ))
+        } else {
+            for chunk in initialChunks {
+                loadChunkData(chunk)
+            }
+        }
+
+        generatedChunkCount = loadedChunkData.count
     }
 
     deinit {
@@ -259,6 +274,7 @@ final class ChunkDataStreamer {
             ) { cancellationToken in
                 try ProceduralChunkDataFactory.makeChunkData(
                     coordinate: coordinate,
+                    worldSeed: self.worldSeed,
                     cancellationToken: cancellationToken
                 )
             }
