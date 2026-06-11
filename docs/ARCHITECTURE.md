@@ -184,6 +184,22 @@ Responsabilites:
 
 `WorldRuntime` cree le joueur depuis le seed de la `WorldSession`, puis `PlayerController` derive vitesse de marche et capsule collision depuis la DNA. Le renderer garde encore son preview joueur simple; le mesh skinned, les vetements visibles et l'animation complete arriveront au-dessus de ces contrats V1.
 
+### Animation Contact V1
+
+`EngineCore/Animation` pose la premiere couche IsoMotion V1, pure et testable.
+
+Responsabilites:
+
+- decrire un `AnimationSkeleton` depuis le skeleton personnage;
+- transporter des poses locales via `Pose` et `JointPose`;
+- sampler des `AnimationClip` simples et fournir les poids de pieds plantes;
+- convertir un `TerrainSample` en `ContactPatch` avec friction, wetness, compliance, stabilite et tags;
+- exposer un `CharacterMotor` capsule/friction/slope/step-up;
+- resoudre un foot IK minimal avec foot locking, pelvis compensation, slope normal et clearance de petit obstacle;
+- generer des `FootstepEvent` materiau-aware pour FX/audio futurs.
+
+Le runtime app garde un `TerrainSampleGrid` par chunk charge afin que les contacts animation lisent les memes donnees V1 que le terrain, les props et traversal. `PlayerController` met a jour une pose/contact joueur depuis le grounding courant, mais le renderer Metal affiche encore le preview joueur simple. Aucun etat animation n'entre dans SwiftUI.
+
 ### Tools Hub V1
 
 Le Tools Hub est une surface app separee du monde runtime.

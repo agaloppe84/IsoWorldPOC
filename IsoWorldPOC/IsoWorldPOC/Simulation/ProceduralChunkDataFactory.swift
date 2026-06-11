@@ -13,6 +13,7 @@ struct ProceduralChunkData: Sendable {
     let coordinate: ChunkCoordinate
     let biome: Biome
     let terrainGeometry: TerrainGeometryBuffers
+    let terrainSampleGrid: TerrainSampleGrid
     let terrainVertexMaterials: [TerrainVertexMaterial]
     let traversalData: TraversalChunkData
     let meshPositions: [SIMD3<Float>]
@@ -125,6 +126,7 @@ enum ProceduralChunkDataFactory {
             coordinate: coordinate,
             biome: biome,
             terrainGeometry: terrainGeometry,
+            terrainSampleGrid: terrainSampleGrid,
             terrainVertexMaterials: terrainVertexMaterials,
             traversalData: traversalData,
             meshPositions: terrainGeometry.positions.map { SIMD3<Float>($0.x, $0.y, $0.z) },

@@ -31,6 +31,7 @@ public extension SeedDomain {
     static let props = SeedDomain("props")
     static let entities = SeedDomain("entities")
     static let characters = SeedDomain("characters")
+    static let animation = SeedDomain("animation")
     static let climate = SeedDomain("climate")
     static let heightmap = SeedDomain("heightmap")
     static let terrainFeatures = SeedDomain("terrain-features")

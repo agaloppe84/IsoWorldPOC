@@ -212,6 +212,20 @@ Step 16 ajoute la base personnage procedurale V1 dans `EngineCore/Characters`:
 
 Cette passe ne rend pas encore un vrai mesh skinned ni des vetements modulaires GPU. Elle pose les contrats purs V1 pour animation, gameplay et sauvegarde.
 
+## Step 17 livre
+
+Step 17 ajoute la base animation/contact terrain V1:
+
+- `EngineCore/Animation` contient `AnimationSkeleton`, `Pose`, `AnimationClip`, `AnimationSampler`, `CharacterMotor`, `ContactPatch`, `FootIKSolver`, `FootstepEvent` et `SurfaceContactResolver`.
+- Le sampler fournit idle/walk humanoides simples, pose interpolatee, root motion de cycle et poids de pieds plantes.
+- `SurfaceContactResolver` derive friction, wetness, compliance, tags et stabilite depuis `TerrainSample`, materiau, eau et `TraversalSurfaceClass`.
+- `CharacterMotor` expose le contrat capsule/friction/slope/step-up sans dependre du renderer.
+- `FootIKSolver` ajuste la cible pied, verrouille les appuis, compense le bassin et ajoute une clearance simple pour petits obstacles.
+- `FootstepEventEmitter` produit des events materiau-aware pour les futurs audio/FX/decals.
+- Le runtime conserve maintenant `TerrainSampleGrid` par chunk, cree des `ContactPatch` depuis le terrain prepare et met a jour l'etat animation joueur.
+
+Cette passe ne rend pas encore un mesh skinned anime. Elle pose les sorties moteur necessaires pour brancher rendu personnage, audio de pas, FX de contact et debug animation.
+
 ## Prochaine cible
 
-Step 17 peut brancher animation/contact terrain: locomotion minimale, stance runtime, camera/collision coherentes avec le corps et premiers hooks pour mesh skinned futur.
+Step 18 peut ajouter les FX V1 data-driven: evenements de contact, poussiere/eau/boue, decals simples et hooks depuis `FootstepEvent`.

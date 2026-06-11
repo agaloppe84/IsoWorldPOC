@@ -330,6 +330,55 @@ struct IsoWorldPOCTests {
     }
 
     @MainActor
+    @Test func worldRuntimeUpdatesPlayerAnimationContactsFromPreparedTerrain() async throws {
+        let pipeline = WorldPreparePipeline()
+        let session = try await pipeline.prepareWorld(
+            request: WorldPrepareRequest(seedText: "runtime-animation-session", initialChunkRadius: 2)
+        ) { _ in }
+        let spawnCoordinate = ChunkCoordinate(
+            x: Int(((session.spawnPosition.x + ProceduralChunkDataFactory.chunkWorldSize * 0.5) /
+                ProceduralChunkDataFactory.chunkWorldSize).rounded(.down)),
+            y: 0,
+            z: Int(((session.spawnPosition.z + ProceduralChunkDataFactory.chunkWorldSize * 0.5) /
+                ProceduralChunkDataFactory.chunkWorldSize).rounded(.down))
+        )
+        let spawnChunk = try #require(session.initialChunks.first { $0.coordinate == spawnCoordinate })
+        let sampler = TerrainSampler(
+            geometry: spawnChunk.terrainGeometry,
+            originX: spawnChunk.originX,
+            originZ: spawnChunk.originZ
+        )
+        let localX = (session.spawnPosition.x - spawnChunk.originX) /
+            ProceduralChunkDataFactory.horizontalScale
+        let localZ = (session.spawnPosition.z - spawnChunk.originZ) /
+            ProceduralChunkDataFactory.horizontalScale
+        let terrainSample = spawnChunk.terrainSampleGrid.sample(
+            localX: min(max(Int(localX.rounded()), 0), ProceduralChunkDataFactory.chunkResolution - 1),
+            localZ: min(max(Int(localZ.rounded()), 0), ProceduralChunkDataFactory.chunkResolution - 1)
+        )
+        let groundSample = TerrainGroundSample(
+            sample: sampler.sampleAt(x: session.spawnPosition.x, z: session.spawnPosition.z),
+            terrainSample: terrainSample,
+            surfaceClass: spawnChunk.traversalData.surfaceClass(nearestLocalX: localX, nearestLocalZ: localZ),
+            chunk: spawnChunk.coordinate
+        )
+        let contactPatch = groundSample.contactPatch(
+            worldX: session.spawnPosition.x,
+            worldZ: session.spawnPosition.z
+        )
+        let runtime = WorldRuntime(worldSession: session)
+
+        _ = runtime.update(deltaTime: 1.0 / 60.0, debugOptions: .defaults)
+
+        #expect(contactPatch?.isUsableFootSupport == true)
+        #expect(AnimationClipID.allCases.contains(runtime.playerAnimationSample.clipID))
+        #expect(runtime.playerAnimationSample.pose.joint(.leftFoot) != nil)
+        #expect(runtime.playerAnimationSample.pose.joint(.rightFoot) != nil)
+        #expect(runtime.playerFootIKResults.count == AnimationFootSide.allCases.count)
+        #expect(runtime.playerFootIKResults.values.allSatisfy { $0.target.y.isFinite })
+    }
+
+    @MainActor
     @Test func worldRuntimeFreezeSimulationKeepsSimulationClockStable() {
         let runtime = WorldRuntime()
         let initialSimulationTime = runtime.frameSnapshot.simulationTime

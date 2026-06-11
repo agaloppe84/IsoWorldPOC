@@ -10,8 +10,21 @@ import simd
 
 struct TerrainGroundSample {
     let sample: TerrainSampler.Sample
+    let terrainSample: TerrainSample?
     let surfaceClass: TraversalSurfaceClass?
     let chunk: ChunkCoordinate
+
+    init(
+        sample: TerrainSampler.Sample,
+        terrainSample: TerrainSample? = nil,
+        surfaceClass: TraversalSurfaceClass?,
+        chunk: ChunkCoordinate
+    ) {
+        self.sample = sample
+        self.terrainSample = terrainSample
+        self.surfaceClass = surfaceClass
+        self.chunk = chunk
+    }
 
     func isWalkable(maxSlope: Float) -> Bool {
         if let surfaceClass {
@@ -19,6 +32,20 @@ struct TerrainGroundSample {
         }
 
         return sample.isWalkable(maxSlope: maxSlope)
+    }
+
+    func contactPatch(worldX: Float, worldZ: Float) -> ContactPatch? {
+        guard let terrainSample else {
+            return nil
+        }
+
+        return SurfaceContactResolver().patch(
+            for: terrainSample,
+            worldX: worldX,
+            worldZ: worldZ,
+            coordinate: chunk,
+            surfaceClass: surfaceClass
+        )
     }
 }
 

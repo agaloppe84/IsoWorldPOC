@@ -42,6 +42,18 @@ final class WorldRuntime {
         playerController.characterDNA
     }
 
+    var playerAnimationSample: AnimationSample {
+        playerController.animationSample
+    }
+
+    var playerFootIKResults: [AnimationFootSide: FootIKResult] {
+        playerController.footIKResults
+    }
+
+    var playerRecentFootstepEvents: [FootstepEvent] {
+        playerController.recentFootstepEvents
+    }
+
     init(
         worldSession: WorldSession? = nil,
         debugOptions: RenderSnapshotDebugOptions = .defaults
@@ -212,6 +224,12 @@ final class WorldRuntime {
         )
 
         _ = playerController.applyGroundedPosition(grounding.position)
+        playerController.updateMotion(
+            deltaTime: deltaTime,
+            previousPosition: previousPosition,
+            input: inputManager.state,
+            grounding: grounding
+        )
         cameraFieldOfView = cameraController
             .renderState(following: playerController.position)
             .fieldOfViewDegrees

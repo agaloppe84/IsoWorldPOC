@@ -475,3 +475,15 @@ Consequence: `CharacterDNA` derive depuis `WorldSeed`, `GeneratorVersionTable` e
 Garantie: les tests EngineCore couvrent determinisme/versioning, clamping morphologique, skeleton/sockets, remplacement d'equipement, LOD, roundtrip de sauvegarde et conservation dans le profil joueur. Un test app verifie que `WorldRuntime` cree la DNA joueur depuis le seed de session preparee.
 
 Limite actuelle: le renderer affiche encore le preview joueur simple. Le mesh skinned, les vetements visibles et l'animation complete doivent consommer ces contrats dans les steps suivants.
+
+## 047 - Animation contact terrain V1
+
+Decision: ajouter `EngineCore/Animation` comme couche IsoMotion V1 pure, branchee sur terrain, traversal et personnage.
+
+Raison: les futurs FX/audio/HUD et le rendu personnage ont besoin d'evenements et de contacts stables. Le joueur ne doit pas seulement suivre une hauteur terrain; il doit produire une pose, des appuis, une friction, une wetness, un verrouillage de pied et des events de pas depuis les donnees moteur V1.
+
+Consequence: `TerrainSampleGrid` est conserve dans le chunk runtime. `SurfaceContactResolver` transforme les samples terrain en `ContactPatch`. `AnimationSampler`, `FootIKSolver`, `CharacterMotor` et `FootstepEventEmitter` fournissent les contrats minimums pour locomotion, foot IK, motor capsule et events materiau-aware. `PlayerController` met a jour ces donnees sans les rendre encore visuellement.
+
+Garantie: les tests EngineCore couvrent sampler, contacts materiaux, foot IK, motor et footstep events. Un test app verifie que `WorldRuntime` produit des contacts animation joueur depuis un terrain prepare.
+
+Limite actuelle: pas encore de mesh skinned anime, de debug draw animation, de footstep planner avance, d'audio ou de FX. Ces couches doivent consommer les contracts Step 17 au lieu de recalculer les surfaces.

@@ -225,12 +225,28 @@ final class ChunkDataStreamer {
         }
         let localX = (playerPosition.x - data.originX) / ProceduralChunkDataFactory.horizontalScale
         let localZ = (playerPosition.z - data.originZ) / ProceduralChunkDataFactory.horizontalScale
+        let terrainSample = data.terrainSampleGrid.sample(
+            localX: clampedSampleIndex(localX),
+            localZ: clampedSampleIndex(localZ)
+        )
         let surfaceClass = data.traversalData.surfaceClass(
             nearestLocalX: localX,
             nearestLocalZ: localZ
         )
 
-        return TerrainGroundSample(sample: sample, surfaceClass: surfaceClass, chunk: coordinate)
+        return TerrainGroundSample(
+            sample: sample,
+            terrainSample: terrainSample,
+            surfaceClass: surfaceClass,
+            chunk: coordinate
+        )
+    }
+
+    private func clampedSampleIndex(_ value: Float) -> Int {
+        min(
+            max(Int(value.rounded()), 0),
+            ProceduralChunkDataFactory.chunkResolution - 1
+        )
     }
 
     private func loadChunkData(_ data: ProceduralChunkData) {
