@@ -316,6 +316,20 @@ struct IsoWorldPOCTests {
     }
 
     @MainActor
+    @Test func worldRuntimeCreatesPlayerCharacterFromPreparedWorldSeed() async throws {
+        let pipeline = WorldPreparePipeline()
+        let session = try await pipeline.prepareWorld(
+            request: WorldPrepareRequest(seedText: "runtime-character-session", initialChunkRadius: 0)
+        ) { _ in }
+
+        let runtime = WorldRuntime(worldSession: session)
+        let expectedDNA = CharacterDNA.makePlayer(worldSeed: session.worldSeed)
+
+        #expect(runtime.playerCharacterDNA == expectedDNA)
+        #expect(runtime.playerCharacterDNA.body.collisionCapsule.height > 0)
+    }
+
+    @MainActor
     @Test func worldRuntimeFreezeSimulationKeepsSimulationClockStable() {
         let runtime = WorldRuntime()
         let initialSimulationTime = runtime.frameSnapshot.simulationTime

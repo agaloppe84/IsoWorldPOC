@@ -38,18 +38,23 @@ final class WorldRuntime {
         playerController.position
     }
 
+    var playerCharacterDNA: CharacterDNA {
+        playerController.characterDNA
+    }
+
     init(
         worldSession: WorldSession? = nil,
         debugOptions: RenderSnapshotDebugOptions = .defaults
     ) {
         let resolvedWorldSeed = worldSession?.worldSeed ?? ProceduralChunkDataFactory.activeSeed
         let spawnPosition = worldSession?.spawnPosition
+        let characterDNA = CharacterDNA.makePlayer(worldSeed: resolvedWorldSeed)
         self.worldSeed = resolvedWorldSeed
         self.playerController = PlayerController(position: SIMD3<Float>(
             spawnPosition?.x ?? 0,
             spawnPosition?.y ?? 0,
             spawnPosition?.z ?? 0
-        ))
+        ), characterDNA: characterDNA)
         self.chunkStreamer = ChunkDataStreamer(
             worldSeed: resolvedWorldSeed,
             initialChunks: worldSession?.initialChunks ?? []

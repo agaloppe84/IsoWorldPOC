@@ -73,5 +73,6 @@ public extension GeneratorVersionTable {
         GeneratorVersionEntry(domain: .chunks, version: .v1),
         GeneratorVersionEntry(domain: .props, version: .v1),
         GeneratorVersionEntry(domain: .entities, version: .v1),
+        GeneratorVersionEntry(domain: .characters, version: .v1),
     ])
 }

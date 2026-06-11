@@ -169,6 +169,21 @@ Le grounding joueur utilise la classe traversal sous le joueur quand elle est di
 
 Le renderer ne dessine pas encore de surface d'eau dediee. Pour l'instant, l'hydrologie V1 existe comme donnees moteur et comme splats de materiaux shore/mud, afin de preparer debug, gameplay traversal et rendu d'eau futur.
 
+### Personnages V1
+
+`EngineCore/Characters` porte la base personnage procedurale pure, sans SwiftUI, Metal ni dependance runtime app.
+
+Responsabilites:
+
+- generer un `CharacterDNA` deterministe depuis `WorldSeed`, `GeneratorVersionTable` et index personnage;
+- decrire les parametres de corps, le skeleton humanoide canonique, les sockets et la capsule collision;
+- porter l'apparence, les sliders visage et les materiaux PBR neutres peau/cheveux/vetements;
+- gerer les slots d'equipement, les conflits de slots et un starter outfit stable;
+- separer l'ADN regenerable de `CharacterRuntimeState`;
+- sauvegarder la personnalisation dans `CharacterCustomizationSave` sans persister de cache mesh.
+
+`WorldRuntime` cree le joueur depuis le seed de la `WorldSession`, puis `PlayerController` derive vitesse de marche et capsule collision depuis la DNA. Le renderer garde encore son preview joueur simple; le mesh skinned, les vetements visibles et l'animation complete arriveront au-dessus de ces contrats V1.
+
 ### Tools Hub V1
 
 Le Tools Hub est une surface app separee du monde runtime.

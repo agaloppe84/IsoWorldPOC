@@ -5,18 +5,27 @@
 //  Created by Work on 09/06/2026.
 //
 
+import EngineCore
 import simd
 
 struct PlayerController {
+    let characterDNA: CharacterDNA
+    private(set) var characterRuntimeState: CharacterRuntimeState
     private(set) var position = SIMD3<Float>(0, 0, 0)
 
-    var walkSpeed: Float = 2.2
+    var walkSpeed: Float
     var sprintMultiplier: Float = 1.6
     var inputDeadZone: Float = 0.08
     var terrainSurfaceOffset: Float = 0.02
 
-    init(position: SIMD3<Float> = SIMD3<Float>(0, 0, 0)) {
+    init(
+        position: SIMD3<Float> = SIMD3<Float>(0, 0, 0),
+        characterDNA: CharacterDNA = CharacterDNA.makePlayer(worldSeed: ProceduralChunkDataFactory.activeSeed)
+    ) {
+        self.characterDNA = characterDNA
+        self.characterRuntimeState = characterDNA.defaultRuntimeState
         self.position = position
+        self.walkSpeed = characterDNA.body.naturalWalkSpeedMetersPerSecond
     }
 
     mutating func update(deltaTime: Float, input: PlayerInputState) -> SIMD3<Float> {
@@ -69,5 +78,9 @@ struct PlayerController {
         }
 
         return position
+    }
+
+    var collisionCapsule: CharacterCollisionCapsule {
+        characterDNA.body.collisionCapsule
     }
 }

@@ -197,6 +197,21 @@ Step 15 ajoute la premiere couche de verticalite gameplay V1 au-dessus du terrai
 
 Cette passe ne cree pas encore de mesh de corde/escalier ni de mode escalade joueur complet. Elle pose le contrat moteur V1 pour que ces features puissent etre ajoutees sans hardcoder les regles dans le renderer ou le player.
 
+## Step 16 livre
+
+Step 16 ajoute la base personnage procedurale V1 dans `EngineCore/Characters`:
+
+- `CharacterDNA` devient le contrat racine deterministe pour un personnage genere par seed/version.
+- `CharacterBodyParameters` expose morphologie, skeleton humanoide canonique, sockets, capsule collision et vitesse naturelle.
+- `CharacterAppearance` porte les sliders visage, couleurs et materiaux PBR peau/cheveux.
+- `EquipmentSlot`, `WearableItem` et `CharacterEquipmentSet` decrivent les slots modulaires, sockets et conflit d'equipement.
+- `CharacterRuntimeState` separe l'etat vivant/equipement courant de l'ADN regenerable.
+- `CharacterCustomizationSave` rend la personnalisation sauvegardable sans persister de cache mesh genere.
+- `PlayerProfile` peut porter une personnalisation personnage.
+- `WorldRuntime` cree le personnage joueur depuis le `WorldSeed` de session et le `PlayerController` derive vitesse/capsule depuis cette DNA.
+
+Cette passe ne rend pas encore un vrai mesh skinned ni des vetements modulaires GPU. Elle pose les contrats purs V1 pour animation, gameplay et sauvegarde.
+
 ## Prochaine cible
 
-Step 16 peut ajouter le personnage procedural minimal: body parameters, appearance, slots d'equipement et base exploitable par animation/gameplay.
+Step 17 peut brancher animation/contact terrain: locomotion minimale, stance runtime, camera/collision coherentes avec le corps et premiers hooks pour mesh skinned futur.

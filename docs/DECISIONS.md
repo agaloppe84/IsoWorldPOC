@@ -463,3 +463,15 @@ Raison: le terrain feature-driven doit devenir lisible par le gameplay avant d'a
 Consequence: chaque `TerrainSampleGrid` peut produire un `TraversalChunkData` contenant `ClimbabilityMap`, surface classes, ledges, anchors de corde, attaches d'escalier et routes verticales candidates. `ProceduralChunkData` transporte cette data jusqu'au runtime, et le grounding joueur utilise `TraversalSurfaceClass` quand elle est disponible.
 
 Garantie: les tests EngineCore couvrent classification, candidats verticaux, determinisme, continuite de classes aux bords de chunks, debug layers et validation report. Un test app verifie que le grounding respecte une surface `blocked`.
+
+## 046 - Base personnage procedurale V1
+
+Decision: ajouter `EngineCore/Characters` comme contrat pur pour generer, personnaliser et sauvegarder un personnage V1.
+
+Raison: le joueur ne doit pas rester un cube hardcode cote app pendant que le moteur V1 avance. Il faut un ADN deterministe, une morphologie canonique, des sockets, des slots d'equipement et un etat runtime avant de brancher animation, vetements et gameplay corps.
+
+Consequence: `CharacterDNA` derive depuis `WorldSeed`, `GeneratorVersionTable` et le domaine `.characters`. La morphologie expose skeleton, sockets, capsule collision et vitesse naturelle. L'apparence et l'equipement portent des materiaux PBR neutres. `CharacterRuntimeState` separe l'etat vivant de l'ADN regenerable, et `CharacterCustomizationSave` peut etre stocke dans `PlayerProfile`.
+
+Garantie: les tests EngineCore couvrent determinisme/versioning, clamping morphologique, skeleton/sockets, remplacement d'equipement, LOD, roundtrip de sauvegarde et conservation dans le profil joueur. Un test app verifie que `WorldRuntime` cree la DNA joueur depuis le seed de session preparee.
+
+Limite actuelle: le renderer affiche encore le preview joueur simple. Le mesh skinned, les vetements visibles et l'animation complete doivent consommer ces contrats dans les steps suivants.

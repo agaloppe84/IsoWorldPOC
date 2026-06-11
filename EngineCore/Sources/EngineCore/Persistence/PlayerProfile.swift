@@ -8,13 +8,15 @@ public struct PlayerProfile: Hashable, Codable, Sendable {
     public let recentSeeds: [String]
     public let lastOpenedSlotID: SaveSlotID?
     public let appPreferences: AppPreferences
+    public let characterCustomization: CharacterCustomizationSave?
 
     public init(
         id: StableID = StableID(0),
         displayName: String = "Player",
         recentSeeds: [String] = [],
         lastOpenedSlotID: SaveSlotID? = nil,
-        appPreferences: AppPreferences = AppPreferences()
+        appPreferences: AppPreferences = AppPreferences(),
+        characterCustomization: CharacterCustomizationSave? = nil
     ) {
         precondition(!displayName.isEmpty, "displayName cannot be empty.")
 
@@ -23,6 +25,7 @@ public struct PlayerProfile: Hashable, Codable, Sendable {
         self.recentSeeds = Self.uniqueSeeds(recentSeeds, limit: Self.defaultRecentSeedLimit)
         self.lastOpenedSlotID = lastOpenedSlotID
         self.appPreferences = appPreferences
+        self.characterCustomization = characterCustomization
     }
 
     public func recordingRecentSeed(
@@ -41,7 +44,8 @@ public struct PlayerProfile: Hashable, Codable, Sendable {
             displayName: displayName,
             recentSeeds: Self.uniqueSeeds([trimmedSeed] + recentSeeds, limit: limit),
             lastOpenedSlotID: lastOpenedSlotID,
-            appPreferences: appPreferences
+            appPreferences: appPreferences,
+            characterCustomization: characterCustomization
         )
     }
 
@@ -51,7 +55,19 @@ public struct PlayerProfile: Hashable, Codable, Sendable {
             displayName: displayName,
             recentSeeds: recentSeeds,
             lastOpenedSlotID: slotID,
-            appPreferences: appPreferences
+            appPreferences: appPreferences,
+            characterCustomization: characterCustomization
+        )
+    }
+
+    public func withCharacterCustomization(_ customization: CharacterCustomizationSave) -> PlayerProfile {
+        PlayerProfile(
+            id: id,
+            displayName: displayName,
+            recentSeeds: recentSeeds,
+            lastOpenedSlotID: lastOpenedSlotID,
+            appPreferences: appPreferences,
+            characterCustomization: customization
         )
     }
 
