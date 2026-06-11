@@ -70,10 +70,6 @@ struct MetalGameView: NSViewRepresentable {
 
             let policy = metrics.debugWorldRunMode.cadencePolicy
             cadenceController.apply(policy: policy)
-            metrics.applyCadencePolicy(
-                policy,
-                metricsRefreshInterval: metrics.debugWorldRunMode.metricsRefreshInterval
-            )
 
             debugState = nextState
             cadenceController.requestDraw()

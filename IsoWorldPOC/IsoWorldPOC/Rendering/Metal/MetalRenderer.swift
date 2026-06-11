@@ -69,7 +69,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         super.init()
 
         syncBuffers(with: snapshot)
-        updateDebugMetrics(force: true)
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
@@ -266,10 +265,10 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         return projection * view
     }
 
-    private func updateDebugMetrics(force: Bool = false) {
+    private func updateDebugMetrics() {
         let now = CACurrentMediaTime()
         let publishInterval = debugMetrics.debugWorldRunMode.metricsRefreshInterval
-        guard force || now - lastDebugMetricsPublishTime >= publishInterval else {
+        guard now - lastDebugMetricsPublishTime >= publishInterval else {
             return
         }
 

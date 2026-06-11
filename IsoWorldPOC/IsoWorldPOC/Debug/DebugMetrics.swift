@@ -14,11 +14,6 @@ final class DebugMetrics: ObservableObject {
     @Published var framesPerSecond: Float = 0
     @Published var frameTimeMilliseconds: Float = 0
     @Published var debugWorldRunMode: DebugWorldRunMode = .slowInspection
-    @Published var renderCadenceDescription = DebugWorldRunMode.slowInspection.cadencePolicy.displayName
-    @Published var renderCadenceMaxFPS = DebugWorldRunMode.slowInspection.cadencePolicy.maxFPS
-    @Published var renderOnlyWhenDirty = DebugWorldRunMode.slowInspection.cadencePolicy.renderOnlyWhenDirty
-    @Published var continuousAnimationAllowed = DebugWorldRunMode.slowInspection.cadencePolicy.allowContinuousAnimation
-    @Published var debugMetricsRefreshFPS: Float = Float(1 / DebugWorldRunMode.slowInspection.metricsRefreshInterval)
     @Published var renderedFrameCount = 0
     @Published var inputState = PlayerInputState()
     @Published var controllerName = "None"
@@ -70,12 +65,24 @@ final class DebugMetrics: ObservableObject {
     @Published var terrainSplatDebugLayerIndex = 0
     @Published var rendererMode = RendererMode.activeMode
 
-    func applyCadencePolicy(_ policy: RenderCadencePolicy, metricsRefreshInterval: Double) {
-        assignIfNeeded(\.renderCadenceDescription, policy.displayName)
-        assignIfNeeded(\.renderCadenceMaxFPS, policy.maxFPS)
-        assignIfNeeded(\.renderOnlyWhenDirty, policy.renderOnlyWhenDirty)
-        assignIfNeeded(\.continuousAnimationAllowed, policy.allowContinuousAnimation)
-        assignIfNeeded(\.debugMetricsRefreshFPS, Float(1 / metricsRefreshInterval))
+    var renderCadenceDescription: String {
+        debugWorldRunMode.cadencePolicy.displayName
+    }
+
+    var renderCadenceMaxFPS: Int {
+        debugWorldRunMode.cadencePolicy.maxFPS
+    }
+
+    var renderOnlyWhenDirty: Bool {
+        debugWorldRunMode.cadencePolicy.renderOnlyWhenDirty
+    }
+
+    var continuousAnimationAllowed: Bool {
+        debugWorldRunMode.cadencePolicy.allowContinuousAnimation
+    }
+
+    var debugMetricsRefreshFPS: Float {
+        Float(1 / debugWorldRunMode.metricsRefreshInterval)
     }
 
     func applyFrameTiming(

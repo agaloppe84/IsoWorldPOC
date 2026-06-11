@@ -39,7 +39,6 @@ final class DebugCadenceController {
             return
         case .onDemand, .throttled, .none:
             view.setNeedsDisplay(view.bounds)
-            view.draw()
         }
     }
 
