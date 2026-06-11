@@ -34,42 +34,23 @@ public struct ChunkHeightmap: Equatable, Codable, Sendable {
     }
 
     public var stableHash: UInt64 {
-        var hasher = StableTerrainHasher()
-        hasher.mix(seed.value)
-        hasher.mix(coordinate.x)
-        hasher.mix(coordinate.y)
-        hasher.mix(coordinate.z)
-        hasher.mix(Self.resolution)
+        var hasher = StableHash.Builder()
+        hasher.combine(seed)
+        hasher.combine(coordinate)
+        hasher.combine(Self.resolution)
 
         for sample in samples {
-            hasher.mix(sample.localX)
-            hasher.mix(sample.localZ)
-            hasher.mix(sample.worldX)
-            hasher.mix(sample.worldZ)
-            hasher.mix(sample.height)
+            hasher.combine(sample.localX)
+            hasher.combine(sample.localZ)
+            hasher.combine(sample.worldX)
+            hasher.combine(sample.worldZ)
+            hasher.combine(sample.height)
         }
 
-        return hasher.value
+        return hasher.finalize().value
     }
 
     private static func index(localX: Int, localZ: Int) -> Int {
         localZ * resolution + localX
-    }
-}
-
-private struct StableTerrainHasher {
-    private(set) var value: UInt64 = 0xcbf2_9ce4_8422_2325
-
-    mutating func mix(_ value: UInt64) {
-        self.value ^= value
-        self.value &*= 0x0000_0100_0000_01b3
-    }
-
-    mutating func mix(_ value: Int) {
-        mix(UInt64(bitPattern: Int64(value)))
-    }
-
-    mutating func mix(_ value: Float) {
-        mix(UInt64(value.bitPattern))
     }
 }

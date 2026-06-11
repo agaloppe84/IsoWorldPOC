@@ -38,7 +38,7 @@ public struct PropPlacementGenerator: Sendable {
             return []
         }
 
-        var random = SeededRandom(seedValue: chunkSeed(for: coordinate, biomeType: biome.type))
+        var random = StableRNG(seedValue: chunkSeed(for: coordinate, biomeType: biome.type))
         let count = targetPropCount(for: biome, random: &random)
         let clampedCount = min(count, maxPropsPerChunk)
         let maxLocalPosition = Float(samplesPerChunk - 1)
@@ -65,7 +65,7 @@ public struct PropPlacementGenerator: Sendable {
         }
     }
 
-    private func targetPropCount(for biome: Biome, random: inout SeededRandom) -> Int {
+    private func targetPropCount(for biome: Biome, random: inout StableRNG) -> Int {
         let baseCount: Int
         let jitterRange: Int
 
@@ -118,7 +118,7 @@ public struct PropPlacementGenerator: Sendable {
         }
     }
 
-    private func scale(for type: PropType, random: inout SeededRandom) -> Float {
+    private func scale(for type: PropType, random: inout StableRNG) -> Float {
         let roll = randomUnit(&random)
 
         switch type {
@@ -132,12 +132,12 @@ public struct PropPlacementGenerator: Sendable {
     }
 
     private func chunkSeed(for coordinate: ChunkCoordinate, biomeType: BiomeType) -> UInt64 {
-        var value = seed.value ^ 0x51A7_7E11_9A5B_2026
-        value = mix(value, with: coordinate.x)
-        value = mix(value, with: coordinate.y)
-        value = mix(value, with: coordinate.z)
-        value ^= biomeSalt(for: biomeType)
-        return value
+        StableHash.make { builder in
+            builder.combine(seed)
+            builder.combine(SeedDomain.props)
+            builder.combine(coordinate)
+            builder.combine(biomeSalt(for: biomeType))
+        }.value
     }
 
     private func biomeSalt(for type: BiomeType) -> UInt64 {
@@ -155,18 +155,7 @@ public struct PropPlacementGenerator: Sendable {
         }
     }
 
-    private func mix(_ current: UInt64, with value: Int) -> UInt64 {
-        var mixed = current ^ UInt64(bitPattern: Int64(value))
-        mixed &*= 0x9E37_79B9_7F4A_7C15
-        mixed ^= mixed >> 30
-        mixed &*= 0xBF58_476D_1CE4_E5B9
-        mixed ^= mixed >> 27
-        mixed &*= 0x94D0_49BB_1331_11EB
-        return mixed ^ (mixed >> 31)
-    }
-
-    private func randomUnit(_ random: inout SeededRandom) -> Float {
-        let value = random.next() >> 40
-        return Float(value) / Float(0x00ff_ffff)
+    private func randomUnit(_ random: inout StableRNG) -> Float {
+        random.nextUnitFloat()
     }
 }

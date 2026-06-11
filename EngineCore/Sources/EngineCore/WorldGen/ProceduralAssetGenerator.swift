@@ -11,7 +11,7 @@ public struct ProceduralAssetGenerator: Sendable {
         chunk: ChunkCoordinate
     ) -> PropVariant {
         let variantSeed = localVariantSeed(for: placement, biome: biome, chunk: chunk)
-        var random = SeededRandom(seedValue: variantSeed)
+        var random = StableRNG(seedValue: variantSeed)
         let archetype = PropArchetype.definition(for: placement.type, biome: biome)
         let size = scaledSize(for: archetype, placementScale: placement.scale, random: &random)
         let proportions = PropVector3(
@@ -44,7 +44,7 @@ public struct ProceduralAssetGenerator: Sendable {
     private func scaledSize(
         for archetype: PropArchetype,
         placementScale: Float,
-        random: inout SeededRandom
+        random: inout StableRNG
     ) -> PropVector3 {
         PropVector3(
             x: lerp(archetype.minimumSize.x, archetype.maximumSize.x, randomUnit(&random)) * placementScale,
@@ -57,7 +57,7 @@ public struct ProceduralAssetGenerator: Sendable {
         for type: PropType,
         biome: Biome,
         size: PropVector3,
-        random: inout SeededRandom
+        random: inout StableRNG
     ) -> PropGeometryDescriptor {
         switch type {
         case .rock:
@@ -110,7 +110,7 @@ public struct ProceduralAssetGenerator: Sendable {
         )
     }
 
-    private func crystalGeometry(size: PropVector3, random: inout SeededRandom) -> PropGeometryDescriptor {
+    private func crystalGeometry(size: PropVector3, random: inout StableRNG) -> PropGeometryDescriptor {
         let tilt = (randomUnit(&random) - 0.5) * 0.55
         let secondaryScale = 0.58 + randomUnit(&random) * 0.22
 
@@ -154,7 +154,7 @@ public struct ProceduralAssetGenerator: Sendable {
     private func materialSet(
         for type: PropType,
         biome: Biome,
-        random: inout SeededRandom
+        random: inout StableRNG
     ) -> (
         primary: PropMaterialDescriptor,
         secondary: PropMaterialDescriptor,
@@ -276,17 +276,17 @@ public struct ProceduralAssetGenerator: Sendable {
         biome: Biome,
         chunk: ChunkCoordinate
     ) -> UInt64 {
-        var value = seed.value ^ 0xA55E_700C_2026_0001
-        value = mix(value, with: chunk.x)
-        value = mix(value, with: chunk.y)
-        value = mix(value, with: chunk.z)
-        value = mix(value, with: placement.placementIndex)
-        value = mix(value, with: placement.type.rawValue)
-        value = mix(value, with: biome.type.rawValue)
-        return value
+        StableHash.make { builder in
+            builder.combine(seed)
+            builder.combine(SeedDomain.props)
+            builder.combine(chunk)
+            builder.combine(placement.placementIndex)
+            builder.combine(placement.type.rawValue)
+            builder.combine(biome.type.rawValue)
+        }.value
     }
 
-    private func varied(_ color: BiomeColor, amount: Float, random: inout SeededRandom) -> BiomeColor {
+    private func varied(_ color: BiomeColor, amount: Float, random: inout StableRNG) -> BiomeColor {
         BiomeColor(
             red: clamped(color.red + variation(amount: amount, random: &random)),
             green: clamped(color.green + variation(amount: amount, random: &random)),
@@ -294,7 +294,7 @@ public struct ProceduralAssetGenerator: Sendable {
         )
     }
 
-    private func variation(amount: Float, random: inout SeededRandom) -> Float {
+    private func variation(amount: Float, random: inout StableRNG) -> Float {
         (randomUnit(&random) * 2.0 - 1.0) * amount
     }
 
@@ -314,24 +314,7 @@ public struct ProceduralAssetGenerator: Sendable {
         start + (end - start) * amount
     }
 
-    private func randomUnit(_ random: inout SeededRandom) -> Float {
-        let value = random.next() >> 40
-        return Float(value) / Float(0x00ff_ffff)
-    }
-
-    private func mix(_ current: UInt64, with value: Int) -> UInt64 {
-        var mixed = current ^ UInt64(bitPattern: Int64(value))
-        mixed &*= 0x9E37_79B9_7F4A_7C15
-        mixed ^= mixed >> 30
-        mixed &*= 0xBF58_476D_1CE4_E5B9
-        mixed ^= mixed >> 27
-        mixed &*= 0x94D0_49BB_1331_11EB
-        return mixed ^ (mixed >> 31)
-    }
-
-    private func mix(_ current: UInt64, with value: String) -> UInt64 {
-        value.utf8.reduce(current) { partial, byte in
-            mix(partial, with: Int(byte))
-        }
+    private func randomUnit(_ random: inout StableRNG) -> Float {
+        random.nextUnitFloat()
     }
 }

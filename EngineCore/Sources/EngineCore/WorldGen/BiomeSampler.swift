@@ -195,28 +195,18 @@ public struct BiomeSampler: Sendable {
     }
 
     private func latticeValue(cellX: Int, cellZ: Int, salt: UInt64) -> Float {
-        var random = SeededRandom(seedValue: latticeSeed(cellX: cellX, cellZ: cellZ, salt: salt))
-        let value = random.next() >> 40
-        let unit = Float(value) / Float(0x00ff_ffff)
-
-        return unit * 2.0 - 1.0
+        var random = StableRNG(seedValue: latticeSeed(cellX: cellX, cellZ: cellZ, salt: salt))
+        return random.nextUnitFloat() * 2.0 - 1.0
     }
 
     private func latticeSeed(cellX: Int, cellZ: Int, salt: UInt64) -> UInt64 {
-        var value = seed.value ^ salt
-        value = mix(value, with: cellX)
-        value = mix(value, with: cellZ)
-        return value
-    }
-
-    private func mix(_ current: UInt64, with value: Int) -> UInt64 {
-        var mixed = current ^ UInt64(bitPattern: Int64(value))
-        mixed &*= 0x9E37_79B9_7F4A_7C15
-        mixed ^= mixed >> 30
-        mixed &*= 0xBF58_476D_1CE4_E5B9
-        mixed ^= mixed >> 27
-        mixed &*= 0x94D0_49BB_1331_11EB
-        return mixed ^ (mixed >> 31)
+        StableHash.make { builder in
+            builder.combine(seed)
+            builder.combine(SeedDomain.climate)
+            builder.combine(salt)
+            builder.combine(cellX)
+            builder.combine(cellZ)
+        }.value
     }
 
     private func smoothStep(_ value: Float) -> Float {
