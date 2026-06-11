@@ -433,3 +433,13 @@ Raison: les tests manuels confirment que Real World devient nettement plus fluid
 Consequence: `DebugMetrics` demarre avec `showChunkBounds` et `showDebugDetails` a `false`. `DebugOverlayView` affiche un bloc perf compact et garde les details snapshot/player/chunks derriere un toggle. La cadence de publication telemetry descend a 2 Hz en debug live/slow et 1 Hz en benchmark.
 
 Garantie: les tests unitaires verrouillent les defaults lean et la cadence de refresh debug.
+
+## 043 - Tools Hub minimal Step 13
+
+Decision: creer le `Tools Hub` comme surface data-driven separee du monde runtime.
+
+Raison: les generateurs V1 doivent pouvoir etre inspectes sans ouvrir un vrai monde, sans demarrer `WorldRuntime` et sans ajouter de dependance debug au renderer principal.
+
+Consequence: `ToolRegistry.v1` declare les outils initiaux, `ToolDocument` porte les parametres de travail, la validation reste locale au hub et les previews produisent un `ToolPreviewSnapshot` EngineCore deterministe sans payload monde.
+
+Garantie: les tests verifient l'inventaire des outils Step 13, la preview deterministe et la transition AppStore avec `ToolSession` mais sans `WorldSession`.

@@ -161,4 +161,18 @@ Le Debug World doit maintenant etre un outil de diagnostic leger par defaut. Les
 
 ## Prochaine cible
 
-Step 13 peut ouvrir le `Tools Hub` minimal. Il doit rester data-driven et consommer les systemes V1 existants sans contourner `EngineCore`.
+## Step 13 livre
+
+Step 13 ouvre le `Tools Hub` minimal comme surface isolee du vrai monde:
+
+- `ToolingUI` contient `ToolDescriptor`, `ToolDocument`, `ToolRegistry`, `ToolPreviewView`, `ToolValidationPanel` et la vue hub SwiftUI.
+- Le registry V1 expose six outils initiaux: Terrain Viewer, Biome Viewer, Prop Gallery, Material Viewer, LOD Debugger et Seed Explorer.
+- Chaque preview produit un `ToolPreviewSnapshot` deterministe depuis le seed texte et les parametres du document.
+- Les previews n'ouvrent pas de `WorldSession`, ne mutent pas `WorldRuntime` et ne demarrent pas le renderer monde.
+- `AppStore` garde une `ToolSession` separee pour le hub, afin que les transitions app restent explicites.
+
+La V1 ne branche pas encore de preview Metal dediee dans les outils. Le hub fournit le shell data-driven, les documents et la validation necessaires avant d'ajouter des previews specialisees.
+
+## Prochaine cible
+
+Step 14 peut connecter les premiers outils a des donnees moteur specialisees, en gardant le meme contrat: document d'outil -> validation -> preview snapshot isolee -> export futur.

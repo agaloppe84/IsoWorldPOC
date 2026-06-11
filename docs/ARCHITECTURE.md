@@ -145,6 +145,20 @@ Les types de preparation vivent dans `IsoWorldPOC/IsoWorldPOC/GameRuntime/WorldP
 
 Cette baseline ne precompile pas encore les pipelines GPU hors `MetalRenderer`. Le warmup Step 12 signifie que les payloads CPU critiques sont prets avant la premiere frame.
 
+### Tools Hub V1
+
+Le Tools Hub est une surface app separee du monde runtime.
+
+Responsabilites:
+
+- declarer les outils disponibles via `ToolRegistry.v1`;
+- porter les parametres utilisateur dans `ToolDocument`;
+- valider localement un document d'outil;
+- produire une preview isolee sous forme de `ToolPreviewSnapshot`;
+- rester hors `WorldRuntime`, hors `WorldSession` et hors boucle Metal du monde.
+
+Les outils initiaux sont Terrain Viewer, Biome Viewer, Prop Gallery, Material Viewer, LOD Debugger et Seed Explorer. Le hub prepare des previews specialisees futures, mais son contrat V1 interdit de contourner le pipeline moteur: un outil doit consommer les donnees V1 et produire un snapshot ou un rapport explicite.
+
 ### LOD baseline
 
 Le LOD V1 est un systeme classique et explicite, avant tout HLOD ou virtual geometry.

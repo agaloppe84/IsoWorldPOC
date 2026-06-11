@@ -184,6 +184,7 @@ struct IsoWorldPOCTests {
         #expect(store.mode == .mainMenu)
         #expect(store.loadingProgress == nil)
         #expect(store.currentWorldSession == nil)
+        #expect(store.currentToolSession == nil)
     }
 
     @MainActor
@@ -200,6 +201,7 @@ struct IsoWorldPOCTests {
 
         #expect(store.loadingProgress == nil)
         #expect(store.currentWorldSession == nil)
+        #expect(store.currentToolSession == nil)
     }
 
     @MainActor
@@ -216,6 +218,48 @@ struct IsoWorldPOCTests {
 
         #expect(store.loadingProgress == nil)
         #expect(store.currentWorldSession == nil)
+        #expect(store.currentToolSession != nil)
+    }
+
+    @Test func toolRegistryExposesStep13V1Tools() {
+        let registry = ToolRegistry.v1
+
+        #expect(registry.descriptors.map(\.name) == [
+            "Terrain Viewer",
+            "Biome Viewer",
+            "Prop Gallery",
+            "Material Viewer",
+            "LOD Debugger",
+            "Seed Explorer",
+        ])
+        #expect(Set(registry.descriptors.map(\.id)) == Set([
+            "terrain.viewer",
+            "biome.viewer",
+            "prop.gallery",
+            "material.viewer",
+            "lod.debugger",
+            "seed.explorer",
+        ]))
+        #expect(registry.descriptors.allSatisfy { !$0.capabilities.isEmpty })
+    }
+
+    @Test func toolRegistryCreatesDeterministicPreviewWithoutWorldPayload() {
+        let registry = ToolRegistry.v1
+        let descriptor = registry.descriptor(for: "terrain.viewer")!
+        let document = ToolDocument(
+            toolID: descriptor.id,
+            seedText: "step-13-seed",
+            presetName: "Terrain baseline",
+            sampleCount: 32
+        )
+
+        let firstPreview = registry.makePreviewSnapshot(for: descriptor, document: document)
+        let secondPreview = registry.makePreviewSnapshot(for: descriptor, document: document)
+
+        #expect(firstPreview == secondPreview)
+        #expect(firstPreview.status == .ready)
+        #expect(firstPreview.render == nil)
+        #expect(firstPreview.worldSeed == registry.worldSeed(from: document.seedText))
     }
 
     @MainActor
@@ -232,6 +276,7 @@ struct IsoWorldPOCTests {
 
         #expect(store.loadingProgress?.seed == "isoworld-seed-001")
         #expect(store.currentWorldSession == nil)
+        #expect(store.currentToolSession == nil)
     }
 
     @MainActor
