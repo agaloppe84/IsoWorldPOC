@@ -109,6 +109,7 @@ final class DebugMetrics: ObservableObject {
     @Published var freezeChunkStreaming: Bool
     @Published var forcedLODLevel: LODLevel?
     @Published var pauseDebugMetricPublishing: Bool
+    @Published var showDebugDetails: Bool
     @Published var terrainMaterialDebugMode: TerrainMaterialDebugMode = .normal
     @Published var terrainSplatDebugLayerIndex = 0
 
@@ -187,14 +188,15 @@ final class DebugMetrics: ObservableObject {
 
     init(
         debugWorldRunMode: DebugWorldRunMode = .slowInspection,
-        showChunkBounds: Bool = true,
+        showChunkBounds: Bool = false,
         renderTerrain: Bool = true,
         renderProps: Bool = true,
         renderPlayer: Bool = true,
         freezeSimulation: Bool = false,
         freezeChunkStreaming: Bool = false,
         forcedLODLevel: LODLevel? = nil,
-        pauseDebugMetricPublishing: Bool = false
+        pauseDebugMetricPublishing: Bool = false,
+        showDebugDetails: Bool = false
     ) {
         self.debugWorldRunMode = debugWorldRunMode
         self.showChunkBounds = showChunkBounds
@@ -205,6 +207,7 @@ final class DebugMetrics: ObservableObject {
         self.freezeChunkStreaming = freezeChunkStreaming
         self.forcedLODLevel = forcedLODLevel
         self.pauseDebugMetricPublishing = pauseDebugMetricPublishing
+        self.showDebugDetails = showDebugDetails
     }
 
     var renderCadenceDescription: String {

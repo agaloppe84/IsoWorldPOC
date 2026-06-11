@@ -423,3 +423,13 @@ Raison: les mesures manuelles montrent `draw(in:)` autour de quelques millisecon
 Consequence: `GameRootView` desactive la publication debug quand il n'affiche pas l'overlay. `MetalRenderer` ignore completement `updateDebugMetrics()` dans ce profil. `DebugCadenceController` garde la `MTKView` pausee et planifie les frames explicitement pour les modes continus, ce qui rend le comportement identique entre redraw clavier, redraw on-demand et live gameplay.
 
 Garantie: les tests unitaires verifient que le Real World ne publie pas de telemetry debug par defaut. Les validations automatiques doivent eviter la suite UI Xcode complete tant qu'elle ne teste que les lancements de l'interface de base.
+
+## 042 - Debug overlay compact Step 12-DEBUG-LEAN
+
+Decision: faire du Debug World un outil leger par defaut, avec details opt-in.
+
+Raison: les tests manuels confirment que Real World devient nettement plus fluide sans publication debug, tandis que Debug World reste plus lourd meme quand le moteur est peu couteux. L'overlay SwiftUI, le layout de nombreuses lignes de telemetry et les chunk bounds doivent donc etre traites comme du debug couteux.
+
+Consequence: `DebugMetrics` demarre avec `showChunkBounds` et `showDebugDetails` a `false`. `DebugOverlayView` affiche un bloc perf compact et garde les details snapshot/player/chunks derriere un toggle. La cadence de publication telemetry descend a 2 Hz en debug live/slow et 1 Hz en benchmark.
+
+Garantie: les tests unitaires verrouillent les defaults lean et la cadence de refresh debug.

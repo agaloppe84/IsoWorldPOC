@@ -57,13 +57,13 @@ enum DebugWorldRunMode: String, CaseIterable, Identifiable {
     var metricsRefreshInterval: Double {
         switch self {
         case .pausedInspection:
-            0.25
-        case .slowInspection:
-            0.20
-        case .liveGameplay:
-            0.10
-        case .benchmark:
             0.50
+        case .slowInspection:
+            0.50
+        case .liveGameplay:
+            0.50
+        case .benchmark:
+            1.00
         }
     }
 }

@@ -10,19 +10,24 @@ import Foundation
 import SwiftUI
 
 struct DebugOverlayView: View {
-    let metrics: DebugMetrics
+    @ObservedObject var metrics: DebugMetrics
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            DebugPerfTelemetryView(store: metrics.telemetryStore)
+            DebugPerfTelemetryView(
+                store: metrics.telemetryStore,
+                showsDetails: metrics.showDebugDetails
+            )
 
             Divider().overlay(.white.opacity(0.35))
 
             DebugControlsView(metrics: metrics)
 
-            Divider().overlay(.white.opacity(0.35))
+            if metrics.showDebugDetails {
+                Divider().overlay(.white.opacity(0.35))
 
-            DebugWorldTelemetryView(store: metrics.telemetryStore)
+                DebugWorldTelemetryView(store: metrics.telemetryStore)
+            }
         }
         .font(.system(size: 12, weight: .medium, design: .monospaced))
         .foregroundStyle(.white)
@@ -37,6 +42,7 @@ struct DebugOverlayView: View {
 
 private struct DebugPerfTelemetryView: View {
     @ObservedObject var store: DebugTelemetryStore
+    let showsDetails: Bool
 
     var body: some View {
         let telemetry = store.telemetry
@@ -49,22 +55,31 @@ private struct DebugPerfTelemetryView: View {
     }
 
     private func perfText(for telemetry: DebugTelemetry) -> String {
-        [
+        let compactLines = [
             "renderer: \(telemetry.rendererMode.displayName)",
             "fps / frame: \(format(telemetry.framesPerSecond)) / \(format(telemetry.frameTimeMilliseconds)) ms",
             "frame raw / draw / gap: \(format(telemetry.rawFrameIntervalMs)) / \(format(telemetry.drawTotalMs)) / \(format(telemetry.frameSchedulingGapMs)) ms",
             "cpu sim / snapshot: \(format(telemetry.simulationUpdateMs)) / \(format(telemetry.snapshotBuildMs)) ms",
             "buffer sync / encode: \(format(telemetry.bufferSyncMs)) / \(format(telemetry.renderEncodeMs)) ms",
             "publish / unaccounted: \(format(telemetry.debugMetricsPublishMs)) / \(format(telemetry.unaccountedDrawMs)) ms",
-            "snapshot active/chunks/props/sample: \(format(telemetry.snapshotActiveChunkDataMs)) / \(format(telemetry.snapshotRenderChunksMs)) / \(format(telemetry.snapshotRenderPropsMs)) / \(format(telemetry.snapshotTerrainSamplePropsMs)) ms",
-            "snapshot chunks / props: \(telemetry.snapshotChunkCount) / \(telemetry.snapshotPropCount)",
-            "chunk data avg: \(format(telemetry.averageChunkDataGenerationMs)) ms",
-            "chunk upload avg: \(format(telemetry.averageChunkUploadMs)) ms",
             "draw calls total: \(telemetry.metalDrawCallCount)",
-            "indices terrain / props: \(telemetry.metalVisibleTerrainIndexCount) / \(telemetry.metalVisiblePropIndexCount)",
-            "memory cpu/gpu: \(formatBytes(telemetry.estimatedChunkCPUBytes)) / \(formatBytes(telemetry.estimatedGPUBufferBytes))",
-            "terrain textures arrays/layers: \(telemetry.metalTerrainTextureArrayCount) / \(telemetry.metalTerrainTextureLayerCount)"
-        ].joined(separator: "\n")
+        ]
+
+        guard showsDetails else {
+            return compactLines.joined(separator: "\n")
+        }
+
+        return (
+            compactLines + [
+                "snapshot active/chunks/props/sample: \(format(telemetry.snapshotActiveChunkDataMs)) / \(format(telemetry.snapshotRenderChunksMs)) / \(format(telemetry.snapshotRenderPropsMs)) / \(format(telemetry.snapshotTerrainSamplePropsMs)) ms",
+                "snapshot chunks / props: \(telemetry.snapshotChunkCount) / \(telemetry.snapshotPropCount)",
+                "chunk data avg: \(format(telemetry.averageChunkDataGenerationMs)) ms",
+                "chunk upload avg: \(format(telemetry.averageChunkUploadMs)) ms",
+                "indices terrain / props: \(telemetry.metalVisibleTerrainIndexCount) / \(telemetry.metalVisiblePropIndexCount)",
+                "memory cpu/gpu: \(formatBytes(telemetry.estimatedChunkCPUBytes)) / \(formatBytes(telemetry.estimatedGPUBufferBytes))",
+                "terrain textures arrays/layers: \(telemetry.metalTerrainTextureArrayCount) / \(telemetry.metalTerrainTextureLayerCount)"
+            ]
+        ).joined(separator: "\n")
     }
 }
 
@@ -89,6 +104,7 @@ private struct DebugControlsView: View {
             Toggle("freeze simulation", isOn: $metrics.freezeSimulation)
             Toggle("freeze streaming", isOn: $metrics.freezeChunkStreaming)
             Toggle("pause metrics publish", isOn: $metrics.pauseDebugMetricPublishing)
+            Toggle("details", isOn: $metrics.showDebugDetails)
             Picker("force LOD", selection: $metrics.forcedLODLevel) {
                 Text("Auto").tag(nil as LODLevel?)
                 ForEach(LODLevel.allCases, id: \.self) { level in

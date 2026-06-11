@@ -232,6 +232,8 @@ Le correctif Step 12-SNAPSHOT-CACHE traite le cout commun au Debug World et au R
 
 Le correctif Step 12-FRAME-DRIVER separe aussi les profils d'execution: Debug World peut publier de la telemetry SwiftUI, Real World ne le fait pas. `DebugCadenceController` devient le driver explicite des frames continues et laisse `MTKView` en canvas Metal pause, ce qui evite de dependre d'un reveil implicite fragile quand SwiftUI, AppKit et le debugger se partagent le main thread.
 
+Le correctif Step 12-DEBUG-LEAN garde le Debug World utilisable sans redevenir le goulot principal: l'overlay SwiftUI publie a basse frequence, affiche un bloc compact par defaut, masque les details longs derriere un toggle et laisse les chunk bounds desactives tant qu'ils ne sont pas necessaires.
+
 ### Donnees de chunks procedurales
 
 `ProceduralChunkDataFactory` produit les donnees de chunks neutres consommees par Metal:

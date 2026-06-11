@@ -20,6 +20,7 @@ struct IsoWorldPOCTests {
         #expect(policy.maxFPS == 15)
         #expect(policy.renderOnlyWhenDirty == false)
         #expect(policy.allowContinuousAnimation == true)
+        #expect(DebugWorldRunMode.slowInspection.metricsRefreshInterval == 0.50)
     }
 
     @Test func pausedInspectionRendersOnlyWhenDirty() {
@@ -37,6 +38,7 @@ struct IsoWorldPOCTests {
         #expect(policy.maxFPS == 60)
         #expect(policy.renderOnlyWhenDirty == false)
         #expect(policy.allowContinuousAnimation == true)
+        #expect(DebugWorldRunMode.liveGameplay.metricsRefreshInterval == 0.50)
     }
 
     @MainActor
@@ -70,6 +72,16 @@ struct IsoWorldPOCTests {
         #expect(metrics.freezeChunkStreaming == false)
         #expect(metrics.forcedLODLevel == nil)
         #expect(metrics.pauseDebugMetricPublishing == false)
+        #expect(metrics.showDebugDetails == false)
+    }
+
+    @MainActor
+    @Test func debugMetricsStartWithLeanOverlayDefaults() {
+        let metrics = DebugMetrics()
+
+        #expect(metrics.showChunkBounds == false)
+        #expect(metrics.showDebugDetails == false)
+        #expect(metrics.debugMetricsRefreshFPS == 2)
     }
 
     @MainActor

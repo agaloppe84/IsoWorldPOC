@@ -148,6 +148,17 @@ Step 12-FRAME-DRIVER traite la cadence MTKView/SwiftUI observee quand `draw(in:)
 
 Le signal attendu apres cette passe: en Real World, la cadence ne doit plus dependre du panel debug; en Debug World, `draw` doit rester bas et le `gap` doit se rapprocher de la cadence choisie quand la publication telemetry ne bloque pas SwiftUI.
 
+## Step 12-DEBUG-LEAN livre
+
+Step 12-DEBUG-LEAN reduit le cout propre au panneau Debug World:
+
+- Le panel debug demarre en mode compact et masque les details joueur/chunks tant que `details` n'est pas active.
+- La publication telemetry debug est limitee a 2 Hz en live/slow, et a 1 Hz en benchmark.
+- Les chunk bounds sont desactives par defaut; ils restent disponibles via le toggle.
+- Les donnees longues de snapshot, memoire, textures et chunks restent consultables, mais ne sont plus layout a chaque refresh compact.
+
+Le Debug World doit maintenant etre un outil de diagnostic leger par defaut. Les modes detailles restent assumement plus couteux et doivent servir aux investigations ponctuelles.
+
 ## Prochaine cible
 
 Step 13 peut ouvrir le `Tools Hub` minimal. Il doit rester data-driven et consommer les systemes V1 existants sans contourner `EngineCore`.

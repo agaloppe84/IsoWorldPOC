@@ -28,7 +28,7 @@ struct GameRootView: View {
         self.publishesDebugTelemetry = resolvedPublishesDebugTelemetry
         self._debugMetrics = StateObject(wrappedValue: DebugMetrics(
             debugWorldRunMode: initialRunMode,
-            showChunkBounds: showsDebugOverlay,
+            showChunkBounds: false,
             pauseDebugMetricPublishing: !resolvedPublishesDebugTelemetry
         ))
     }
