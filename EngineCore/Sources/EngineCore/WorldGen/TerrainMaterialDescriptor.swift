@@ -3,7 +3,7 @@ public enum TerrainMaterialKind: String, CaseIterable, Codable, Sendable {
     case rock
     case dirt
     case sand
-    case wetValley
+    case mud
     case snow
 }
 
@@ -55,10 +55,10 @@ public struct TerrainMaterialDescriptor: Equatable, Hashable, Codable, Sendable 
                 baseColor: BiomeColor(red: 0.64, green: 0.52, blue: 0.28),
                 roughness: 0.84
             )
-        case .wetValley:
+        case .mud:
             TerrainMaterialDescriptor(
-                kind: .wetValley,
-                identifier: "terrain.material.wetValley",
+                kind: .mud,
+                identifier: "terrain.material.mud",
                 baseColor: BiomeColor(red: 0.18, green: 0.42, blue: 0.32),
                 roughness: 0.96
             )

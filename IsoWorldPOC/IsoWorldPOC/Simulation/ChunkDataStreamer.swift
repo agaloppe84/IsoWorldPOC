@@ -124,7 +124,7 @@ final class ChunkDataStreamer {
             jobs: jobSchedulerSnapshot,
             chunksReadyForUpload: chunksReadyForUpload,
             chunkUploadsThisFrame: readyChunksActivatedThisFrame,
-            averageChunkGenerationTimeMs: averageChunkDataGenerationMs
+            averageChunkDataGenerationTimeMs: averageChunkDataGenerationMs
         )
     }
 

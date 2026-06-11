@@ -45,5 +45,3 @@ public struct RegionCoordinate: Hashable, Codable, Sendable {
         return quotient
     }
 }
-
-public typealias RegionCoord = RegionCoordinate

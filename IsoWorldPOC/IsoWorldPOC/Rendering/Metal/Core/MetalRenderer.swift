@@ -46,7 +46,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
 
     init(debugMetrics: DebugMetrics) {
         let device = MTLCreateSystemDefaultDevice()
-        let terrainTextureCatalog = TerrainTextureCatalog.makePlaceholder(device: device)
+        let terrainTextureCatalog = TerrainTextureCatalog.makePreview(device: device)
 
         self.device = device
         self.commandQueue = device?.makeCommandQueue()
@@ -64,7 +64,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         self.runtime = WorldRuntime(
             debugOptions: RenderSnapshotDebugOptions(
                 showChunkBounds: debugMetrics.showChunkBounds,
-                showChunkLabels: debugMetrics.showChunkLabels,
                 terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode,
                 terrainSplatDebugLayerIndex: debugMetrics.terrainSplatDebugLayerIndex
             )
@@ -100,7 +99,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             deltaTime: deltaTime,
             debugOptions: RenderSnapshotDebugOptions(
                 showChunkBounds: debugMetrics.showChunkBounds,
-                showChunkLabels: debugMetrics.showChunkLabels,
                 terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode,
                 terrainSplatDebugLayerIndex: debugMetrics.terrainSplatDebugLayerIndex
             )
@@ -459,7 +457,7 @@ struct MetalChunkBuffers {
     ) -> [MetalTerrainVertex] {
         let hasPerVertexMaterials = vertexMaterials.count == geometry.positions.count
         let hasTextureCoordinates = geometry.textureCoordinates.count == geometry.positions.count
-        let fallbackColor = TerrainTextureCatalog.placeholderColor(for: fallbackMaterial.kind)
+        let fallbackColor = TerrainTextureCatalog.previewColor(for: fallbackMaterial.kind)
         let fallbackPayload = MetalMaterialPayload.terrain(fallbackMaterial)
         let fallbackSplatWeights = MetalMaterialPayload.terrainSplatWeights(fallbackMaterial)
         let fallbackSplatTextureLayerIndices = MetalMaterialPayload
@@ -477,10 +475,10 @@ struct MetalChunkBuffers {
                 )
                 : SIMD2<Float>(0, 0)
             let primaryColor = vertexMaterial.map {
-                TerrainTextureCatalog.placeholderColor(for: $0.materialKind)
+                TerrainTextureCatalog.previewColor(for: $0.materialKind)
             } ?? fallbackColor
             let secondaryColor = vertexMaterial.map {
-                TerrainTextureCatalog.placeholderColor(for: $0.secondaryMaterialKind)
+                TerrainTextureCatalog.previewColor(for: $0.secondaryMaterialKind)
             } ?? fallbackColor
             let splatWeights = vertexMaterial.map(MetalMaterialPayload.terrainSplatWeights) ?? fallbackSplatWeights
             let splatTextureLayerIndices = vertexMaterial

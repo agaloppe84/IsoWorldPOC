@@ -62,9 +62,9 @@ public struct ProceduralAssetGenerator: Sendable {
         switch type {
         case .rock:
             rockGeometry(size: size)
-        case .treePlaceholder:
+        case .tree:
             treeGeometry(size: size, biome: biome)
-        case .crystalPlaceholder:
+        case .crystal:
             crystalGeometry(size: size, random: &random)
         }
     }
@@ -168,7 +168,7 @@ public struct ProceduralAssetGenerator: Sendable {
                 roughness: 0.88
             )
             return (rock, rock, rock)
-        case .treePlaceholder:
+        case .tree:
             return (
                 PropMaterialDescriptor(
                     identifier: "prop.material.trunk.\(biome.type.rawValue)",
@@ -186,7 +186,7 @@ public struct ProceduralAssetGenerator: Sendable {
                     roughness: 0.78
                 )
             )
-        case .crystalPlaceholder:
+        case .crystal:
             let crystal = PropMaterialDescriptor(
                 identifier: "prop.material.crystal.\(biome.type.rawValue)",
                 color: varied(crystalColor(for: biome), amount: 0.10, random: &random),
@@ -266,9 +266,9 @@ public struct ProceduralAssetGenerator: Sendable {
         switch type {
         case .rock:
             size
-        case .treePlaceholder:
+        case .tree:
             PropVector3(x: size.x, y: size.y, z: size.z)
-        case .crystalPlaceholder:
+        case .crystal:
             PropVector3(x: size.x * 1.2, y: size.y, z: size.z * 1.2)
         }
     }

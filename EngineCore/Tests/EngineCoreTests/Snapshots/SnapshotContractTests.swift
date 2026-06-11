@@ -23,7 +23,7 @@ final class SnapshotContractTests: XCTestCase {
             ),
             chunksReadyForUpload: 2,
             chunkUploadsThisFrame: 1,
-            averageChunkGenerationTimeMs: 1.5
+            averageChunkDataGenerationTimeMs: 1.5
         )
         let snapshot = EngineFrameSnapshot(
             frameIndex: 7,
@@ -133,8 +133,8 @@ final class SnapshotContractTests: XCTestCase {
                         ],
                         indices: [0, 2, 1, 1, 2, 3]
                     ),
-                    biome: Biome.definition(for: .forest),
-                    terrainMaterial: Biome.definition(for: .forest).terrainMaterial,
+                    biome: Biome.definition(for: .temperateForest),
+                    terrainMaterial: Biome.definition(for: .temperateForest).terrainMaterial,
                     terrainVertexMaterials: [],
                     props: [],
                     isVisible: false,

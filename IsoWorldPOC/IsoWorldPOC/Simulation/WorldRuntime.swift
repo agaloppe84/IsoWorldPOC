@@ -82,7 +82,6 @@ final class WorldRuntime {
         debugMetrics.controllerName = inputManager.controllerName
         debugMetrics.playerPosition = playerController.position
         debugMetrics.terrainHeightUnderPlayer = lastGrounding.terrainHeight
-        debugMetrics.terrainSlopeUnderPlayer = lastGrounding.slopeUnderPlayer
         debugMetrics.slopeUnderPlayer = lastGrounding.slopeUnderPlayer
         debugMetrics.playerGrounded = lastGrounding.playerGrounded
         debugMetrics.maxWalkableSlope = playerGrounding.maxWalkableSlope
@@ -94,9 +93,7 @@ final class WorldRuntime {
         debugMetrics.cachedChunkCount = chunkStreamer.cachedChunkCount
         debugMetrics.approximateTriangleCount = chunkStreamer.approximateTriangleCount
         debugMetrics.approximatePropCount = chunkStreamer.approximatePropCount
-        debugMetrics.averageChunkGenerationTimeMs = chunkStreamer.averageChunkDataGenerationMs
         debugMetrics.averageChunkDataGenerationMs = chunkStreamer.averageChunkDataGenerationMs
-        debugMetrics.averageTerrainMeshBuildTimeMs = nil
         debugMetrics.chunkJobsQueued = chunkStreamer.chunkJobsQueued
         debugMetrics.chunkJobsGenerating = frameSnapshot.debug.jobs.activeJobCount
         debugMetrics.chunksReadyForUpload = frameSnapshot.debug.chunksReadyForUpload

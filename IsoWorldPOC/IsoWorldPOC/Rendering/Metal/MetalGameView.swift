@@ -84,7 +84,6 @@ struct MetalGameView: NSViewRepresentable {
 private struct DebugViewportState: Equatable {
     let runMode: DebugWorldRunMode
     let showChunkBounds: Bool
-    let showChunkLabels: Bool
     let terrainMaterialDebugMode: TerrainMaterialDebugMode
     let terrainSplatDebugLayerIndex: Int
 
@@ -92,7 +91,6 @@ private struct DebugViewportState: Equatable {
     init(metrics: DebugMetrics) {
         self.runMode = metrics.debugWorldRunMode
         self.showChunkBounds = metrics.showChunkBounds
-        self.showChunkLabels = metrics.showChunkLabels
         self.terrainMaterialDebugMode = metrics.terrainMaterialDebugMode
         self.terrainSplatDebugLayerIndex = metrics.terrainSplatDebugLayerIndex
     }

@@ -7,7 +7,7 @@ L'objectif est de construire progressivement un monde 3D procedural avec une vue
 ## Objectifs
 
 - App macOS SwiftUI.
-- Rendu 3D initial avec RealityKit.
+- Rendu 3D actif avec Metal.
 - Controle manette avec GameController, cible PS5.
 - Monde procedural genere par chunks autour du joueur.
 - Terrain avec verticalite.
@@ -52,5 +52,6 @@ Ce wrapper fixe `DEVELOPER_DIR` localement pour la commande et evite toute modif
 
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Baseline V1 moteur](docs/V1_ENGINE_BASELINE.md)
 - [Regles Codex](docs/CODEX.md)
 - [Decisions](docs/DECISIONS.md)

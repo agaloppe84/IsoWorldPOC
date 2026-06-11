@@ -119,7 +119,7 @@ public struct DefaultTerrainFieldProvider: TerrainFieldProvider {
             layers: &layers
         )
         appendDerivedLayer(
-            kind: .wetValley,
+            kind: .mud,
             weight: wetWeight,
             biome: primaryBiome,
             layers: &layers

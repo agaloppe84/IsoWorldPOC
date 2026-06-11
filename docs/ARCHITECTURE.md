@@ -72,7 +72,7 @@ Le rendu Metal est organise en passes legeres, sans RenderGraph complet pour l'i
 
 - `MetalTerrainPass`: dessine les chunks terrain visibles.
 - `MetalPropPass`: dessine les props proceduraux bakes dans les buffers de chunk.
-- `MetalPlayerPass`: dessine le placeholder joueur.
+- `MetalPlayerPass`: dessine le preview joueur.
 - `MetalDebugPass`: dessine les helpers debug 3D comme les bounds de chunks.
 
 `MetalFrameContext` transporte l'etat necessaire a une frame:
@@ -99,11 +99,11 @@ Le rendu Metal utilise un payload materiau par vertex:
 
 Pour le terrain, `BiomeSampler` produit maintenant un `TerrainVertexMaterial` par sample/vertex. Ces materiaux restent deterministes par seed, chunk et coordonnee locale. Les bords utilisent les memes coordonnees monde que la generation de biome, ce qui permet aux chunks voisins de partager les memes couleurs/materiaux sur leurs frontieres.
 
-Chaque sample peut porter un materiau primaire, un materiau secondaire et un poids de transition. Le shader Metal mixe couleur et roughness dans le vertex shader. Cela donne une premiere transition douce entre biomes sans ajouter de draw call et sans introduire encore de textures.
+Chaque sample peut porter un materiau primaire, un materiau secondaire et un poids de transition. Ces donnees restent disponibles pour les vues debug, tandis que le rendu normal utilise les couches splat PBR preview dans le fragment shader.
 
 Les donnees de sample preparent aussi un modele splat: `TerrainMaterialSplat` contient jusqu'a 4 couches de materiaux normalisees. Chaque couche porte un `RenderMaterial` et des `TerrainPBRTextureSlots` neutres pour `albedo`, `normal`, `roughness` et `metallicAmbientOcclusion`. Ces slots declarent `textureLayerIndex`, `uvScale` et `debugName` sans importer Metal. Le vertex buffer Metal transporte `splatWeights`, `splatTextureLayerIndices`, `splatUVScales` et les coordonnees UV terrain.
 
-Le rendu normal du terrain utilise un `TerrainTextureCatalog` placeholder cote Metal. Ce catalogue genere en memoire quatre petits texture arrays 2x2 par materiau (`grass`, `rock`, `dirt`, `sand`, `wetValley`, `snow`): albedo, normal flat, roughness grayscale et metallic/ambient-occlusion neutre. Le fragment shader echantillonne ces couches et les melange avec les 4 poids splat. C'est volontairement simple, mais l'architecture est deja proche d'un futur atlas ou texture array de vraies textures.
+Le rendu normal du terrain utilise un `TerrainTextureCatalog` preview cote Metal. Ce catalogue genere en memoire quatre petits texture arrays 2x2 par materiau (`grass`, `rock`, `dirt`, `sand`, `mud`, `snow`): albedo, normal flat, roughness grayscale et metallic/ambient-occlusion neutre. Le fragment shader echantillonne ces couches et les melange avec les 4 poids splat. C'est volontairement simple, mais l'architecture est deja proche d'un futur atlas ou texture array de vraies textures.
 
 L'overlay peut basculer le debug terrain entre rendu normal, biome primaire, biome secondaire, heatmap du poids de transition et heatmap d'une couche splat specifique. Le mode et l'index de couche splat sont stockes dans `RenderDebugOptions`, passes au shader par uniform, et ne s'appliquent qu'aux vertices terrain.
 
@@ -146,7 +146,7 @@ Responsabilites:
 - `RenderChunk`;
 - `RenderProp`;
 - `CameraRenderState`;
-- options de debug chunk bounds/labels.
+- options de debug chunk bounds et modes materiaux terrain.
 
 Le renderer Metal ne doit donc pas construire le monde ni decider quels chunks existent. Il recoit un snapshot, synchronise les buffers GPU manquants, puis dessine.
 

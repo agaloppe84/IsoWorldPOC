@@ -95,19 +95,16 @@ public struct DebugPreferences: Hashable, Codable, Sendable {
     public let runMode: String
     public let renderOnlyWhenDirty: Bool
     public let showChunkBounds: Bool
-    public let showChunkLabels: Bool
 
     public init(
         runMode: String = "slowInspection",
         renderOnlyWhenDirty: Bool = true,
-        showChunkBounds: Bool = true,
-        showChunkLabels: Bool = true
+        showChunkBounds: Bool = true
     ) {
         precondition(!runMode.isEmpty, "runMode cannot be empty.")
 
         self.runMode = runMode
         self.renderOnlyWhenDirty = renderOnlyWhenDirty
         self.showChunkBounds = showChunkBounds
-        self.showChunkLabels = showChunkLabels
     }
 }

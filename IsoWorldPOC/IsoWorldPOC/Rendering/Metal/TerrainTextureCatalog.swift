@@ -29,7 +29,7 @@ struct TerrainTextureCatalog {
         Set(descriptors.map(\.slot.map)).count
     }
 
-    static func makePlaceholder(device: MTLDevice?) -> TerrainTextureCatalog? {
+    static func makePreview(device: MTLDevice?) -> TerrainTextureCatalog? {
         guard let device else {
             return nil
         }
@@ -151,7 +151,7 @@ struct TerrainTextureCatalog {
         return device.makeSamplerState(descriptor: descriptor)
     }
 
-    static func placeholderColor(for kind: TerrainMaterialKind) -> SIMD4<Float> {
+    static func previewColor(for kind: TerrainMaterialKind) -> SIMD4<Float> {
         let material = TerrainMaterialDescriptor.definition(for: kind)
         let color = vector(from: material.baseColor)
 

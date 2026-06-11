@@ -106,36 +106,36 @@ public struct PropPlacementGenerator: Sendable {
         switch biomeType {
         case .grassland:
             if roll < 0.55 { return .rock }
-            if roll < 0.90 { return .treePlaceholder }
-            return .crystalPlaceholder
+            if roll < 0.90 { return .tree }
+            return .crystal
         case .temperateForest:
-            if roll < 0.72 { return .treePlaceholder }
+            if roll < 0.72 { return .tree }
             if roll < 0.94 { return .rock }
-            return .crystalPlaceholder
+            return .crystal
         case .mountain:
             if roll < 0.72 { return .rock }
-            if roll < 0.92 { return .crystalPlaceholder }
-            return .treePlaceholder
+            if roll < 0.92 { return .crystal }
+            return .tree
         case .desert:
             if roll < 0.78 { return .rock }
-            if roll < 0.96 { return .crystalPlaceholder }
-            return .treePlaceholder
+            if roll < 0.96 { return .crystal }
+            return .tree
         case .marsh:
-            if roll < 0.58 { return .treePlaceholder }
+            if roll < 0.58 { return .tree }
             if roll < 0.88 { return .rock }
-            return .crystalPlaceholder
+            return .crystal
         case .taiga:
-            if roll < 0.64 { return .treePlaceholder }
+            if roll < 0.64 { return .tree }
             if roll < 0.92 { return .rock }
-            return .crystalPlaceholder
+            return .crystal
         case .coast:
             if roll < 0.66 { return .rock }
-            if roll < 0.84 { return .treePlaceholder }
-            return .crystalPlaceholder
+            if roll < 0.84 { return .tree }
+            return .crystal
         case .freshwater:
             if roll < 0.52 { return .rock }
-            if roll < 0.92 { return .treePlaceholder }
-            return .crystalPlaceholder
+            if roll < 0.92 { return .tree }
+            return .crystal
         }
     }
 
@@ -145,9 +145,9 @@ public struct PropPlacementGenerator: Sendable {
         switch type {
         case .rock:
             return 0.65 + roll * 0.65
-        case .treePlaceholder:
+        case .tree:
             return 0.85 + roll * 0.55
-        case .crystalPlaceholder:
+        case .crystal:
             return 0.55 + roll * 0.45
         }
     }

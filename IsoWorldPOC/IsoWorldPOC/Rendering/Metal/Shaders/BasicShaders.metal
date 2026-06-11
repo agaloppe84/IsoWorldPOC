@@ -45,8 +45,6 @@ struct TerrainVertexOut {
     float2 debugModeAndSplatLayer;
 };
 
-constant float terrainTextureLayerCount = 6.0;
-
 static float3 terrainWeightHeatColor(float weight) {
     float normalizedBlend = clamp(weight, 0.0, 1.0);
     float3 low = float3(0.05, 0.16, 0.90);
@@ -74,103 +72,6 @@ static float splatWeightAt(float4 weights, int layerIndex) {
         return weights.z;
     default:
         return weights.w;
-    }
-}
-
-static float4 terrainTextureColor(
-    texture2d_array<float> terrainTextures,
-    sampler terrainSampler,
-    float2 textureCoordinate,
-    float textureLayerIndex,
-    float uvScale
-) {
-    float layer = clamp(round(textureLayerIndex), 0.0, terrainTextureLayerCount - 1.0);
-    float2 tiledCoordinate = fract(textureCoordinate * max(uvScale, 0.0001));
-
-    return terrainTextures.sample(terrainSampler, tiledCoordinate, uint(layer));
-}
-
-static float4 terrainSplatTextureColor(
-    texture2d_array<float> terrainTextures,
-    sampler terrainSampler,
-    float2 textureCoordinate,
-    float4 weights,
-    float4 textureLayerIndices,
-    float4 uvScales
-) {
-    float4 color = float4(0.0);
-    float totalWeight = 0.0;
-
-    color += terrainTextureColor(
-        terrainTextures,
-        terrainSampler,
-        textureCoordinate,
-        textureLayerIndices.x,
-        uvScales.x
-    ) * weights.x;
-    color += terrainTextureColor(
-        terrainTextures,
-        terrainSampler,
-        textureCoordinate,
-        textureLayerIndices.y,
-        uvScales.y
-    ) * weights.y;
-    color += terrainTextureColor(
-        terrainTextures,
-        terrainSampler,
-        textureCoordinate,
-        textureLayerIndices.z,
-        uvScales.z
-    ) * weights.z;
-    color += terrainTextureColor(
-        terrainTextures,
-        terrainSampler,
-        textureCoordinate,
-        textureLayerIndices.w,
-        uvScales.w
-    ) * weights.w;
-    totalWeight = weights.x + weights.y + weights.z + weights.w;
-
-    if (totalWeight <= 0.0001) {
-        return terrainTextureColor(
-            terrainTextures,
-            terrainSampler,
-            textureCoordinate,
-            textureLayerIndices.x,
-            uvScales.x
-        );
-    }
-
-    return color / totalWeight;
-}
-
-static float terrainSplatTextureChannel(
-    texture2d_array<float> terrainTextures,
-    sampler terrainSampler,
-    float2 textureCoordinate,
-    float4 weights,
-    float4 textureLayerIndices,
-    float4 uvScales,
-    int channelIndex
-) {
-    float4 color = terrainSplatTextureColor(
-        terrainTextures,
-        terrainSampler,
-        textureCoordinate,
-        weights,
-        textureLayerIndices,
-        uvScales
-    );
-
-    switch (clamp(channelIndex, 0, 3)) {
-    case 0:
-        return color.r;
-    case 1:
-        return color.g;
-    case 2:
-        return color.b;
-    default:
-        return color.a;
     }
 }
 

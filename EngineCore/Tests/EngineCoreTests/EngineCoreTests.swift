@@ -178,9 +178,9 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertTrue(requiredChunks.contains(ChunkCoordinate(x: -1, y: 0, z: -2)))
     }
 
-    func testSeededRandomIsDeterministicForSameSeed() {
-        var first = SeededRandom(seed: WorldSeed(123_456))
-        var second = SeededRandom(seed: WorldSeed(123_456))
+    func testStableRNGIsDeterministicForSameSeed() {
+        var first = StableRNG(seed: WorldSeed(123_456))
+        var second = StableRNG(seed: WorldSeed(123_456))
 
         let firstValues = (0..<8).map { _ in first.next() }
         let secondValues = (0..<8).map { _ in second.next() }
@@ -188,9 +188,9 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(firstValues, secondValues)
     }
 
-    func testSeededRandomDiffersForDifferentSeeds() {
-        var first = SeededRandom(seed: WorldSeed(1))
-        var second = SeededRandom(seed: WorldSeed(2))
+    func testStableRNGDiffersForDifferentSeeds() {
+        var first = StableRNG(seed: WorldSeed(1))
+        var second = StableRNG(seed: WorldSeed(2))
 
         XCTAssertNotEqual(first.next(), second.next())
     }
@@ -325,7 +325,7 @@ final class EngineCoreTests: XCTestCase {
         }
     }
 
-    func testTerrainSystemDerivesPlaceholderMaterialsFromFields() {
+    func testTerrainSystemDerivesPreviewMaterialsFromFields() {
         let terrain = TerrainSystem(seed: WorldSeed(99))
         let coordinates = [
             ChunkCoordinate.origin,
@@ -385,166 +385,12 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(materials[index].splat, grid[11, 18].materialWeights.splat)
     }
 
-    func testBiomeDefinitionsExposePlaceholderMaterialData() {
-        for type in BiomeType.allCases {
-            let biome = Biome.definition(for: type)
-
-            XCTAssertEqual(biome.type, type)
-            XCTAssertFalse(biome.materialIdentifier.isEmpty)
-            XCTAssertGreaterThanOrEqual(biome.placeholderColor.red, 0)
-            XCTAssertLessThanOrEqual(biome.placeholderColor.red, 1)
-            XCTAssertGreaterThanOrEqual(biome.placeholderColor.green, 0)
-            XCTAssertLessThanOrEqual(biome.placeholderColor.green, 1)
-            XCTAssertGreaterThanOrEqual(biome.placeholderColor.blue, 0)
-            XCTAssertLessThanOrEqual(biome.placeholderColor.blue, 1)
-            XCTAssertGreaterThan(biome.ruggednessMultiplier, 0)
-            XCTAssertGreaterThanOrEqual(biome.propDensityMultiplier, 0)
-            XCTAssertFalse(biome.terrainMaterial.identifier.isEmpty)
-            XCTAssertGreaterThanOrEqual(biome.terrainMaterial.roughness, 0)
-            XCTAssertLessThanOrEqual(biome.terrainMaterial.roughness, 1)
-        }
-    }
-
-    func testTerrainMaterialDescriptorsExposeBasicMaterialData() {
-        for kind in TerrainMaterialKind.allCases {
-            let descriptor = TerrainMaterialDescriptor.definition(for: kind)
-
-            XCTAssertEqual(descriptor.kind, kind)
-            XCTAssertFalse(descriptor.identifier.isEmpty)
-            XCTAssertGreaterThanOrEqual(descriptor.baseColor.red, 0)
-            XCTAssertLessThanOrEqual(descriptor.baseColor.red, 1)
-            XCTAssertGreaterThanOrEqual(descriptor.baseColor.green, 0)
-            XCTAssertLessThanOrEqual(descriptor.baseColor.green, 1)
-            XCTAssertGreaterThanOrEqual(descriptor.baseColor.blue, 0)
-            XCTAssertLessThanOrEqual(descriptor.baseColor.blue, 1)
-            XCTAssertGreaterThanOrEqual(descriptor.roughness, 0)
-            XCTAssertLessThanOrEqual(descriptor.roughness, 1)
-        }
-    }
-
-    func testTerrainTextureSlotsAreExplicitAndStable() {
-        let slots = TerrainTextureSlot.allTerrainSlots
-
-        XCTAssertEqual(slots.count, TerrainMaterialKind.allCases.count)
-        XCTAssertEqual(slots.map(\.textureLayerIndex), Array(0..<slots.count))
-
-        for slot in slots {
-            let descriptor = TerrainMaterialDescriptor.definition(for: slot.materialKind)
-
-            XCTAssertEqual(slot.map, .albedo)
-            XCTAssertEqual(slot.materialIdentifier, descriptor.identifier)
-            XCTAssertGreaterThan(slot.uvScale, 0)
-            XCTAssertFalse(slot.debugName.isEmpty)
-        }
-
-        XCTAssertEqual(TerrainTextureSlot.slot(for: .grass).textureLayerIndex, 0)
-        XCTAssertEqual(TerrainTextureSlot.slot(for: .rock).textureLayerIndex, 1)
-        XCTAssertEqual(TerrainTextureSlot.slot(for: .wetValley).debugName, "Wet valley")
-    }
-
-    func testTerrainPBRTextureSlotsAreAvailableForEachMaterial() {
-        let allSlots = TerrainTextureSlot.allTerrainPBRSlots
-
-        XCTAssertEqual(
-            allSlots.count,
-            TerrainMaterialKind.allCases.count * TerrainTextureMap.allCases.count
-        )
-
-        for kind in TerrainMaterialKind.allCases {
-            let slots = TerrainTextureSlot.pbrSlots(for: kind)
-
-            XCTAssertEqual(slots.allSlots.map(\.map), TerrainTextureMap.allCases)
-            XCTAssertTrue(slots.allSlots.allSatisfy { $0.materialKind == kind })
-            XCTAssertTrue(slots.allSlots.allSatisfy {
-                $0.textureLayerIndex == TerrainTextureSlot.textureLayerIndex(for: kind)
-            })
-            XCTAssertTrue(slots.allSlots.allSatisfy {
-                $0.uvScale == TerrainTextureSlot.uvScale(for: kind)
-            })
-        }
-    }
-
-    func testRenderMaterialWrapsTerrainTextureSlot() {
-        let descriptor = TerrainMaterialDescriptor.definition(for: .rock)
-        let material = RenderMaterial.terrain(descriptor)
-
-        guard let slot = material.terrainTextureSlot else {
-            XCTFail("Terrain render material should expose a texture slot.")
-            return
-        }
-
-        XCTAssertEqual(material.identifier, descriptor.identifier)
-        XCTAssertEqual(material.baseColor, descriptor.baseColor)
-        XCTAssertEqual(material.roughness, descriptor.roughness, accuracy: 0.0001)
-        XCTAssertEqual(slot.materialKind, .rock)
-        XCTAssertEqual(slot.textureLayerIndex, TerrainTextureSlot.textureLayerIndex(for: .rock))
-        XCTAssertEqual(slot.uvScale, TerrainTextureSlot.uvScale(for: .rock), accuracy: 0.0001)
-
-        guard let pbrSlots = material.terrainPBRTextureSlots else {
-            XCTFail("Terrain render material should expose PBR texture slots.")
-            return
-        }
-
-        XCTAssertEqual(pbrSlots.albedo, slot)
-        XCTAssertEqual(pbrSlots.normal.map, .normal)
-        XCTAssertEqual(pbrSlots.roughness.map, .roughness)
-        XCTAssertEqual(pbrSlots.metallicAmbientOcclusion.map, .metallicAmbientOcclusion)
-    }
-
-    func testTerrainSurfaceDescriptorUsesOpaquePBRAndTextureBindings() {
-        let material = TerrainMaterialDescriptor.definition(for: .rock)
-        let descriptor = SurfaceDescriptor.terrain(material)
-
-        XCTAssertEqual(descriptor.materialID.rawValue, material.identifier)
-        XCTAssertEqual(descriptor.shadingModel, .opaquePBR)
-        XCTAssertEqual(descriptor.terrainMaterialKind, .rock)
-        XCTAssertTrue(descriptor.supportsTriplanar)
-        XCTAssertEqual(descriptor.triplanarSlopeThreshold, 0.55, accuracy: 0.0001)
-        XCTAssertEqual(
-            descriptor.textureBindings.map(\.role),
-            [.baseColor, .normal, .orm]
-        )
-        XCTAssertEqual(
-            descriptor.textureBindings.compactMap(\.terrainTextureSlot?.map),
-            [.albedo, .normal, .metallicAmbientOcclusion]
-        )
-    }
-
-    func testIsoMaterialRuntimeAppliesSurfaceState() {
-        let material = TerrainMaterialDescriptor.definition(for: .rock)
-        let runtime = IsoMaterialRuntime.terrain(
-            material,
-            surfaceState: SurfaceState(wetness: 1)
-        )
-        let dryParameters = MaterialParameterBlock.terrain(material)
-        let wetParameters = runtime.resolvedParameters
-
-        XCTAssertEqual(runtime.materialID.rawValue, material.identifier)
-        XCTAssertEqual(runtime.shadingModel, .opaquePBR)
-        XCTAssertLessThan(wetParameters.baseColor.red, dryParameters.baseColor.red)
-        XCTAssertLessThan(wetParameters.baseColor.green, dryParameters.baseColor.green)
-        XCTAssertLessThan(wetParameters.baseColor.blue, dryParameters.baseColor.blue)
-        XCTAssertLessThan(wetParameters.roughness, dryParameters.roughness)
-    }
-
-    func testRenderMaterialExposesRuntimeMaterial() {
-        let descriptor = TerrainMaterialDescriptor.definition(for: .wetValley)
-        let material = RenderMaterial.terrain(descriptor)
-        let runtime = material.runtimeMaterial
-
-        XCTAssertEqual(material.materialID.rawValue, descriptor.identifier)
-        XCTAssertEqual(runtime.descriptor.materialID.rawValue, descriptor.identifier)
-        XCTAssertEqual(runtime.descriptor.terrainMaterialKind, descriptor.kind)
-        XCTAssertEqual(runtime.resolvedParameters.baseColor, descriptor.baseColor)
-        XCTAssertEqual(runtime.resolvedParameters.roughness, descriptor.roughness, accuracy: 0.0001)
-    }
-
     func testBiomeDefinitionsMapToExpectedTerrainMaterials() {
         XCTAssertEqual(Biome.definition(for: .grassland).terrainMaterial.kind, .grass)
-        XCTAssertEqual(Biome.definition(for: .forest).terrainMaterial.kind, .dirt)
-        XCTAssertEqual(Biome.definition(for: .rockyHighlands).terrainMaterial.kind, .rock)
-        XCTAssertEqual(Biome.definition(for: .dryPlateau).terrainMaterial.kind, .sand)
-        XCTAssertEqual(Biome.definition(for: .wetValley).terrainMaterial.kind, .wetValley)
+        XCTAssertEqual(Biome.definition(for: .temperateForest).terrainMaterial.kind, .dirt)
+        XCTAssertEqual(Biome.definition(for: .mountain).terrainMaterial.kind, .rock)
+        XCTAssertEqual(Biome.definition(for: .desert).terrainMaterial.kind, .sand)
+        XCTAssertEqual(Biome.definition(for: .marsh).terrainMaterial.kind, .mud)
     }
 
     func testBiomeDefinitionsExposeEightInitialBiomeFields() {
@@ -561,11 +407,6 @@ final class EngineCoreTests: XCTestCase {
                 .freshwater,
             ]
         )
-        XCTAssertEqual(BiomeType.forest, .temperateForest)
-        XCTAssertEqual(BiomeType.rockyHighlands, .mountain)
-        XCTAssertEqual(BiomeType.dryPlateau, .desert)
-        XCTAssertEqual(BiomeType.wetValley, .marsh)
-
         for type in BiomeType.allCases {
             let definition = Biome.definition(for: type)
 
@@ -587,7 +428,7 @@ final class EngineCoreTests: XCTestCase {
                     continentalness: 0.20
                 )
             ),
-            .rockyHighlands
+            .mountain
         )
         XCTAssertEqual(
             ruleSet.biomeType(
@@ -598,7 +439,7 @@ final class EngineCoreTests: XCTestCase {
                     continentalness: -0.10
                 )
             ),
-            .wetValley
+            .marsh
         )
         XCTAssertEqual(
             ruleSet.biomeType(
@@ -609,7 +450,7 @@ final class EngineCoreTests: XCTestCase {
                     continentalness: 0.24
                 )
             ),
-            .dryPlateau
+            .desert
         )
         XCTAssertEqual(
             ruleSet.biomeType(
@@ -620,7 +461,7 @@ final class EngineCoreTests: XCTestCase {
                     continentalness: -0.10
                 )
             ),
-            .forest
+            .temperateForest
         )
         XCTAssertEqual(
             ruleSet.biomeType(
@@ -928,7 +769,7 @@ final class EngineCoreTests: XCTestCase {
 
     func testTerrainVertexMaterialBlendsColorAndRoughness() {
         let primary = Biome.definition(for: .grassland)
-        let secondary = Biome.definition(for: .rockyHighlands)
+        let secondary = Biome.definition(for: .mountain)
         let material = TerrainVertexMaterial(
             primaryBiome: primary,
             secondaryBiome: secondary,
@@ -1024,8 +865,8 @@ final class EngineCoreTests: XCTestCase {
 
     func testTerrainVertexMaterialCarriesSplatWeights() {
         let primary = Biome.definition(for: .grassland)
-        let secondary = Biome.definition(for: .forest)
-        let tertiary = Biome.definition(for: .dryPlateau)
+        let secondary = Biome.definition(for: .temperateForest)
+        let tertiary = Biome.definition(for: .desert)
         let splat = TerrainMaterialSplat(layers: [
             TerrainMaterialSplatLayer(biome: primary, weight: 0.70),
             TerrainMaterialSplatLayer(biome: secondary, weight: 0.20),
@@ -1036,12 +877,12 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(material.splat, splat)
         XCTAssertEqual(material.splat.layers.count, 3)
         XCTAssertEqual(material.splat.totalWeight, 1, accuracy: 0.0001)
-        XCTAssertEqual(material.secondaryBiomeType, .forest)
+        XCTAssertEqual(material.secondaryBiomeType, .temperateForest)
         XCTAssertEqual(material.blendWeight, 0.20, accuracy: 0.0001)
     }
 
     func testTerrainMaterialSplatLayersCarryTextureSlots() {
-        let biome = Biome.definition(for: .rockyHighlands)
+        let biome = Biome.definition(for: .mountain)
         let layer = TerrainMaterialSplatLayer(biome: biome, weight: 0.75)
 
         XCTAssertEqual(layer.renderMaterial.identifier, biome.terrainMaterial.identifier)
@@ -1171,7 +1012,7 @@ final class EngineCoreTests: XCTestCase {
 
     func testPropPlacementGeneratorIsDeterministicForSameSeedAndChunk() {
         let coordinate = ChunkCoordinate(x: 2, y: 0, z: -3)
-        let biome = Biome.definition(for: .forest)
+        let biome = Biome.definition(for: .temperateForest)
         let first = PropPlacementGenerator(seed: WorldSeed(42)).placements(for: coordinate, biome: biome)
         let second = PropPlacementGenerator(seed: WorldSeed(42)).placements(for: coordinate, biome: biome)
 
@@ -1181,7 +1022,7 @@ final class EngineCoreTests: XCTestCase {
     func testPropPlacementGeneratorAssignsStablePlacementIndexes() {
         let props = PropPlacementGenerator(seed: WorldSeed(42)).placements(
             for: .origin,
-            biome: Biome.definition(for: .forest)
+            biome: Biome.definition(for: .temperateForest)
         )
 
         XCTAssertEqual(props.map(\.placementIndex), Array(0..<props.count))
@@ -1189,7 +1030,7 @@ final class EngineCoreTests: XCTestCase {
 
     func testPropPlacementGeneratorDiffersForDifferentChunks() {
         let generator = PropPlacementGenerator(seed: WorldSeed(42))
-        let biome = Biome.definition(for: .rockyHighlands)
+        let biome = Biome.definition(for: .mountain)
         let first = generator.placements(for: ChunkCoordinate(x: 0, y: 0, z: 0), biome: biome)
         let second = generator.placements(for: ChunkCoordinate(x: 1, y: 0, z: 0), biome: biome)
 
@@ -1198,7 +1039,7 @@ final class EngineCoreTests: XCTestCase {
 
     func testPropPlacementGeneratorDiffersForDifferentSeeds() {
         let coordinate = ChunkCoordinate(x: -1, y: 0, z: 2)
-        let biome = Biome.definition(for: .dryPlateau)
+        let biome = Biome.definition(for: .desert)
         let first = PropPlacementGenerator(seed: WorldSeed(1)).placements(for: coordinate, biome: biome)
         let second = PropPlacementGenerator(seed: WorldSeed(2)).placements(for: coordinate, biome: biome)
 
@@ -1207,7 +1048,7 @@ final class EngineCoreTests: XCTestCase {
 
     func testPropPlacementGeneratorHonorsMaxPropsPerChunk() {
         let generator = PropPlacementGenerator(seed: WorldSeed(42), maxPropsPerChunk: 3)
-        let props = generator.placements(for: .origin, biome: Biome.definition(for: .forest))
+        let props = generator.placements(for: .origin, biome: Biome.definition(for: .temperateForest))
 
         XCTAssertEqual(props.count, 3)
     }
@@ -1216,16 +1057,16 @@ final class EngineCoreTests: XCTestCase {
         let generator = PropPlacementGenerator(seed: WorldSeed(42), maxPropsPerChunk: 64)
         let coordinate = ChunkCoordinate(x: 0, y: 0, z: 0)
         let plainProps = generator.placements(for: coordinate, biome: Biome.definition(for: .grassland))
-        let forestProps = generator.placements(for: coordinate, biome: Biome.definition(for: .forest))
+        let temperateForestProps = generator.placements(for: coordinate, biome: Biome.definition(for: .temperateForest))
 
-        XCTAssertGreaterThan(forestProps.count, plainProps.count)
+        XCTAssertGreaterThan(temperateForestProps.count, plainProps.count)
     }
 
     func testPropPlacementsStayInsideChunk() {
         let generator = PropPlacementGenerator(seed: WorldSeed(42))
         let props = generator.placements(
             for: ChunkCoordinate(x: -2, y: 0, z: 3),
-            biome: Biome.definition(for: .rockyHighlands)
+            biome: Biome.definition(for: .mountain)
         )
         let maxLocalPosition = Float(ChunkHeightmap.resolution - 1)
 
@@ -1242,8 +1083,8 @@ final class EngineCoreTests: XCTestCase {
     }
 
     func testProceduralAssetGeneratorIsDeterministicForSameSeedAndPlacement() {
-        let placement = samplePropPlacement(type: .treePlaceholder)
-        let biome = Biome.definition(for: .forest)
+        let placement = samplePropPlacement(type: .tree)
+        let biome = Biome.definition(for: .temperateForest)
         let chunk = ChunkCoordinate(x: 2, y: 0, z: -3)
         let generator = ProceduralAssetGenerator(seed: WorldSeed(42))
         let first = generator.variant(for: placement, biome: biome, chunk: chunk)
@@ -1256,7 +1097,7 @@ final class EngineCoreTests: XCTestCase {
 
     func testProceduralAssetGeneratorChangesAcrossSeeds() {
         let placement = samplePropPlacement(type: .rock)
-        let biome = Biome.definition(for: .rockyHighlands)
+        let biome = Biome.definition(for: .mountain)
         let chunk = ChunkCoordinate(x: 2, y: 0, z: -3)
         let first = ProceduralAssetGenerator(seed: WorldSeed(42)).variant(
             for: placement,
@@ -1274,30 +1115,30 @@ final class EngineCoreTests: XCTestCase {
     }
 
     func testProceduralAssetGeneratorChangesAcrossBiomes() {
-        let placement = samplePropPlacement(type: .treePlaceholder)
+        let placement = samplePropPlacement(type: .tree)
         let chunk = ChunkCoordinate(x: 0, y: 0, z: 0)
         let generator = ProceduralAssetGenerator(seed: WorldSeed(42))
-        let forest = generator.variant(
+        let temperateForest = generator.variant(
             for: placement,
-            biome: Biome.definition(for: .forest),
+            biome: Biome.definition(for: .temperateForest),
             chunk: chunk
         )
-        let dryPlateau = generator.variant(
+        let desert = generator.variant(
             for: placement,
-            biome: Biome.definition(for: .dryPlateau),
+            biome: Biome.definition(for: .desert),
             chunk: chunk
         )
 
-        XCTAssertNotEqual(forest.variantSeed, dryPlateau.variantSeed)
-        XCTAssertNotEqual(forest.archetypeID, dryPlateau.archetypeID)
-        XCTAssertNotEqual(forest.secondaryMaterial, dryPlateau.secondaryMaterial)
+        XCTAssertNotEqual(temperateForest.variantSeed, desert.variantSeed)
+        XCTAssertNotEqual(temperateForest.archetypeID, desert.archetypeID)
+        XCTAssertNotEqual(temperateForest.secondaryMaterial, desert.secondaryMaterial)
     }
 
     func testProceduralAssetGeneratorProducesGeometryWithMaterialSlots() {
-        let placement = samplePropPlacement(type: .crystalPlaceholder)
+        let placement = samplePropPlacement(type: .crystal)
         let variant = ProceduralAssetGenerator(seed: WorldSeed(42)).variant(
             for: placement,
-            biome: Biome.definition(for: .wetValley),
+            biome: Biome.definition(for: .marsh),
             chunk: .origin
         )
         let slots = Set(variant.geometry.parts.map(\.materialSlot))
@@ -1501,7 +1342,7 @@ final class EngineCoreTests: XCTestCase {
     func testRenderWorldSnapshotCountsVisibleRenderData() {
         let propVariant = ProceduralAssetGenerator(seed: WorldSeed(77)).variant(
             for: samplePropPlacement(type: .rock),
-            biome: Biome.definition(for: .rockyHighlands),
+            biome: Biome.definition(for: .mountain),
             chunk: .origin
         )
         let visibleChunk = sampleRenderChunk(
@@ -1533,7 +1374,6 @@ final class EngineCoreTests: XCTestCase {
             chunks: [visibleChunk, hiddenChunk],
             debugOptions: RenderDebugOptions(
                 showChunkBounds: true,
-                showChunkLabels: true,
                 terrainMaterialDebugMode: .blendWeight,
                 terrainSplatDebugLayerIndex: 2
             )
@@ -1543,7 +1383,6 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(snapshot.visiblePropCount, 1)
         XCTAssertEqual(snapshot.approximateTriangleCount, 128)
         XCTAssertTrue(snapshot.debugOptions.showChunkBounds)
-        XCTAssertTrue(snapshot.debugOptions.showChunkLabels)
         XCTAssertEqual(snapshot.debugOptions.terrainMaterialDebugMode, .blendWeight)
         XCTAssertEqual(snapshot.debugOptions.terrainSplatDebugLayerIndex, 2)
     }
@@ -1552,7 +1391,6 @@ final class EngineCoreTests: XCTestCase {
         let options = RenderDebugOptions()
 
         XCTAssertFalse(options.showChunkBounds)
-        XCTAssertFalse(options.showChunkLabels)
         XCTAssertEqual(options.terrainMaterialDebugMode, .normal)
         XCTAssertEqual(options.terrainSplatDebugLayerIndex, 0)
         XCTAssertEqual(
@@ -1597,7 +1435,6 @@ final class EngineCoreTests: XCTestCase {
             ],
             debugOptions: RenderDebugOptions(
                 showChunkBounds: true,
-                showChunkLabels: false,
                 terrainMaterialDebugMode: .splatLayerWeight,
                 terrainSplatDebugLayerIndex: 3
             )

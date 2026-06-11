@@ -23,9 +23,9 @@ public struct PropArchetype: Equatable, Hashable, Codable, Sendable {
         switch type {
         case .rock:
             rockArchetype(for: biome)
-        case .treePlaceholder:
+        case .tree:
             treeArchetype(for: biome)
-        case .crystalPlaceholder:
+        case .crystal:
             crystalArchetype(for: biome)
         }
     }
@@ -64,7 +64,7 @@ public struct PropArchetype: Equatable, Hashable, Codable, Sendable {
         case .desert, .coast:
             PropArchetype(
                 identifier: "prop.tree.dryScrub",
-                type: .treePlaceholder,
+                type: .tree,
                 minimumSize: PropVector3(x: 0.34, y: 0.70, z: 0.34),
                 maximumSize: PropVector3(x: 0.52, y: 1.05, z: 0.52),
                 allowedBiomes: [.grassland, .temperateForest, .desert, .marsh, .taiga, .coast, .freshwater]
@@ -72,15 +72,15 @@ public struct PropArchetype: Equatable, Hashable, Codable, Sendable {
         case .temperateForest, .marsh, .taiga, .freshwater:
             PropArchetype(
                 identifier: "prop.tree.broadCrown",
-                type: .treePlaceholder,
+                type: .tree,
                 minimumSize: PropVector3(x: 0.46, y: 1.05, z: 0.46),
                 maximumSize: PropVector3(x: 0.76, y: 1.55, z: 0.76),
                 allowedBiomes: [.grassland, .temperateForest, .desert, .marsh, .taiga, .coast, .freshwater]
             )
         default:
             PropArchetype(
-                identifier: "prop.tree.placeholder",
-                type: .treePlaceholder,
+                identifier: "prop.tree.generic",
+                type: .tree,
                 minimumSize: PropVector3(x: 0.38, y: 0.85, z: 0.38),
                 maximumSize: PropVector3(x: 0.60, y: 1.20, z: 0.60),
                 allowedBiomes: [.grassland, .temperateForest, .desert, .marsh, .taiga, .coast, .freshwater]
@@ -93,7 +93,7 @@ public struct PropArchetype: Equatable, Hashable, Codable, Sendable {
         case .marsh, .freshwater:
             PropArchetype(
                 identifier: "prop.crystal.wetCluster",
-                type: .crystalPlaceholder,
+                type: .crystal,
                 minimumSize: PropVector3(x: 0.20, y: 0.42, z: 0.20),
                 maximumSize: PropVector3(x: 0.34, y: 0.78, z: 0.34),
                 allowedBiomes: BiomeType.allCases
@@ -101,7 +101,7 @@ public struct PropArchetype: Equatable, Hashable, Codable, Sendable {
         default:
             PropArchetype(
                 identifier: "prop.crystal.shard",
-                type: .crystalPlaceholder,
+                type: .crystal,
                 minimumSize: PropVector3(x: 0.16, y: 0.36, z: 0.16),
                 maximumSize: PropVector3(x: 0.30, y: 0.70, z: 0.30),
                 allowedBiomes: BiomeType.allCases

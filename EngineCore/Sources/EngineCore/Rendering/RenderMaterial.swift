@@ -101,7 +101,7 @@ public struct TerrainTextureSlot: Equatable, Hashable, Codable, Sendable {
             2
         case .sand:
             3
-        case .wetValley:
+        case .mud:
             4
         case .snow:
             5
@@ -118,7 +118,7 @@ public struct TerrainTextureSlot: Equatable, Hashable, Codable, Sendable {
             16
         case .sand:
             14
-        case .wetValley:
+        case .mud:
             13
         case .snow:
             10
@@ -135,8 +135,8 @@ public struct TerrainTextureSlot: Equatable, Hashable, Codable, Sendable {
             "Dirt"
         case .sand:
             "Sand"
-        case .wetValley:
-            "Wet valley"
+        case .mud:
+            "Mud"
         case .snow:
             "Snow"
         }

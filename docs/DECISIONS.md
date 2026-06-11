@@ -64,7 +64,7 @@ Decision: mesurer avant d'optimiser avec un budget initial de 9 chunks actifs.
 
 Raison: `activeRadius = 1` charge le chunk joueur et ses 8 voisins, ce qui suffit pour valider terrain, biomes, props et suivi joueur avant la physique.
 
-Consequence: les metriques debug exposent chunks actifs/visibles, triangles approximatifs, props approximatifs, frame time et moyennes de generation de chunk/mesh.
+Consequence: les metriques debug exposent les signaux utiles au pipeline actif: frame time, generation de donnees chunk, upload, draw calls, textures terrain, chunks et props visibles.
 
 Limites connues: generation synchrone, pas encore de LOD, pas encore de culling fin, pas encore de cache persistant; `visibleChunkCount` est actuellement equivalent aux chunks charges.
 
@@ -74,7 +74,7 @@ Decision historique: commencer avec un `TerrainMaterialDescriptor` pur dans `Eng
 
 Raison: differencier visuellement les biomes sans importer de grosses textures externes, sans multiplier excessivement les materiaux et sans toucher au streaming.
 
-Consequence actuelle: les biomes exposent des materiaux semantiques simples (`grass`, `rock`, `dirt`, `sand`, `wetValley`, `snow` futur). Le rendu Metal utilise d'abord des couleurs vertex/material placeholders derivees de ces descriptors.
+Consequence actuelle: les biomes exposent des materiaux semantiques simples (`grass`, `rock`, `dirt`, `sand`, `mud`, `snow` futur). Le rendu Metal utilise des couleurs vertex/material previews derivees de ces descriptors.
 
 Objectif futur: introduire progressivement textures PBR, splat maps, triplanar mapping, normal maps, roughness maps et transitions douces entre biomes quand le terrain et le streaming seront stabilises.
 
@@ -216,7 +216,7 @@ Consequence: chaque sample terrain peut maintenant transporter jusqu'a 4 couches
 
 Garantie: les tests verifient determinisme, normalisation, limite a 4 couches et raccord exact des splats entre chunks voisins.
 
-Limite actuelle: les poids 4 couches sont prets dans les donnees et le buffer GPU. Ils pilotent un premier catalogue texture placeholder cote Metal, mais pas encore de vraies textures artistiques.
+Limite actuelle: les poids 4 couches sont prets dans les donnees et le buffer GPU. Ils pilotent un premier catalogue texture preview cote Metal, mais pas encore de vraies textures artistiques.
 
 ## 023 - Debug par couche splat
 
@@ -228,17 +228,17 @@ Consequence: l'overlay expose un index de couche 0-3. Le shader Metal lit `splat
 
 Garantie: l'index est borne dans `RenderDebugOptions`, et les tests couvrent le mode, le clamp et la serialisation JSON.
 
-## 024 - TerrainTextureCatalog placeholder
+## 024 - TerrainTextureCatalog preview
 
 Decision: ajouter un `TerrainTextureCatalog` cote app/Metal avec un texture array genere en memoire pour les materiaux terrain de base.
 
 Raison: avant d'integrer de vraies textures externes, le renderer doit deja avoir la forme d'un pipeline texture: IDs materiaux, UV terrain, texture array, sampler et mix par poids splat.
 
-Consequence: le terrain normal n'utilise plus seulement les vertex colors. Le shader Metal echantillonne une couche placeholder par materiau et melange jusqu'a 4 couches avec `splatWeights`. Les modes debug continuent d'afficher les couleurs/heatmaps pour inspecter les biomes et les poids.
+Consequence: le terrain normal n'utilise plus seulement les vertex colors. Le shader Metal echantillonne une couche preview par materiau et melange jusqu'a 4 couches avec `splatWeights`. Les modes debug continuent d'afficher les couleurs/heatmaps pour inspecter les biomes et les poids.
 
 Limite actuelle: les textures sont des motifs 2x2 generes en code, sans PBR, normal map, roughness map, atlas disque ni streaming texture. Elles valident l'architecture et preparent le remplacement par des assets reels.
 
-Prochaine cible: introduire un vrai contrat de material/texture slots plus explicite, puis remplacer les placeholders par un atlas ou texture array charge depuis les assets du projet.
+Prochaine cible: introduire un vrai contrat de material/texture slots plus explicite, puis remplacer les previews generees par un atlas ou texture array charge depuis les assets du projet.
 
 ## 025 - Material et texture slots explicites
 
@@ -246,23 +246,23 @@ Decision: ajouter les contrats neutres `RenderMaterial` et `TerrainTextureSlot` 
 
 Raison: les shaders ne doivent pas dependre d'IDs flottants implicites ou d'un ordre de materiaux cache cote app. Les slots texture doivent etre declaratifs, serialisables et testables avant l'arrivee d'atlas, texture arrays artistiques ou normal maps.
 
-Consequence: chaque couche `TerrainMaterialSplatLayer` porte maintenant un `RenderMaterial` et expose un `TerrainTextureSlot` avec `textureLayerIndex`, `uvScale` et `debugName`. `TerrainTextureCatalog` construit son texture array placeholder depuis ces slots. Le vertex buffer Metal transporte `splatTextureLayerIndices` et `splatUVScales` au lieu de simples material IDs.
+Consequence: chaque couche `TerrainMaterialSplatLayer` porte maintenant un `RenderMaterial` et expose un `TerrainTextureSlot` avec `textureLayerIndex`, `uvScale` et `debugName`. `TerrainTextureCatalog` construit son texture array preview depuis ces slots. Le vertex buffer Metal transporte `splatTextureLayerIndices` et `splatUVScales` au lieu de simples material IDs.
 
 Garantie: les tests EngineCore verifient la stabilite des indices de couches texture, la presence des slots et leur transport dans les couches splat.
 
 Limite actuelle: `RenderMaterial` reste minimal. Il decrit les slots PBR terrain de base, mais pas encore les variantes detaillees comme height, displacement, emission, detail maps ou masks de blending avances.
 
-## 026 - Texture slots PBR placeholders
+## 026 - Texture slots PBR preview
 
 Decision: etendre les contrats terrain avec `TerrainTextureMap` et `TerrainPBRTextureSlots` pour `albedo`, `normal`, `roughness` et `metallicAmbientOcclusion`.
 
 Raison: le renderer Metal doit se rapprocher d'un pipeline PBR sans attendre l'arrivee de vraies textures externes. Les maps doivent etre explicites dans les contrats, pas implicites dans le shader ou le catalogue GPU.
 
-Consequence: chaque `RenderMaterial` terrain expose maintenant ses slots PBR placeholders. `TerrainTextureCatalog` cree quatre texture arrays generes en memoire: albedo colore, normal flat, roughness grayscale et metallic/AO neutre. L'overlay affiche le nombre d'arrays texture terrain et le nombre de layers.
+Consequence: chaque `RenderMaterial` terrain expose maintenant ses slots PBR preview. `TerrainTextureCatalog` cree quatre texture arrays generes en memoire: albedo colore, normal flat, roughness grayscale et metallic/AO neutre. L'overlay affiche le nombre d'arrays texture terrain et le nombre de layers.
 
 Garantie: les tests EngineCore verifient que chaque materiau terrain possede les quatre maps PBR, avec des indices de couches stables et des echelles UV coherentes.
 
-Limite actuelle: les maps PBR sont encore des placeholders 2x2. Le shader reste volontairement simple et ne fait pas encore de normal mapping, BRDF PBR complete, image-based lighting ou texture streaming.
+Limite actuelle: les maps PBR sont encore des previews 2x2. Le shader reste volontairement simple et ne fait pas encore de normal mapping, BRDF PBR complete, image-based lighting ou texture streaming.
 
 ## 027 - DS_Store hors suivi Git
 
@@ -294,7 +294,7 @@ Decision: deplacer les biomes dans `EngineCore/Biomes` et selectionner les biome
 
 Raison: les biomes doivent piloter terrain, materiaux, props et futurs ecotones sans rester un enum unique choisi par seuils ad hoc.
 
-Consequence: `BiomeSystem` produit `ClimateSample`, `BiomeWeights`, `BiomeChunkData` et des valeurs de debug. Les 8 biomes V1 sont explicites: foret temperee, prairie, desert, montagne, marais, taiga, cote et eau douce. Les anciens noms restent alias source-compatible pendant la transition.
+Consequence: `BiomeSystem` produit `ClimateSample`, `BiomeWeights`, `BiomeChunkData` et des valeurs de debug. Les 8 biomes V1 sont explicites: foret temperee, prairie, desert, montagne, marais, taiga, cote et eau douce.
 
 Garantie: les tests verifient les 8 biomes, la normalisation top-2, le chunk data branche sur terrain, les ecotones et les debug layers.
 
@@ -304,8 +304,18 @@ Decision: introduire un contrat `EngineCore/Materials` et isoler les shaders/bin
 
 Raison: les materiaux doivent devenir des donnees moteur testables avant l'arrivee de textures artistiques, de variants d'etat de surface et d'un lighting plus avance.
 
-Consequence: `SurfaceDescriptor`, `MaterialParameterBlock`, `SurfaceState` et `IsoMaterialRuntime` decrivent un `OpaquePBR` minimal. Le renderer Metal utilise une `MaterialBindingTable`, quatre texture arrays PBR placeholders, un shader terrain layeré avec triplanar sur pentes fortes, une lumiere directionnelle, un IBL sky simple, du tone mapping et des vues debug roughness/normal.
+Consequence: `SurfaceDescriptor`, `MaterialParameterBlock`, `SurfaceState` et `IsoMaterialRuntime` decrivent un `OpaquePBR` minimal. Le renderer Metal utilise une `MaterialBindingTable`, quatre texture arrays PBR preview, un shader terrain layeré avec triplanar sur pentes fortes, une lumiere directionnelle, un IBL sky simple, du tone mapping et des vues debug roughness/normal.
 
 Garantie: les tests couvrent les bindings PBR terrain, l'application d'etats de surface, les nouveaux modes debug et la stabilite des indices Metal.
 
-Limite actuelle: la normal map est encore une lecture placeholder et n'altere pas la normale monde. Les textures restent generees en memoire; les assets PBR reels, le streaming texture et une BRDF plus complete viendront dans une etape ulterieure.
+Limite actuelle: la normal map est encore une lecture preview et n'altere pas la normale monde. Les textures restent generees en memoire; les assets PBR reels, le streaming texture et une BRDF plus complete viendront dans une etape ulterieure.
+
+## 032 - Baseline V1 propre apres Step 9-BIS
+
+Decision: retirer les alias et patterns legacy du pipeline actif avant d'ouvrir les travaux LOD.
+
+Raison: la V1 doit avancer sur une architecture unique. Les noms de transition, alias de coordonnees, alias de biomes et anciens generateurs rendaient le moteur plus difficile a tester et entretenaient deux vocabulaires.
+
+Consequence: le code actif utilise les noms V1, les snapshots ne transportent plus d'option debug non consommee, l'overlay debug est recentre sur perf/world/render et le renderer Metal consomme le pipeline material/texture V1.
+
+Garantie: les tests EngineCore et Xcode doivent couvrir la serialisation des snapshots, les biomes V1, les splats terrain, les slots PBR, les payloads Metal et le rendu app avant Step 10.

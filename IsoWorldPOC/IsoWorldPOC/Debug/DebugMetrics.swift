@@ -19,7 +19,6 @@ final class DebugMetrics: ObservableObject {
     @Published var controllerName = "None"
     @Published var playerPosition = SIMD3<Float>(0, 0, 0)
     @Published var terrainHeightUnderPlayer: Float?
-    @Published var terrainSlopeUnderPlayer: Float?
     @Published var slopeUnderPlayer: Float?
     @Published var playerGrounded = false
     @Published var maxWalkableSlope: Float = 0
@@ -31,8 +30,6 @@ final class DebugMetrics: ObservableObject {
     @Published var cachedChunkCount = 0
     @Published var approximateTriangleCount = 0
     @Published var approximatePropCount = 0
-    @Published var averageChunkGenerationTimeMs: Float?
-    @Published var averageTerrainMeshBuildTimeMs: Float?
     @Published var chunkJobsQueued = 0
     @Published var chunkJobsGenerating = 0
     @Published var chunksReadyForUpload = 0
@@ -54,7 +51,6 @@ final class DebugMetrics: ObservableObject {
     @Published var metalTerrainTextureLayerCount = 0
     @Published var metalTerrainTextureArrayCount = 0
     @Published var showChunkBounds = true
-    @Published var showChunkLabels = true
     @Published var cameraYaw: Float = 0
     @Published var cameraPitch: Float = 0
     @Published var cameraDistance: Float = 0

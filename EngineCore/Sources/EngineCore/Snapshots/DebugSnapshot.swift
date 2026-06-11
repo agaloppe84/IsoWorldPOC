@@ -11,7 +11,7 @@ public struct DebugSnapshot: Equatable, Codable, Sendable {
     public let jobs: JobSchedulerSnapshot
     public let chunksReadyForUpload: Int
     public let chunkUploadsThisFrame: Int
-    public let averageChunkGenerationTimeMs: Float?
+    public let averageChunkDataGenerationTimeMs: Float?
 
     public init(
         frameIndex: UInt64,
@@ -32,7 +32,7 @@ public struct DebugSnapshot: Equatable, Codable, Sendable {
         ),
         chunksReadyForUpload: Int = 0,
         chunkUploadsThisFrame: Int = 0,
-        averageChunkGenerationTimeMs: Float? = nil
+        averageChunkDataGenerationTimeMs: Float? = nil
     ) {
         self.frameIndex = frameIndex
         self.currentChunk = currentChunk
@@ -46,6 +46,6 @@ public struct DebugSnapshot: Equatable, Codable, Sendable {
         self.jobs = jobs
         self.chunksReadyForUpload = chunksReadyForUpload
         self.chunkUploadsThisFrame = chunkUploadsThisFrame
-        self.averageChunkGenerationTimeMs = averageChunkGenerationTimeMs
+        self.averageChunkDataGenerationTimeMs = averageChunkDataGenerationTimeMs
     }
 }

@@ -14,7 +14,7 @@ Cette roadmap sert de fil conducteur pour le POC. Elle doit rester simple, concr
 - Conserver une app macOS SwiftUI dans `IsoWorldPOC/IsoWorldPOC/`.
 - Ajouter un point d'integration clair pour la vue 3D.
 - Utiliser Metal comme renderer actif.
-- Afficher une scene simple verifiable: camera, terrain, props placeholders, joueur et debug overlay.
+- Afficher une scene simple verifiable: camera, terrain, props proceduraux simples, joueur et debug overlay.
 
 ## Phase 2 - EngineCore
 
