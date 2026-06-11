@@ -73,18 +73,27 @@ public struct PropPlacementGenerator: Sendable {
         case .grassland:
             baseCount = 4
             jitterRange = 2
-        case .forest:
+        case .temperateForest:
             baseCount = 15
             jitterRange = 4
-        case .rockyHighlands:
+        case .mountain:
             baseCount = 10
             jitterRange = 3
-        case .dryPlateau:
+        case .desert:
             baseCount = 4
             jitterRange = 2
-        case .wetValley:
+        case .marsh:
             baseCount = 9
             jitterRange = 3
+        case .taiga:
+            baseCount = 11
+            jitterRange = 3
+        case .coast:
+            baseCount = 5
+            jitterRange = 2
+        case .freshwater:
+            baseCount = 3
+            jitterRange = 1
         }
 
         let jitter = Int(random.next() % UInt64(jitterRange + 1))
@@ -99,21 +108,33 @@ public struct PropPlacementGenerator: Sendable {
             if roll < 0.55 { return .rock }
             if roll < 0.90 { return .treePlaceholder }
             return .crystalPlaceholder
-        case .forest:
+        case .temperateForest:
             if roll < 0.72 { return .treePlaceholder }
             if roll < 0.94 { return .rock }
             return .crystalPlaceholder
-        case .rockyHighlands:
+        case .mountain:
             if roll < 0.72 { return .rock }
             if roll < 0.92 { return .crystalPlaceholder }
             return .treePlaceholder
-        case .dryPlateau:
+        case .desert:
             if roll < 0.78 { return .rock }
             if roll < 0.96 { return .crystalPlaceholder }
             return .treePlaceholder
-        case .wetValley:
+        case .marsh:
             if roll < 0.58 { return .treePlaceholder }
             if roll < 0.88 { return .rock }
+            return .crystalPlaceholder
+        case .taiga:
+            if roll < 0.64 { return .treePlaceholder }
+            if roll < 0.92 { return .rock }
+            return .crystalPlaceholder
+        case .coast:
+            if roll < 0.66 { return .rock }
+            if roll < 0.84 { return .treePlaceholder }
+            return .crystalPlaceholder
+        case .freshwater:
+            if roll < 0.52 { return .rock }
+            if roll < 0.92 { return .treePlaceholder }
             return .crystalPlaceholder
         }
     }
@@ -144,14 +165,20 @@ public struct PropPlacementGenerator: Sendable {
         switch type {
         case .grassland:
             return 0x1000_0000_0000_0001
-        case .forest:
+        case .temperateForest:
             return 0x2000_0000_0000_0002
-        case .rockyHighlands:
+        case .mountain:
             return 0x3000_0000_0000_0003
-        case .dryPlateau:
+        case .desert:
             return 0x4000_0000_0000_0004
-        case .wetValley:
+        case .marsh:
             return 0x5000_0000_0000_0005
+        case .taiga:
+            return 0x6000_0000_0000_0006
+        case .coast:
+            return 0x7000_0000_0000_0007
+        case .freshwater:
+            return 0x8000_0000_0000_0008
         }
     }
 

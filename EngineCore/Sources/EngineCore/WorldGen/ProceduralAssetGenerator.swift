@@ -142,9 +142,9 @@ public struct ProceduralAssetGenerator: Sendable {
 
     private func trunkHeightRatio(for biome: Biome) -> Float {
         switch biome.type {
-        case .dryPlateau:
+        case .desert, .coast:
             0.72
-        case .forest, .wetValley:
+        case .temperateForest, .marsh, .taiga, .freshwater:
             0.58
         default:
             0.64
@@ -203,11 +203,11 @@ public struct ProceduralAssetGenerator: Sendable {
 
     private func rockColor(for biome: Biome) -> BiomeColor {
         switch biome.type {
-        case .dryPlateau:
+        case .desert, .coast:
             BiomeColor(red: 0.48, green: 0.36, blue: 0.22)
-        case .wetValley:
+        case .marsh, .freshwater:
             BiomeColor(red: 0.28, green: 0.34, blue: 0.30)
-        case .rockyHighlands:
+        case .mountain:
             BiomeColor(red: 0.45, green: 0.45, blue: 0.42)
         default:
             BiomeColor(red: 0.38, green: 0.38, blue: 0.34)
@@ -216,9 +216,9 @@ public struct ProceduralAssetGenerator: Sendable {
 
     private func trunkColor(for biome: Biome) -> BiomeColor {
         switch biome.type {
-        case .dryPlateau:
+        case .desert, .coast:
             BiomeColor(red: 0.42, green: 0.30, blue: 0.16)
-        case .wetValley:
+        case .marsh, .freshwater:
             BiomeColor(red: 0.28, green: 0.20, blue: 0.13)
         default:
             BiomeColor(red: 0.34, green: 0.21, blue: 0.12)
@@ -227,12 +227,14 @@ public struct ProceduralAssetGenerator: Sendable {
 
     private func foliageColor(for biome: Biome) -> BiomeColor {
         switch biome.type {
-        case .dryPlateau:
+        case .desert, .coast:
             BiomeColor(red: 0.42, green: 0.38, blue: 0.18)
-        case .wetValley:
+        case .marsh, .freshwater:
             BiomeColor(red: 0.08, green: 0.42, blue: 0.27)
-        case .forest:
+        case .temperateForest:
             BiomeColor(red: 0.07, green: 0.34, blue: 0.14)
+        case .taiga:
+            BiomeColor(red: 0.08, green: 0.28, blue: 0.22)
         default:
             BiomeColor(red: 0.18, green: 0.42, blue: 0.16)
         }
@@ -240,9 +242,9 @@ public struct ProceduralAssetGenerator: Sendable {
 
     private func crystalColor(for biome: Biome) -> BiomeColor {
         switch biome.type {
-        case .dryPlateau:
+        case .desert, .coast:
             BiomeColor(red: 0.64, green: 0.56, blue: 0.32)
-        case .wetValley:
+        case .marsh, .freshwater:
             BiomeColor(red: 0.22, green: 0.70, blue: 0.78)
         default:
             BiomeColor(red: 0.30, green: 0.82, blue: 0.90)
@@ -251,9 +253,9 @@ public struct ProceduralAssetGenerator: Sendable {
 
     private func crystalAccentColor(for biome: Biome) -> BiomeColor {
         switch biome.type {
-        case .dryPlateau:
+        case .desert, .coast:
             BiomeColor(red: 0.82, green: 0.72, blue: 0.40)
-        case .wetValley:
+        case .marsh, .freshwater:
             BiomeColor(red: 0.45, green: 0.90, blue: 0.82)
         default:
             BiomeColor(red: 0.58, green: 0.95, blue: 1.00)

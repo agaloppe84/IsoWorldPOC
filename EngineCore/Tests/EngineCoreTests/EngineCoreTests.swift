@@ -499,6 +499,34 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(Biome.definition(for: .wetValley).terrainMaterial.kind, .wetValley)
     }
 
+    func testBiomeDefinitionsExposeEightInitialBiomeFields() {
+        XCTAssertEqual(
+            BiomeType.allCases,
+            [
+                .temperateForest,
+                .grassland,
+                .desert,
+                .mountain,
+                .marsh,
+                .taiga,
+                .coast,
+                .freshwater,
+            ]
+        )
+        XCTAssertEqual(BiomeType.forest, .temperateForest)
+        XCTAssertEqual(BiomeType.rockyHighlands, .mountain)
+        XCTAssertEqual(BiomeType.dryPlateau, .desert)
+        XCTAssertEqual(BiomeType.wetValley, .marsh)
+
+        for type in BiomeType.allCases {
+            let definition = Biome.definition(for: type)
+
+            XCTAssertEqual(definition.type, type)
+            XCTAssertFalse(definition.displayName.isEmpty)
+            XCTAssertFalse(definition.materialIdentifier.isEmpty)
+        }
+    }
+
     func testBiomeRuleSetClassifiesClimateSamples() {
         let ruleSet = BiomeRuleSet()
 
@@ -559,6 +587,128 @@ final class EngineCoreTests: XCTestCase {
         )
     }
 
+    func testBiomeRuleSetClassifiesNewInitialBiomes() {
+        let ruleSet = BiomeRuleSet()
+
+        XCTAssertEqual(
+            ruleSet.biomeType(
+                for: ClimateSample(
+                    elevation: -0.10,
+                    moisture: 0.85,
+                    temperature: 0.12,
+                    continentalness: 0.10,
+                    altitude: -0.12,
+                    distanceToWater: 0.02
+                )
+            ),
+            .freshwater
+        )
+        XCTAssertEqual(
+            ruleSet.biomeType(
+                for: ClimateSample(
+                    elevation: -0.02,
+                    moisture: 0.10,
+                    temperature: 0.20,
+                    continentalness: -0.86,
+                    altitude: 0.02,
+                    distanceToWater: 0.22
+                )
+            ),
+            .coast
+        )
+        XCTAssertEqual(
+            ruleSet.biomeType(
+                for: ClimateSample(
+                    elevation: 0.04,
+                    moisture: 0.32,
+                    temperature: -0.78,
+                    continentalness: 0.12,
+                    altitude: 0.08,
+                    distanceToWater: 0.75
+                )
+            ),
+            .taiga
+        )
+    }
+
+    func testBiomeWeightsKeepTopTwoNormalizedLayers() {
+        let weights = BiomeRuleSet().biomeWeights(
+            for: ClimateSample(
+                elevation: 0.08,
+                moisture: 0.18,
+                temperature: 0.05,
+                continentalness: -0.04,
+                altitude: 0.03,
+                distanceToWater: 0.44
+            )
+        )
+
+        XCTAssertLessThanOrEqual(weights.layers.count, 2)
+        XCTAssertTrue(weights.isNormalized)
+        XCTAssertEqual(weights.totalWeight, 1, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(weights.primaryWeight, weights.secondaryWeight)
+        XCTAssertGreaterThan(weights.primaryWeight, 0)
+    }
+
+    func testBiomeSystemGeneratesTerrainBackedChunkData() {
+        let seed = WorldSeed(99)
+        let terrain = TerrainSystem(seed: seed)
+        let biomes = BiomeSystem(seed: seed)
+        let coordinate = ChunkCoordinate(x: -1, y: 0, z: 2)
+        let first = biomes.chunkData(for: coordinate, terrainSystem: terrain, resolution: 8)
+        let second = biomes.chunkData(for: coordinate, terrainSystem: terrain, resolution: 8)
+        let sample = first[3, 4]
+        let coverageTotal = first.dominantBiomeCoverage.values.reduce(0, +)
+
+        XCTAssertEqual(first.samples.count, 64)
+        XCTAssertEqual(first.stableHash(), second.stableHash())
+        XCTAssertTrue(sample.weights.isNormalized)
+        XCTAssertLessThanOrEqual(sample.weights.layers.count, 2)
+        XCTAssertGreaterThanOrEqual(sample.climate.temperature, -1)
+        XCTAssertLessThanOrEqual(sample.climate.temperature, 1)
+        XCTAssertGreaterThanOrEqual(sample.climate.humidity, -1)
+        XCTAssertLessThanOrEqual(sample.climate.humidity, 1)
+        XCTAssertGreaterThanOrEqual(sample.climate.distanceToWater, 0)
+        XCTAssertLessThanOrEqual(sample.climate.distanceToWater, 1)
+        XCTAssertEqual(coverageTotal, 1, accuracy: 0.0001)
+    }
+
+    func testBiomeSystemExposesDebugLayersAndEcotones() throws {
+        let biomes = BiomeSystem(seed: WorldSeed(99))
+        let weights = BiomeWeights(
+            primary: .temperateForest,
+            secondary: .grassland,
+            secondaryWeight: 0.35
+        )
+        let rule = try XCTUnwrap(biomes.ecotoneRule(for: weights))
+        let sample = BiomeChunkSample(
+            localX: 0,
+            localZ: 0,
+            worldX: 0,
+            worldZ: 0,
+            climate: ClimateSample(
+                elevation: 0,
+                moisture: 0.20,
+                temperature: 0.10,
+                continentalness: 0,
+                altitude: 0,
+                distanceToWater: 0.30
+            ),
+            weights: weights,
+            ecotoneRule: rule
+        )
+
+        XCTAssertTrue(rule.matches(.grassland, .temperateForest))
+        XCTAssertTrue(sample.isEcotone)
+
+        for layer in BiomeDebugLayer.allCases {
+            let value = biomes.debugValue(layer, sample: sample)
+
+            XCTAssertGreaterThanOrEqual(value, 0)
+            XCTAssertLessThanOrEqual(value, 1)
+        }
+    }
+
     func testClimateSamplerIsDeterministicForSameSeedAndPosition() {
         let position = WorldPosition(x: -212.5, y: 0, z: 884.25)
         let first = BiomeSampler(seed: WorldSeed(42)).climate(at: position)
@@ -573,6 +723,12 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertLessThanOrEqual(first.temperature, 1)
         XCTAssertGreaterThanOrEqual(first.continentalness, -1)
         XCTAssertLessThanOrEqual(first.continentalness, 1)
+        XCTAssertGreaterThanOrEqual(first.altitude, -1)
+        XCTAssertLessThanOrEqual(first.altitude, 1)
+        XCTAssertGreaterThanOrEqual(first.slope, 0)
+        XCTAssertLessThanOrEqual(first.slope, 1)
+        XCTAssertGreaterThanOrEqual(first.distanceToWater, 0)
+        XCTAssertLessThanOrEqual(first.distanceToWater, 1)
     }
 
     func testClimateSamplerChangesAcrossSeeds() {

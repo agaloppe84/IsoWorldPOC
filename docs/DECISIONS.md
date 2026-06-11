@@ -287,3 +287,13 @@ Decision: l'app demarre sur `AppShellView` et une state machine `AppMode`, avec 
 Raison: le renderer Metal ne doit pas etre actif dans le menu, le loading ou les outils. Les futurs systemes moteur doivent etre ouverts via des transitions explicites plutot que par un demarrage direct dans le monde.
 
 Consequence: `GameRootView` reste le viewport monde, mais il est monte seulement depuis les modes runtime. Les prochaines etapes peuvent brancher `EngineCore`, save, jobs et generation reelle derriere le shell sans casser l'entree app.
+
+## 030 - Biome fields pondérés
+
+Decision: deplacer les biomes dans `EngineCore/Biomes` et selectionner les biomes via des fields climatiques pondérés top-2.
+
+Raison: les biomes doivent piloter terrain, materiaux, props et futurs ecotones sans rester un enum unique choisi par seuils ad hoc.
+
+Consequence: `BiomeSystem` produit `ClimateSample`, `BiomeWeights`, `BiomeChunkData` et des valeurs de debug. Les 8 biomes V1 sont explicites: foret temperee, prairie, desert, montagne, marais, taiga, cote et eau douce. Les anciens noms restent alias source-compatible pendant la transition.
+
+Garantie: les tests verifient les 8 biomes, la normalisation top-2, le chunk data branche sur terrain, les ecotones et les debug layers.

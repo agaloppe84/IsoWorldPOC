@@ -32,7 +32,7 @@ public struct PropArchetype: Equatable, Hashable, Codable, Sendable {
 
     private static func rockArchetype(for biome: Biome) -> PropArchetype {
         switch biome.type {
-        case .rockyHighlands:
+        case .mountain:
             PropArchetype(
                 identifier: "prop.rock.boulder",
                 type: .rock,
@@ -40,7 +40,7 @@ public struct PropArchetype: Equatable, Hashable, Codable, Sendable {
                 maximumSize: PropVector3(x: 0.58, y: 0.42, z: 0.54),
                 allowedBiomes: BiomeType.allCases
             )
-        case .dryPlateau:
+        case .desert, .coast:
             PropArchetype(
                 identifier: "prop.rock.flatPlateau",
                 type: .rock,
@@ -61,21 +61,21 @@ public struct PropArchetype: Equatable, Hashable, Codable, Sendable {
 
     private static func treeArchetype(for biome: Biome) -> PropArchetype {
         switch biome.type {
-        case .dryPlateau:
+        case .desert, .coast:
             PropArchetype(
                 identifier: "prop.tree.dryScrub",
                 type: .treePlaceholder,
                 minimumSize: PropVector3(x: 0.34, y: 0.70, z: 0.34),
                 maximumSize: PropVector3(x: 0.52, y: 1.05, z: 0.52),
-                allowedBiomes: [.grassland, .forest, .dryPlateau, .wetValley]
+                allowedBiomes: [.grassland, .temperateForest, .desert, .marsh, .taiga, .coast, .freshwater]
             )
-        case .forest, .wetValley:
+        case .temperateForest, .marsh, .taiga, .freshwater:
             PropArchetype(
                 identifier: "prop.tree.broadCrown",
                 type: .treePlaceholder,
                 minimumSize: PropVector3(x: 0.46, y: 1.05, z: 0.46),
                 maximumSize: PropVector3(x: 0.76, y: 1.55, z: 0.76),
-                allowedBiomes: [.grassland, .forest, .dryPlateau, .wetValley]
+                allowedBiomes: [.grassland, .temperateForest, .desert, .marsh, .taiga, .coast, .freshwater]
             )
         default:
             PropArchetype(
@@ -83,14 +83,14 @@ public struct PropArchetype: Equatable, Hashable, Codable, Sendable {
                 type: .treePlaceholder,
                 minimumSize: PropVector3(x: 0.38, y: 0.85, z: 0.38),
                 maximumSize: PropVector3(x: 0.60, y: 1.20, z: 0.60),
-                allowedBiomes: [.grassland, .forest, .dryPlateau, .wetValley]
+                allowedBiomes: [.grassland, .temperateForest, .desert, .marsh, .taiga, .coast, .freshwater]
             )
         }
     }
 
     private static func crystalArchetype(for biome: Biome) -> PropArchetype {
         switch biome.type {
-        case .wetValley:
+        case .marsh, .freshwater:
             PropArchetype(
                 identifier: "prop.crystal.wetCluster",
                 type: .crystalPlaceholder,
