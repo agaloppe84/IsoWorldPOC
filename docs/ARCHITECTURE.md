@@ -159,6 +159,14 @@ Responsabilites:
 
 `DefaultTerrainFieldProvider` combine la height function de base avec les contributions du graph. Les `TerrainSample` transportent `waterDepth` et `TerrainFeatureMasks` (`water`, `shore`, `mountain`, `cliff`). Ces masks influencent humidite, materiaux terrain, walkability et climbability, tout en gardant les bords de chunks stables car les features sont echantillonnees en coordonnees monde.
 
+### Traversal gameplay V1
+
+`EngineCore/Traversal` derive la verticalite gameplay depuis `TerrainSampleGrid` sans dependre de Metal ni de SwiftUI. `TraversalSurfaceClass` classe les samples en `walkable`, `steep`, `climbable`, `dangerous` ou `blocked`. `ClimbabilityMap` garde les valeurs de climbability, les scores de ledge et les classes par sample.
+
+`TraversalChunkData` regroupe les candidats de chunk: ledges, anchors de corde, attaches d'escalier et routes verticales candidates. Cette data est produite depuis le terrain V1 par `TerrainSystem.traversalData(for:)`, puis transportee dans `ProceduralChunkData` pour que le runtime puisse lire les affordances sans recalculer le chunk.
+
+Le grounding joueur utilise la classe traversal sous le joueur quand elle est disponible. Le fallback par pente brute reste uniquement une garde de robustesse pour les payloads incomplets; les decisions gameplay V1 doivent passer par `TraversalSurfaceClass`.
+
 Le renderer ne dessine pas encore de surface d'eau dediee. Pour l'instant, l'hydrologie V1 existe comme donnees moteur et comme splats de materiaux shore/mud, afin de preparer debug, gameplay traversal et rendu d'eau futur.
 
 ### Tools Hub V1

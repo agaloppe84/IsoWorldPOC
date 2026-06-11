@@ -10,7 +10,16 @@ import simd
 
 struct TerrainGroundSample {
     let sample: TerrainSampler.Sample
+    let surfaceClass: TraversalSurfaceClass?
     let chunk: ChunkCoordinate
+
+    func isWalkable(maxSlope: Float) -> Bool {
+        if let surfaceClass {
+            return surfaceClass.isWalkableForPlayer
+        }
+
+        return sample.isWalkable(maxSlope: maxSlope)
+    }
 }
 
 struct PlayerGroundingResult {
@@ -47,7 +56,7 @@ struct PlayerGrounding {
         proposedGround: TerrainGroundSample?,
         previousGround: TerrainGroundSample?
     ) -> PlayerGroundingResult {
-        if let proposedGround, proposedGround.sample.isWalkable(maxSlope: maxWalkableSlope) {
+        if let proposedGround, proposedGround.isWalkable(maxSlope: maxWalkableSlope) {
             return groundedResult(
                 horizontalPosition: proposedPosition,
                 groundSample: proposedGround,

@@ -216,14 +216,21 @@ final class ChunkDataStreamer {
 
     func terrainGroundSample(at playerPosition: SIMD3<Float>) -> TerrainGroundSample? {
         let coordinate = chunkCoordinate(containing: playerPosition)
-        guard let sample = samplers[coordinate]?.sampleAt(
+        guard let data = loadedChunkData[coordinate],
+              let sample = samplers[coordinate]?.sampleAt(
             x: playerPosition.x,
             z: playerPosition.z
         ) else {
             return nil
         }
+        let localX = (playerPosition.x - data.originX) / ProceduralChunkDataFactory.horizontalScale
+        let localZ = (playerPosition.z - data.originZ) / ProceduralChunkDataFactory.horizontalScale
+        let surfaceClass = data.traversalData.surfaceClass(
+            nearestLocalX: localX,
+            nearestLocalZ: localZ
+        )
 
-        return TerrainGroundSample(sample: sample, chunk: coordinate)
+        return TerrainGroundSample(sample: sample, surfaceClass: surfaceClass, chunk: coordinate)
     }
 
     private func loadChunkData(_ data: ProceduralChunkData) {
@@ -546,6 +553,13 @@ final class ChunkDataStreamer {
             chunk.meshNormals.count * MemoryLayout<SIMD3<Float>>.stride +
             chunk.meshTextureCoordinates.count * MemoryLayout<SIMD2<Float>>.stride +
             chunk.meshIndices.count * MemoryLayout<UInt32>.stride +
+            chunk.traversalData.climbabilityMap.values.count * MemoryLayout<Float>.stride +
+            chunk.traversalData.climbabilityMap.ledgeScores.count * MemoryLayout<Float>.stride +
+            chunk.traversalData.climbabilityMap.surfaceClasses.count * MemoryLayout<TraversalSurfaceClass>.stride +
+            chunk.traversalData.ledges.count * MemoryLayout<LedgeCandidate>.stride +
+            chunk.traversalData.ropeAnchors.count * MemoryLayout<RopeAnchorCandidate>.stride +
+            chunk.traversalData.stairAttachCandidates.count * MemoryLayout<StairAttachCandidate>.stride +
+            chunk.traversalData.verticalTraversalCandidates.count * MemoryLayout<VerticalTraversalCandidate>.stride +
             chunk.propPlacements.count * MemoryLayout<PropPlacement>.stride +
             chunk.propVariants.count * MemoryLayout<PropVariant>.stride
     }

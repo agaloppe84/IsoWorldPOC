@@ -36,6 +36,10 @@ public struct TerrainSystem: Sendable {
         chunkGenerator.featureGraph().features(intersecting: coordinate)
     }
 
+    public func traversalData(for coordinate: ChunkCoordinate) -> TraversalChunkData {
+        chunkGenerator.traversalData(for: coordinate)
+    }
+
     public func validationReport(for coordinate: ChunkCoordinate) -> TerrainValidationReport {
         sampleGrid(for: coordinate).validationReport
     }

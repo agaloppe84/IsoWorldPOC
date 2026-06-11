@@ -79,6 +79,10 @@ public struct TerrainChunkGenerator: Sendable {
         fieldProvider.featureGraphSnapshot()
     }
 
+    public func traversalData(for coordinate: ChunkCoordinate) -> TraversalChunkData {
+        TraversalChunkData(sampleGrid: generateSampleGrid(for: coordinate))
+    }
+
     private var gridStride: Int {
         resolution - 1
     }

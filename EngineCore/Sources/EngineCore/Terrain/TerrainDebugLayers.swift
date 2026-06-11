@@ -12,13 +12,17 @@ public enum TerrainDebugLayer: String, CaseIterable, Codable, Sendable {
     case cliffMask
     case walkability
     case climbability
+    case traversalSurface
+    case ledgeScore
 }
 
 public struct TerrainDebugLayers: Sendable {
     public let grid: TerrainSampleGrid
+    public let climbabilityMap: ClimbabilityMap
 
     public init(grid: TerrainSampleGrid) {
         self.grid = grid
+        self.climbabilityMap = ClimbabilityMap(sampleGrid: grid)
     }
 
     public func value(
@@ -66,6 +70,13 @@ public struct TerrainDebugLayers: Sendable {
             return sample.walkability
         case .climbability:
             return sample.climbability
+        case .traversalSurface:
+            return TraversalSurfaceClass.classify(sample).debugValue
+        case .ledgeScore:
+            return climbabilityMap.ledgeScore(
+                localX: sample.localX,
+                localZ: sample.localZ
+            )
         }
     }
 }

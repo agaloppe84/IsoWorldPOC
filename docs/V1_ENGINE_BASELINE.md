@@ -184,6 +184,19 @@ Step 14 remplace le terrain purement bruite par un premier `TerrainFeatureGraph`
 
 Cette passe ne rend pas encore de mesh d'eau dedie. L'eau V1 est un contrat de generation et de material masks, pret pour debug/renderer/gameplay dans les prochains steps.
 
+## Step 15 livre
+
+Step 15 ajoute la premiere couche de verticalite gameplay V1 au-dessus du terrain feature-driven:
+
+- `EngineCore/Traversal` contient les types purs `TraversalSurfaceClass`, `TraversalChunkData`, `ClimbabilityMap`, `VerticalTraversalCandidate`, `RopeAnchorCandidate`, `StairAttachCandidate` et `LedgeCandidate`.
+- Chaque chunk derive une classification `walkable`, `steep`, `climbable`, `dangerous`, `blocked` depuis slope, waterDepth, feature masks, walkability et climbability.
+- Les ledges, anchors de corde, attaches d'escalier et routes verticales candidates sont generes deterministiquement depuis `TerrainSampleGrid`.
+- `TerrainSystem` expose `traversalData(for:)`; `ProceduralChunkDataFactory` transporte cette data dans le chunk runtime.
+- Le grounding joueur consomme la classe traversal quand elle existe, avec fallback pente pour rester robuste.
+- Les debug layers terrain exposent `traversalSurface` et `ledgeScore`; `TerrainValidationReport` resume le ratio blocked et le nombre de candidats.
+
+Cette passe ne cree pas encore de mesh de corde/escalier ni de mode escalade joueur complet. Elle pose le contrat moteur V1 pour que ces features puissent etre ajoutees sans hardcoder les regles dans le renderer ou le player.
+
 ## Prochaine cible
 
-Step 15 peut ajouter la verticalite gameplay V1 au-dessus des nouveaux masques terrain: surfaces walkable/steep/climbable/dangerous/blocked, candidats ledges, cordes et escaliers.
+Step 16 peut ajouter le personnage procedural minimal: body parameters, appearance, slots d'equipement et base exploitable par animation/gameplay.

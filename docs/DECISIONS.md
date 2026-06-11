@@ -453,3 +453,13 @@ Raison: le terrain V1 ne doit plus etre uniquement une somme de bruits. Il doit 
 Consequence: les features restent des donnees moteur pures, queryables par chunk et independantes de Metal/SwiftUI. Les samples terrain transportent `waterDepth` et `TerrainFeatureMasks`, puis les masks influencent hauteur, humidite, walkability, climbability et splats de materiaux shore.
 
 Garantie: les tests EngineCore couvrent familles de features, determinisme, query chunk, carving de riviere, masks hydrologie, continuite aux bords de chunks, debug layers et coverage validation.
+
+## 045 - Verticalite gameplay V1
+
+Decision: ajouter une couche `EngineCore/Traversal` pure pour classifier les surfaces et produire les premieres affordances verticales.
+
+Raison: le terrain feature-driven doit devenir lisible par le gameplay avant d'ajouter escalade, cordes ou escaliers reels. Les regles de marche, danger, paroi et attachement ne doivent pas etre hardcodees dans le renderer ou dans le player.
+
+Consequence: chaque `TerrainSampleGrid` peut produire un `TraversalChunkData` contenant `ClimbabilityMap`, surface classes, ledges, anchors de corde, attaches d'escalier et routes verticales candidates. `ProceduralChunkData` transporte cette data jusqu'au runtime, et le grounding joueur utilise `TraversalSurfaceClass` quand elle est disponible.
+
+Garantie: les tests EngineCore couvrent classification, candidats verticaux, determinisme, continuite de classes aux bords de chunks, debug layers et validation report. Un test app verifie que le grounding respecte une surface `blocked`.

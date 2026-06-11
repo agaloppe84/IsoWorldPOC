@@ -4,6 +4,7 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
         case invalidSample
         case materialWeightsNotNormalized
         case noWalkableSurface
+        case noTraversalSurfaceData
     }
 
     public let minHeight: Float
@@ -14,6 +15,8 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
     public let shoreCoverage: Float
     public let walkableRatio: Float
     public let climbableRatio: Float
+    public let blockedTraversalRatio: Float
+    public let traversalCandidateCount: Int
     public let materialCoverage: [String: Float]
     public let issues: [Issue]
 
@@ -31,6 +34,8 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
             self.shoreCoverage = 0
             self.walkableRatio = 0
             self.climbableRatio = 0
+            self.blockedTraversalRatio = 0
+            self.traversalCandidateCount = 0
             self.materialCoverage = [:]
             self.issues = [.emptyGrid]
             return
@@ -44,8 +49,10 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
         var shoreCoverageTotal: Float = 0
         var walkableCount = 0
         var climbableCount = 0
+        var blockedTraversalCount = 0
         var coverage: [String: Float] = [:]
         var issues: [Issue] = []
+        let traversalData = TraversalChunkData(sampleGrid: grid)
 
         for sample in grid.samples {
             if !Self.isFinite(sample) {
@@ -71,6 +78,10 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
                 climbableCount += 1
             }
 
+            if TraversalSurfaceClass.classify(sample).isBlockedForFootTraversal {
+                blockedTraversalCount += 1
+            }
+
             for layer in sample.materialWeights.splat.layers {
                 coverage[layer.materialIdentifier, default: 0] += layer.weight
             }
@@ -85,10 +96,16 @@ public struct TerrainValidationReport: Equatable, Codable, Sendable {
         self.shoreCoverage = shoreCoverageTotal / sampleCount
         self.walkableRatio = Float(walkableCount) / sampleCount
         self.climbableRatio = Float(climbableCount) / sampleCount
+        self.blockedTraversalRatio = Float(blockedTraversalCount) / sampleCount
+        self.traversalCandidateCount = traversalData.candidateCount
         self.materialCoverage = coverage.mapValues { $0 / sampleCount }
 
         if walkableCount == 0 {
             issues.append(.noWalkableSurface)
+        }
+
+        if traversalData.climbabilityMap.surfaceClasses.count != grid.samples.count {
+            issues.append(.noTraversalSurfaceData)
         }
 
         self.issues = Array(Set(issues)).sorted { $0.rawValue < $1.rawValue }

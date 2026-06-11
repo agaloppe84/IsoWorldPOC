@@ -14,6 +14,7 @@ struct ProceduralChunkData: Sendable {
     let biome: Biome
     let terrainGeometry: TerrainGeometryBuffers
     let terrainVertexMaterials: [TerrainVertexMaterial]
+    let traversalData: TraversalChunkData
     let meshPositions: [SIMD3<Float>]
     let meshNormals: [SIMD3<Float>]
     let meshTextureCoordinates: [SIMD2<Float>]
@@ -92,6 +93,7 @@ enum ProceduralChunkDataFactory {
         try cancellationToken?.checkCancellation()
 
         let terrainSampleGrid = terrainSystem.sampleGrid(for: coordinate)
+        let traversalData = TraversalChunkData(sampleGrid: terrainSampleGrid)
 
         try cancellationToken?.checkCancellation()
 
@@ -124,6 +126,7 @@ enum ProceduralChunkDataFactory {
             biome: biome,
             terrainGeometry: terrainGeometry,
             terrainVertexMaterials: terrainVertexMaterials,
+            traversalData: traversalData,
             meshPositions: terrainGeometry.positions.map { SIMD3<Float>($0.x, $0.y, $0.z) },
             meshNormals: terrainGeometry.normals.map { SIMD3<Float>($0.x, $0.y, $0.z) },
             meshTextureCoordinates: terrainGeometry.textureCoordinates.map { SIMD2<Float>($0.u, $0.v) },

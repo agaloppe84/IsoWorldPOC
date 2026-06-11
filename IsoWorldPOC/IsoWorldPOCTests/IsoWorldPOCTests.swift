@@ -386,6 +386,30 @@ struct IsoWorldPOCTests {
         #expect(runtime.snapshotBuildTiming.propCount == cachedSnapshot.visiblePropCount)
     }
 
+    @Test func playerGroundingUsesTraversalSurfaceClassWhenAvailable() {
+        let grounding = PlayerGrounding()
+        let previousGround = TerrainGroundSample(
+            sample: TerrainSampler.Sample(height: 0, slope: 0),
+            surfaceClass: .walkable,
+            chunk: .origin
+        )
+        let blockedGround = TerrainGroundSample(
+            sample: TerrainSampler.Sample(height: 1, slope: 0),
+            surfaceClass: .blocked,
+            chunk: .origin
+        )
+        let result = grounding.resolve(
+            previousPosition: SIMD3<Float>(0, 0, 0),
+            proposedPosition: SIMD3<Float>(1, 0, 0),
+            proposedGround: blockedGround,
+            previousGround: previousGround
+        )
+
+        #expect(result.position.x == 0)
+        #expect(result.playerGrounded)
+        #expect(result.movementBlockedBySlope)
+    }
+
     @Test func materialBindingTableKeepsTerrainPBRTextureSlotsStable() {
         let descriptors = TerrainTextureSlot.allTerrainPBRSlots.map { slot in
             TerrainTextureDescriptor(slot: slot, debugColor: SIMD4<Float>.zero)
