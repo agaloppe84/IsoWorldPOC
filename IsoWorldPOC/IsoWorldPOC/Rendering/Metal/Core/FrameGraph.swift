@@ -34,9 +34,13 @@ struct FrameGraph {
         case .depthPrepass:
             return false
         case .opaque:
-            return context.playerBuffers != nil || context.visibleChunks.contains { chunk in
-                context.chunkBuffersByCoordinate[chunk.coordinate] != nil
-            }
+            let hasPlayer = context.shouldRenderPlayer && context.playerBuffers != nil
+            let hasChunks = (context.shouldRenderTerrain || context.shouldRenderProps) &&
+                context.visibleChunks.contains { chunk in
+                    context.chunkBuffersByCoordinate[chunk.coordinate] != nil
+                }
+
+            return hasPlayer || hasChunks
         case .debugOverlay:
             return context.snapshot.debugOptions.showChunkBounds &&
                 context.visibleChunks.contains { chunk in

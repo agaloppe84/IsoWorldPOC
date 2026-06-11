@@ -355,3 +355,15 @@ Consequence: les types `WorldPrepareRequest`, `LoadingProgress`, `WorldPreparePh
 Garantie: les tests Xcode couvrent la creation d'une session preparee, les exigences d'ouverture, la progression jusqu'a `openSession` et le demarrage du runtime depuis le seed/chunks de session.
 
 Limite actuelle: le warmup renderer valide les payloads CPU critiques, mais la precompilation explicite de pipelines GPU Metal reste dans `MetalRenderer` et sera traitee plus tard.
+
+## 036 - Perf baseline et isolation debug Step 12-BIS
+
+Decision: separer les profils `realWorld` et `debugWorld`, puis faire passer les toggles d'isolation par le pipeline V1 complet.
+
+Raison: une chute a 15 FPS sans outils d'isolation fiables est trop floue pour avancer proprement. Le vrai monde ne doit pas afficher d'outils debug, tandis que le monde debug doit permettre de couper terrain, props, player, bounds, simulation, streaming et LOD pour localiser le cout.
+
+Consequence: `DebugMetrics` porte les toggles et timings utiles, `RenderSnapshotBuilder` les convertit en `RenderDebugOptions`, `FrameGraph` active les passes selon les couches rendues, `RenderPayloadUploader` evite les uploads chunks quand ils ne sont pas necessaires et `MetalRenderer` publie les couts simulation/snapshot/sync/encode et les estimations memoire.
+
+Garantie: les tests verifient les flags `RenderDebugOptions`, le profil Real World sans chunk bounds et les flags terrain/props envoyes aux uniforms Metal.
+
+Limite actuelle: les mesures restent CPU-side et approximatives pour la memoire GPU. Un profiling Metal plus fin pourra arriver quand les passes seront plus nombreuses.

@@ -45,6 +45,7 @@ struct MetalPropPass {
             metrics.propDrawCalls += 1
             metrics.propChunksDrawn += 1
             metrics.propsDrawn += chunk.props.filter(\.isVisible).count
+            metrics.propIndicesDrawn += buffers.propIndexCount
         }
 
         return metrics

@@ -23,10 +23,35 @@ struct DebugOverlayView: View {
             }
             .pickerStyle(.segmented)
             Text("fps / frame: \(format(metrics.framesPerSecond)) / \(format(metrics.frameTimeMilliseconds)) ms")
+            Text("cpu sim / snapshot: \(format(metrics.simulationUpdateMs)) / \(format(metrics.snapshotBuildMs)) ms")
+            Text("buffer sync / encode: \(format(metrics.bufferSyncMs)) / \(format(metrics.renderEncodeMs)) ms")
             Text("chunk data avg: \(format(metrics.averageChunkDataGenerationMs)) ms")
             Text("chunk upload avg: \(format(metrics.averageChunkUploadMs)) ms")
             Text("draw calls total: \(metrics.metalDrawCallCount)")
+            Text("indices terrain / props: \(metrics.metalVisibleTerrainIndexCount) / \(metrics.metalVisiblePropIndexCount)")
+            Text("memory cpu/gpu: \(formatBytes(metrics.estimatedChunkCPUBytes)) / \(formatBytes(metrics.estimatedGPUBufferBytes))")
             Text("terrain textures arrays/layers: \(metrics.metalTerrainTextureArrayCount) / \(metrics.metalTerrainTextureLayerCount)")
+
+            Divider().overlay(.white.opacity(0.35))
+
+            sectionTitle("ISOLATION")
+            Toggle("render terrain", isOn: $metrics.renderTerrain)
+            Toggle("render props", isOn: $metrics.renderProps)
+            Toggle("render player", isOn: $metrics.renderPlayer)
+            Toggle("show chunk bounds", isOn: $metrics.showChunkBounds)
+            Toggle("freeze simulation", isOn: $metrics.freezeSimulation)
+            Toggle("freeze streaming", isOn: $metrics.freezeChunkStreaming)
+            Picker("force LOD", selection: $metrics.forcedLODLevel) {
+                Text("Auto").tag(nil as LODLevel?)
+                ForEach(LODLevel.allCases, id: \.self) { level in
+                    Text(level.displayName).tag(Optional(level))
+                }
+            }
+            .pickerStyle(.menu)
+
+            Divider().overlay(.white.opacity(0.35))
+
+            sectionTitle("MATERIAL")
             Picker("terrain material", selection: $metrics.terrainMaterialDebugMode) {
                 ForEach(TerrainMaterialDebugMode.allCases, id: \.self) { mode in
                     Text(mode.displayName).tag(mode)
@@ -56,7 +81,6 @@ struct DebugOverlayView: View {
             Text("drawn chunks / props: \(metrics.metalRenderedChunkCount) / \(metrics.metalRenderedPropCount)")
             Text("jobs queued / gen / ready: \(metrics.chunkJobsQueued) / \(metrics.chunkJobsGenerating) / \(metrics.chunksReadyForUpload)")
             Text("uploads this frame: \(metrics.chunkUploadsThisFrame)")
-            Toggle("showChunkBounds", isOn: $metrics.showChunkBounds)
         }
         .font(.system(size: 12, weight: .medium, design: .monospaced))
         .foregroundStyle(.white)
@@ -84,6 +108,16 @@ struct DebugOverlayView: View {
         }
 
         return format(value)
+    }
+
+    private func formatBytes(_ value: Int) -> String {
+        let kilobytes = Double(value) / 1_024
+
+        guard kilobytes >= 1_024 else {
+            return String(format: "%.0f KB", kilobytes)
+        }
+
+        return String(format: "%.1f MB", kilobytes / 1_024)
     }
 
 }

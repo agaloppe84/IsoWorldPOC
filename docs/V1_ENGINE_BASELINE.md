@@ -80,6 +80,18 @@ Step 12 remplace le loading cosmetique par un `WorldPreparePipeline` reel:
 
 La V1 ne precompile pas encore les pipelines GPU Metal hors renderer. Le warmup Step 12 valide les payloads CPU critiques avant premiere frame.
 
+## Step 12-BIS livre
+
+Step 12-BIS ajoute une baseline performance et separe clairement le vrai monde du monde debug:
+
+- Le mode `realWorld` demarre en cadence live gameplay mais sans bounds de chunks ni badge debug de seed.
+- Le mode `debugWorld` garde les bounds de chunks et expose des toggles d'isolation: terrain, props, player, bounds, freeze simulation, freeze streaming et LOD force.
+- `WorldRuntime`, `RenderSnapshotBuilder`, `RenderWorldSnapshot`, `RenderPayloadUploader`, `FrameGraph` et les passes Metal consomment tous les memes options V1.
+- Les metriques debug se concentrent sur les couts utiles: simulation, snapshot, sync buffers, encode render, indices visibles et estimation memoire CPU/GPU.
+- Les buffers chunks peuvent etre liberes quand seuls le player ou les couches non-chunk sont rendus.
+
+Cette etape ne corrige pas encore toutes les causes possibles de chute FPS. Elle donne un banc d'isolation propre pour identifier si le cout vient de la simulation, du snapshot, du streaming chunks, des buffers GPU, du terrain, des props ou de l'overlay debug.
+
 ## Prochaine cible
 
 Step 13 peut ouvrir le `Tools Hub` minimal. Il doit rester data-driven et consommer les systemes V1 existants sans contourner `EngineCore`.

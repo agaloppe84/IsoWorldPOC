@@ -104,6 +104,12 @@ final class ChunkDataStreamer {
         }
     }
 
+    var estimatedChunkCPUBytes: Int {
+        loadedChunkData.values.reduce(0) { total, chunk in
+            total + estimatedCPUBytes(for: chunk)
+        }
+    }
+
     var chunkJobsQueued: Int {
         pendingChunkQueue.count
     }
@@ -171,7 +177,8 @@ final class ChunkDataStreamer {
 
     func update(
         around playerPosition: SIMD3<Float>,
-        fieldOfViewDegrees: Float = 35
+        fieldOfViewDegrees: Float = 35,
+        forcedLODLevel: LODLevel? = nil
     ) {
         lastReadyChunksActivatedThisFrame = 0
         currentChunk = chunkCoordinate(containing: playerPosition)
@@ -186,16 +193,25 @@ final class ChunkDataStreamer {
         enqueueMissingChunks(preloadChunks: preloadChunks, activeChunks: activeChunks)
         startGenerationJobsIfNeeded()
         activateReadyChunks(preloadChunks: preloadChunks, activeChunks: activeChunks)
-        updateLODSelections(around: playerPosition, fieldOfViewDegrees: fieldOfViewDegrees)
+        updateLODSelections(
+            around: playerPosition,
+            fieldOfViewDegrees: fieldOfViewDegrees,
+            forcedLODLevel: forcedLODLevel
+        )
     }
 
     func updateActiveVisibility(
         around playerPosition: SIMD3<Float>,
-        fieldOfViewDegrees: Float = 35
+        fieldOfViewDegrees: Float = 35,
+        forcedLODLevel: LODLevel? = nil
     ) {
         currentChunk = chunkCoordinate(containing: playerPosition)
         activeChunkSet = requiredChunks(around: currentChunk, radius: activeRadiusValue)
-        updateLODSelections(around: playerPosition, fieldOfViewDegrees: fieldOfViewDegrees)
+        updateLODSelections(
+            around: playerPosition,
+            fieldOfViewDegrees: fieldOfViewDegrees,
+            forcedLODLevel: forcedLODLevel
+        )
     }
 
     func terrainGroundSample(at playerPosition: SIMD3<Float>) -> TerrainGroundSample? {
@@ -350,7 +366,8 @@ final class ChunkDataStreamer {
 
     private func updateLODSelections(
         around playerPosition: SIMD3<Float>,
-        fieldOfViewDegrees: Float
+        fieldOfViewDegrees: Float,
+        forcedLODLevel: LODLevel?
     ) {
         let candidateCoordinates = sorted(activeChunkSet).filter { loadedChunkData[$0] != nil }
         var nextSelections: [ChunkCoordinate: LODSelection] = [:]
@@ -360,12 +377,22 @@ final class ChunkDataStreamer {
             let distance = distanceFromPlayer(playerPosition, toChunkCenter: coordinate)
             let previousLevel = lodSelectionsByCoordinate[coordinate]?.level
 
-            nextSelections[coordinate] = LODSelection.select(
+            let selection = LODSelection.select(
                 distance: distance,
                 fieldOfViewDegrees: fieldOfViewDegrees,
                 policy: lodPolicy,
                 previousLevel: previousLevel
             )
+            nextSelections[coordinate] = forcedLODLevel.map { forcedLevel in
+                LODSelection(
+                    level: forcedLevel,
+                    distance: selection.distance,
+                    screenError: selection.screenError,
+                    isVisible: selection.isVisible,
+                    cullingReason: selection.cullingReason,
+                    rendersProps: forcedLevel.rendersProps
+                )
+            } ?? selection
         }
 
         let visibleCoordinatesByPriority = candidateCoordinates
@@ -507,6 +534,20 @@ final class ChunkDataStreamer {
         }
 
         return total / Float(sampleCount)
+    }
+
+    private func estimatedCPUBytes(for chunk: ProceduralChunkData) -> Int {
+        chunk.terrainGeometry.positions.count * MemoryLayout<TerrainGeometryBuffers.Position>.stride +
+            chunk.terrainGeometry.normals.count * MemoryLayout<TerrainGeometryBuffers.Normal>.stride +
+            chunk.terrainGeometry.textureCoordinates.count * MemoryLayout<TerrainGeometryBuffers.TextureCoordinate>.stride +
+            chunk.terrainGeometry.indices.count * MemoryLayout<UInt32>.stride +
+            chunk.terrainVertexMaterials.count * MemoryLayout<TerrainVertexMaterial>.stride +
+            chunk.meshPositions.count * MemoryLayout<SIMD3<Float>>.stride +
+            chunk.meshNormals.count * MemoryLayout<SIMD3<Float>>.stride +
+            chunk.meshTextureCoordinates.count * MemoryLayout<SIMD2<Float>>.stride +
+            chunk.meshIndices.count * MemoryLayout<UInt32>.stride +
+            chunk.propPlacements.count * MemoryLayout<PropPlacement>.stride +
+            chunk.propVariants.count * MemoryLayout<PropVariant>.stride
     }
 
     private func sorted(_ coordinates: Set<ChunkCoordinate>) -> [ChunkCoordinate] {

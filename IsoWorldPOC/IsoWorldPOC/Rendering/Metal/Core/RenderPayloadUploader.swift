@@ -36,8 +36,17 @@ final class RenderPayloadUploader {
     ) {
         chunkUploadsThisFrame = 0
 
-        let requiredCoordinates = Set(snapshot.chunks.filter(\.isVisible).map(\.coordinate))
+        let needsChunkBuffers = snapshot.debugOptions.renderTerrain ||
+            snapshot.debugOptions.renderProps ||
+            snapshot.debugOptions.showChunkBounds
+        let requiredCoordinates = needsChunkBuffers
+            ? Set(snapshot.chunks.filter(\.isVisible).map(\.coordinate))
+            : []
         registry.removeChunks(except: requiredCoordinates)
+
+        guard needsChunkBuffers else {
+            return
+        }
 
         for chunk in uploadCandidates(from: snapshot, registry: registry) {
             guard chunkUploadsThisFrame < maxChunkUploadsPerFrame else {

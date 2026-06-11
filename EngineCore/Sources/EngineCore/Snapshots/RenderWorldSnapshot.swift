@@ -29,15 +29,24 @@ public enum TerrainMaterialDebugMode: String, CaseIterable, Codable, Sendable {
 
 public struct RenderDebugOptions: Equatable, Codable, Sendable {
     public let showChunkBounds: Bool
+    public let renderTerrain: Bool
+    public let renderProps: Bool
+    public let renderPlayer: Bool
     public let terrainMaterialDebugMode: TerrainMaterialDebugMode
     public let terrainSplatDebugLayerIndex: Int
 
     public init(
         showChunkBounds: Bool = false,
+        renderTerrain: Bool = true,
+        renderProps: Bool = true,
+        renderPlayer: Bool = true,
         terrainMaterialDebugMode: TerrainMaterialDebugMode = .normal,
         terrainSplatDebugLayerIndex: Int = 0
     ) {
         self.showChunkBounds = showChunkBounds
+        self.renderTerrain = renderTerrain
+        self.renderProps = renderProps
+        self.renderPlayer = renderPlayer
         self.terrainMaterialDebugMode = terrainMaterialDebugMode
         self.terrainSplatDebugLayerIndex = Self.clampedSplatLayerIndex(terrainSplatDebugLayerIndex)
     }

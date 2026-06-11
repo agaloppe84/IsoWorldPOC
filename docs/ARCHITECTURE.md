@@ -197,9 +197,22 @@ Responsabilites:
 - `RenderChunk`;
 - `RenderProp`;
 - `CameraRenderState`;
-- options de debug chunk bounds et modes materiaux terrain.
+- options de debug chunk bounds, toggles d'isolation et modes materiaux terrain.
 
 Le renderer Metal ne doit donc pas construire le monde ni decider quels chunks existent. Il recoit un snapshot, synchronise les buffers GPU manquants, puis dessine.
+
+### Baseline performance et isolation
+
+Le vrai monde et le monde debug utilisent le meme pipeline V1, mais pas le meme profil:
+
+- `realWorld` demarre sans chunk bounds et sans metriques visibles dans la scene.
+- `debugWorld` expose les outils d'isolation dans l'overlay.
+- Les toggles d'isolation passent de `DebugMetrics` a `RenderSnapshotDebugOptions`, puis a `RenderDebugOptions`.
+- `WorldRuntime` respecte `freezeSimulation`, `freezeChunkStreaming` et `forcedLODLevel`.
+- `RenderPayloadUploader` synchronise les buffers chunks seulement si terrain, props ou chunk bounds en ont besoin.
+- `FrameGraph` et les passes Metal sautent les couches desactivees au lieu de dessiner puis masquer.
+
+Les metriques prioritaires sont: frame time, simulation, snapshot, sync buffers, encode render, chunks visibles, indices terrain/props et estimation memoire CPU/GPU. Elles servent a isoler les couts avant toute optimisation plus invasive.
 
 ### Donnees de chunks procedurales
 

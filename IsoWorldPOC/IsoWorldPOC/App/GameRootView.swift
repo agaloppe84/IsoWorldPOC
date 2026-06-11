@@ -12,7 +12,7 @@ struct GameRootView: View {
     let initialRunMode: DebugWorldRunMode
     let worldSession: WorldSession?
 
-    @StateObject private var debugMetrics = DebugMetrics()
+    @StateObject private var debugMetrics: DebugMetrics
 
     init(
         showsDebugOverlay: Bool = true,
@@ -22,6 +22,10 @@ struct GameRootView: View {
         self.showsDebugOverlay = showsDebugOverlay
         self.initialRunMode = initialRunMode
         self.worldSession = worldSession
+        self._debugMetrics = StateObject(wrappedValue: DebugMetrics(
+            debugWorldRunMode: initialRunMode,
+            showChunkBounds: showsDebugOverlay
+        ))
     }
 
     var body: some View {

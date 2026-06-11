@@ -38,6 +38,49 @@ struct IsoWorldPOCTests {
         #expect(policy.allowContinuousAnimation == true)
     }
 
+    @MainActor
+    @Test func realWorldDebugProfileStartsCleanButRenderable() {
+        let metrics = DebugMetrics(
+            debugWorldRunMode: .liveGameplay,
+            showChunkBounds: false
+        )
+
+        #expect(metrics.debugWorldRunMode == .liveGameplay)
+        #expect(metrics.showChunkBounds == false)
+        #expect(metrics.renderTerrain)
+        #expect(metrics.renderProps)
+        #expect(metrics.renderPlayer)
+        #expect(metrics.freezeSimulation == false)
+        #expect(metrics.freezeChunkStreaming == false)
+        #expect(metrics.forcedLODLevel == nil)
+    }
+
+    @Test func renderSnapshotDebugOptionsDefaultToDebugInspection() {
+        let options = RenderSnapshotDebugOptions.defaults
+
+        #expect(options.showChunkBounds)
+        #expect(options.renderTerrain)
+        #expect(options.renderProps)
+        #expect(options.renderPlayer)
+        #expect(options.freezeSimulation == false)
+        #expect(options.freezeChunkStreaming == false)
+        #expect(options.forcedLODLevel == nil)
+    }
+
+    @Test func metalDebugUniformsExposeIsolationLayerFlags() {
+        let enabledUniforms = MetalRenderDebugUniforms(
+            options: RenderDebugOptions(renderTerrain: true, renderProps: true)
+        )
+        let disabledUniforms = MetalRenderDebugUniforms(
+            options: RenderDebugOptions(renderTerrain: false, renderProps: false)
+        )
+
+        #expect(enabledUniforms.terrainMaterialModeAndFlags.z == 1)
+        #expect(enabledUniforms.terrainMaterialModeAndFlags.w == 1)
+        #expect(disabledUniforms.terrainMaterialModeAndFlags.z == 0)
+        #expect(disabledUniforms.terrainMaterialModeAndFlags.w == 0)
+    }
+
     @Test func worldFrameGraphKeepsBaselinePassOrder() {
         let passKinds = FrameGraph.worldRenderer.passDescriptors.map(\.kind)
 
@@ -140,6 +183,27 @@ struct IsoWorldPOCTests {
         #expect(runtime.playerPosition.x == session.spawnPosition.x)
         #expect(runtime.playerPosition.z == session.spawnPosition.z)
         #expect(runtime.frameSnapshot.debug.cachedChunkCount >= session.initialChunkCount)
+    }
+
+    @MainActor
+    @Test func worldRuntimeFreezeSimulationKeepsSimulationClockStable() {
+        let runtime = WorldRuntime()
+        let initialSimulationTime = runtime.frameSnapshot.simulationTime
+        let debugOptions = RenderSnapshotDebugOptions(
+            showChunkBounds: false,
+            renderTerrain: true,
+            renderProps: true,
+            renderPlayer: true,
+            terrainMaterialDebugMode: .normal,
+            terrainSplatDebugLayerIndex: 0,
+            freezeSimulation: true,
+            freezeChunkStreaming: false,
+            forcedLODLevel: nil
+        )
+
+        _ = runtime.update(deltaTime: 1.0, debugOptions: debugOptions)
+
+        #expect(runtime.frameSnapshot.simulationTime == initialSimulationTime)
     }
 
     @Test func materialBindingTableKeepsTerrainPBRTextureSlotsStable() {

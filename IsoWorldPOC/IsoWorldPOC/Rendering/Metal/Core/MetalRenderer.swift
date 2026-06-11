@@ -41,6 +41,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private var drawableSize = SIMD2<Float>(1, 1)
     private var latestFramesPerSecond: Float = 0
     private var latestFrameTimeMilliseconds: Float = 0
+    private var lastBufferSyncMs: Float = 0
+    private var lastRenderEncodeMs: Float = 0
     private var renderedFrameCount = 0
     private var lastDebugMetricsPublishTime = 0.0
 
@@ -63,11 +65,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         self.payloadUploader = RenderPayloadUploader(device: device)
         self.runtime = WorldRuntime(
             worldSession: worldSession,
-            debugOptions: RenderSnapshotDebugOptions(
-                showChunkBounds: debugMetrics.showChunkBounds,
-                terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode,
-                terrainSplatDebugLayerIndex: debugMetrics.terrainSplatDebugLayerIndex
-            )
+            debugOptions: Self.makeDebugOptions(from: debugMetrics)
         )
         self.snapshot = runtime.snapshot
 
@@ -98,11 +96,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     func update(deltaTime: Float) {
         snapshot = runtime.update(
             deltaTime: deltaTime,
-            debugOptions: RenderSnapshotDebugOptions(
-                showChunkBounds: debugMetrics.showChunkBounds,
-                terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode,
-                terrainSplatDebugLayerIndex: debugMetrics.terrainSplatDebugLayerIndex
-            )
+            debugOptions: makeDebugOptions()
         )
     }
 
@@ -110,7 +104,9 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         let deltaTime = updatePerformanceMetrics()
         update(deltaTime: deltaTime)
 
+        let syncStart = currentTimeMilliseconds()
         syncBuffers(with: snapshot)
+        lastBufferSyncMs = Float(currentTimeMilliseconds() - syncStart)
 
         guard
             let commandQueue,
@@ -125,6 +121,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             return
         }
 
+        let encodeStart = currentTimeMilliseconds()
         renderPassDescriptor.colorAttachments[0].clearColor = clearColor
         renderPassDescriptor.depthAttachment.clearDepth = 1.0
 
@@ -171,6 +168,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         lastFramePlan = framePlan
 
         renderEncoder.endEncoding()
+        lastRenderEncodeMs = Float(currentTimeMilliseconds() - encodeStart)
 
         commandBuffer.present(drawable)
         commandBuffer.commit()
@@ -233,6 +231,24 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         payloadUploader.sync(snapshot: snapshot, registry: resourceRegistry)
     }
 
+    private func makeDebugOptions() -> RenderSnapshotDebugOptions {
+        Self.makeDebugOptions(from: debugMetrics)
+    }
+
+    private static func makeDebugOptions(from debugMetrics: DebugMetrics) -> RenderSnapshotDebugOptions {
+        RenderSnapshotDebugOptions(
+            showChunkBounds: debugMetrics.showChunkBounds,
+            renderTerrain: debugMetrics.renderTerrain,
+            renderProps: debugMetrics.renderProps,
+            renderPlayer: debugMetrics.renderPlayer,
+            terrainMaterialDebugMode: debugMetrics.terrainMaterialDebugMode,
+            terrainSplatDebugLayerIndex: debugMetrics.terrainSplatDebugLayerIndex,
+            freezeSimulation: debugMetrics.freezeSimulation,
+            freezeChunkStreaming: debugMetrics.freezeChunkStreaming,
+            forcedLODLevel: debugMetrics.forcedLODLevel
+        )
+    }
+
     private func encode(
         passKind: RenderPassKind,
         context: MetalFrameContext,
@@ -285,6 +301,12 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             frameTimeMilliseconds: latestFrameTimeMilliseconds,
             renderedFrameCount: renderedFrameCount
         )
+        debugMetrics.applyPipelineTiming(
+            simulationUpdateMs: runtime.simulationUpdateMs,
+            snapshotBuildMs: runtime.snapshotBuildMs,
+            bufferSyncMs: lastBufferSyncMs,
+            renderEncodeMs: lastRenderEncodeMs
+        )
         runtime.applyDebugMetrics(to: debugMetrics)
         debugMetrics.cachedChunkCount = resourceRegistry.cachedChunkCount
         debugMetrics.averageChunkUploadMs = payloadUploader.averageChunkUploadMs
@@ -297,6 +319,9 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         debugMetrics.metalRenderedChunkCount = lastDrawMetrics.terrainChunksDrawn
         debugMetrics.metalRenderedPropCount = lastDrawMetrics.propsDrawn
         debugMetrics.metalBufferCount = resourceRegistry.bufferCount
+        debugMetrics.metalVisibleTerrainIndexCount = lastDrawMetrics.terrainIndicesDrawn
+        debugMetrics.metalVisiblePropIndexCount = lastDrawMetrics.propIndicesDrawn
+        debugMetrics.estimatedGPUBufferBytes = resourceRegistry.estimatedBufferBytes
         debugMetrics.metalFrameGraphPassCount = lastFramePlan.passCount
         debugMetrics.metalFrameGraphEnabledPassCount = lastFramePlan.enabledPassCount
         debugMetrics.metalTerrainTextureLayerCount = materialBindingTable.terrainLayerCount
@@ -353,6 +378,10 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
 
         return min(deltaTime, 1.0 / 15.0)
     }
+
+    private func currentTimeMilliseconds() -> Double {
+        ProcessInfo.processInfo.systemUptime * 1_000
+    }
 }
 
 struct MetalIndexedMeshBuffers {
@@ -362,6 +391,10 @@ struct MetalIndexedMeshBuffers {
 
     var bufferCount: Int {
         2
+    }
+
+    var estimatedByteCount: Int {
+        vertexBuffer.length + indexBuffer.length
     }
 
     init?(
@@ -409,6 +442,14 @@ struct MetalChunkBuffers {
             (debugBoundsLineVertexBuffer == nil ? 0 : 1)
     }
 
+    var estimatedByteCount: Int {
+        terrainVertexBuffer.length +
+            terrainIndexBuffer.length +
+            (propVertexBuffer?.length ?? 0) +
+            (propIndexBuffer?.length ?? 0) +
+            (debugBoundsLineVertexBuffer?.length ?? 0)
+    }
+
     init?(device: MTLDevice?, renderChunk: RenderChunk) {
         let geometry = renderChunk.terrainGeometry
         let terrainIndices = geometry.indices(for: renderChunk.lodSelection.level)
@@ -444,11 +485,7 @@ struct MetalChunkBuffers {
         self.propVertexBuffer = makeBuffer(device: device, values: propMesh.vertices)
         self.propIndexBuffer = makeBuffer(device: device, values: propMesh.indices)
         self.propIndexCount = propMesh.indices.count
-        self.debugBoundsLineVertexBuffer = device.makeBuffer(
-            bytes: debugLineVertices,
-            length: MemoryLayout<MetalTerrainVertex>.stride * debugLineVertices.count,
-            options: []
-        )
+        self.debugBoundsLineVertexBuffer = makeBuffer(device: device, values: debugLineVertices)
         self.debugBoundsLineVertexCount = debugLineVertices.count
     }
 

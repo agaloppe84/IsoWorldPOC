@@ -1383,6 +1383,9 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(snapshot.visiblePropCount, 1)
         XCTAssertEqual(snapshot.approximateTriangleCount, 128)
         XCTAssertTrue(snapshot.debugOptions.showChunkBounds)
+        XCTAssertTrue(snapshot.debugOptions.renderTerrain)
+        XCTAssertTrue(snapshot.debugOptions.renderProps)
+        XCTAssertTrue(snapshot.debugOptions.renderPlayer)
         XCTAssertEqual(snapshot.debugOptions.terrainMaterialDebugMode, .blendWeight)
         XCTAssertEqual(snapshot.debugOptions.terrainSplatDebugLayerIndex, 2)
     }
@@ -1391,6 +1394,9 @@ final class EngineCoreTests: XCTestCase {
         let options = RenderDebugOptions()
 
         XCTAssertFalse(options.showChunkBounds)
+        XCTAssertTrue(options.renderTerrain)
+        XCTAssertTrue(options.renderProps)
+        XCTAssertTrue(options.renderPlayer)
         XCTAssertEqual(options.terrainMaterialDebugMode, .normal)
         XCTAssertEqual(options.terrainSplatDebugLayerIndex, 0)
         XCTAssertEqual(
@@ -1435,6 +1441,9 @@ final class EngineCoreTests: XCTestCase {
             ],
             debugOptions: RenderDebugOptions(
                 showChunkBounds: true,
+                renderTerrain: false,
+                renderProps: false,
+                renderPlayer: false,
                 terrainMaterialDebugMode: .splatLayerWeight,
                 terrainSplatDebugLayerIndex: 3
             )
@@ -1445,6 +1454,9 @@ final class EngineCoreTests: XCTestCase {
 
         XCTAssertEqual(decoded, snapshot)
         XCTAssertEqual(decoded.chunks.first?.debugBounds?.state, .current)
+        XCTAssertFalse(decoded.debugOptions.renderTerrain)
+        XCTAssertFalse(decoded.debugOptions.renderProps)
+        XCTAssertFalse(decoded.debugOptions.renderPlayer)
         XCTAssertEqual(decoded.debugOptions.terrainMaterialDebugMode, .splatLayerWeight)
         XCTAssertEqual(decoded.debugOptions.terrainSplatDebugLayerIndex, 3)
     }

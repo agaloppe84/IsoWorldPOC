@@ -26,6 +26,18 @@ struct MetalFrameContext {
     var debugUniforms: MetalRenderDebugUniforms {
         MetalRenderDebugUniforms(options: snapshot.debugOptions)
     }
+
+    var shouldRenderTerrain: Bool {
+        snapshot.debugOptions.renderTerrain
+    }
+
+    var shouldRenderProps: Bool {
+        snapshot.debugOptions.renderProps
+    }
+
+    var shouldRenderPlayer: Bool {
+        snapshot.debugOptions.renderPlayer
+    }
 }
 
 typealias RenderFrameContext = MetalFrameContext
@@ -63,8 +75,8 @@ struct MetalRenderDebugUniforms {
         self.terrainMaterialModeAndFlags = SIMD4<Float>(
             Self.modeID(options.terrainMaterialDebugMode),
             Float(options.terrainSplatDebugLayerIndex),
-            0,
-            0
+            options.renderTerrain ? 1 : 0,
+            options.renderProps ? 1 : 0
         )
     }
 
@@ -97,6 +109,8 @@ struct MetalFrameDrawMetrics {
     var propChunksDrawn = 0
     var propsDrawn = 0
     var debugBoundsDrawn = 0
+    var terrainIndicesDrawn = 0
+    var propIndicesDrawn = 0
 
     static let empty = MetalFrameDrawMetrics()
 
@@ -113,6 +127,8 @@ struct MetalFrameDrawMetrics {
         propChunksDrawn += other.propChunksDrawn
         propsDrawn += other.propsDrawn
         debugBoundsDrawn += other.debugBoundsDrawn
+        terrainIndicesDrawn += other.terrainIndicesDrawn
+        propIndicesDrawn += other.propIndicesDrawn
     }
 }
 

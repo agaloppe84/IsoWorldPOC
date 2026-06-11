@@ -6,6 +6,7 @@
 //
 
 import EngineCore
+import Foundation
 import simd
 
 @MainActor
@@ -20,6 +21,8 @@ final class WorldRuntime {
     private let worldSeed: WorldSeed
     private var frameIndex: UInt64 = 0
     private var simulationTime: Float = 0
+    private var lastSimulationUpdateMs: Float = 0
+    private var lastSnapshotBuildMs: Float = 0
     private var lastGrounding = PlayerGroundingResult(
         position: .zero,
         groundSample: nil,
@@ -62,8 +65,14 @@ final class WorldRuntime {
             debug: DebugSnapshot(frameIndex: 0)
         )
 
-        chunkStreamer.update(around: playerController.position)
+        chunkStreamer.update(
+            around: playerController.position,
+            forcedLODLevel: debugOptions.forcedLODLevel
+        )
+        lastSimulationUpdateMs = 0
+        let snapshotStart = currentTimeMilliseconds()
         snapshot = makeSnapshot(debugOptions: debugOptions)
+        lastSnapshotBuildMs = Float(currentTimeMilliseconds() - snapshotStart)
         frameSnapshot = makeFrameSnapshot(deltaTime: 0)
     }
 
@@ -83,10 +92,17 @@ final class WorldRuntime {
         deltaTime: Float,
         debugOptions: RenderSnapshotDebugOptions
     ) -> RenderWorldSnapshot {
-        updateSimulation(deltaTime: deltaTime)
+        let simulationStart = currentTimeMilliseconds()
+        updateSimulation(deltaTime: deltaTime, debugOptions: debugOptions)
+        lastSimulationUpdateMs = Float(currentTimeMilliseconds() - simulationStart)
         frameIndex += 1
-        simulationTime += deltaTime
+        if !debugOptions.freezeSimulation {
+            simulationTime += deltaTime
+        }
+
+        let snapshotStart = currentTimeMilliseconds()
         snapshot = makeSnapshot(debugOptions: debugOptions)
+        lastSnapshotBuildMs = Float(currentTimeMilliseconds() - snapshotStart)
         frameSnapshot = makeFrameSnapshot(deltaTime: deltaTime)
 
         return snapshot
@@ -117,6 +133,7 @@ final class WorldRuntime {
         debugMetrics.approximateTriangleCount = chunkStreamer.approximateTriangleCount
         debugMetrics.approximatePropCount = chunkStreamer.approximatePropCount
         debugMetrics.averageChunkDataGenerationMs = chunkStreamer.averageChunkDataGenerationMs
+        debugMetrics.estimatedChunkCPUBytes = chunkStreamer.estimatedChunkCPUBytes
         debugMetrics.chunkJobsQueued = chunkStreamer.chunkJobsQueued
         debugMetrics.chunkJobsGenerating = frameSnapshot.debug.jobs.activeJobCount
         debugMetrics.chunksReadyForUpload = frameSnapshot.debug.chunksReadyForUpload
@@ -137,14 +154,32 @@ final class WorldRuntime {
         debugMetrics.terrainSplatDebugLayerIndex = snapshot.debugOptions.terrainSplatDebugLayerIndex
     }
 
-    private func updateSimulation(deltaTime: Float) {
+    var simulationUpdateMs: Float {
+        lastSimulationUpdateMs
+    }
+
+    var snapshotBuildMs: Float {
+        lastSnapshotBuildMs
+    }
+
+    private func updateSimulation(
+        deltaTime: Float,
+        debugOptions: RenderSnapshotDebugOptions
+    ) {
+        guard !debugOptions.freezeSimulation else {
+            updateChunkVisibilityWhenStreamingIsFrozen(debugOptions: debugOptions)
+            return
+        }
+
         cameraController.updateOrbit(deltaTime: deltaTime, input: inputManager.state)
         var cameraFieldOfView = cameraController
             .renderState(following: playerController.position)
             .fieldOfViewDegrees
-        chunkStreamer.update(
+
+        updateChunks(
             around: playerController.position,
-            fieldOfViewDegrees: cameraFieldOfView
+            fieldOfViewDegrees: cameraFieldOfView,
+            debugOptions: debugOptions
         )
 
         let previousPosition = playerController.position
@@ -167,11 +202,43 @@ final class WorldRuntime {
         cameraFieldOfView = cameraController
             .renderState(following: playerController.position)
             .fieldOfViewDegrees
-        chunkStreamer.updateActiveVisibility(
+        updateChunks(
             around: playerController.position,
-            fieldOfViewDegrees: cameraFieldOfView
+            fieldOfViewDegrees: cameraFieldOfView,
+            debugOptions: debugOptions
         )
         lastGrounding = grounding
+    }
+
+    private func updateChunks(
+        around playerPosition: SIMD3<Float>,
+        fieldOfViewDegrees: Float,
+        debugOptions: RenderSnapshotDebugOptions
+    ) {
+        if debugOptions.freezeChunkStreaming {
+            chunkStreamer.updateActiveVisibility(
+                around: playerPosition,
+                fieldOfViewDegrees: fieldOfViewDegrees,
+                forcedLODLevel: debugOptions.forcedLODLevel
+            )
+        } else {
+            chunkStreamer.update(
+                around: playerPosition,
+                fieldOfViewDegrees: fieldOfViewDegrees,
+                forcedLODLevel: debugOptions.forcedLODLevel
+            )
+        }
+    }
+
+    private func updateChunkVisibilityWhenStreamingIsFrozen(debugOptions: RenderSnapshotDebugOptions) {
+        let cameraFieldOfView = cameraController
+            .renderState(following: playerController.position)
+            .fieldOfViewDegrees
+        chunkStreamer.updateActiveVisibility(
+            around: playerController.position,
+            fieldOfViewDegrees: cameraFieldOfView,
+            forcedLODLevel: debugOptions.forcedLODLevel
+        )
     }
 
     private func makeSnapshot(debugOptions: RenderSnapshotDebugOptions) -> RenderWorldSnapshot {
@@ -209,5 +276,9 @@ final class WorldRuntime {
             ),
             chunks: []
         )
+    }
+
+    private func currentTimeMilliseconds() -> Double {
+        ProcessInfo.processInfo.systemUptime * 1_000
     }
 }

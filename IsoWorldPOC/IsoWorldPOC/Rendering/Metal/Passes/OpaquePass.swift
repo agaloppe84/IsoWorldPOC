@@ -28,9 +28,17 @@ struct OpaquePass: RenderPass {
     ) -> MetalFrameDrawMetrics {
         var metrics = MetalFrameDrawMetrics.empty
 
-        metrics.add(terrainPass.encode(context: context, renderEncoder: renderEncoder))
-        metrics.add(propPass.encode(context: context, renderEncoder: renderEncoder))
-        metrics.add(playerPass.encode(context: context, renderEncoder: renderEncoder))
+        if context.shouldRenderTerrain {
+            metrics.add(terrainPass.encode(context: context, renderEncoder: renderEncoder))
+        }
+
+        if context.shouldRenderProps {
+            metrics.add(propPass.encode(context: context, renderEncoder: renderEncoder))
+        }
+
+        if context.shouldRenderPlayer {
+            metrics.add(playerPass.encode(context: context, renderEncoder: renderEncoder))
+        }
 
         return metrics
     }

@@ -27,6 +27,14 @@ final class GPUResourceRegistry {
         }
     }
 
+    var estimatedBufferBytes: Int {
+        let playerBytes = playerBuffers?.estimatedByteCount ?? 0
+
+        return chunkBuffersByCoordinate.values.reduce(playerBytes) { total, buffers in
+            total + buffers.estimatedByteCount
+        }
+    }
+
     func removeChunks(except requiredCoordinates: Set<ChunkCoordinate>) {
         for loadedCoordinate in Array(chunkBuffersByCoordinate.keys) where !requiredCoordinates.contains(loadedCoordinate) {
             chunkBuffersByCoordinate.removeValue(forKey: loadedCoordinate)
@@ -39,7 +47,8 @@ final class GPUResourceRegistry {
         }
 
         return buffers.renderChunk.lodSelection.level != chunk.lodSelection.level ||
-            buffers.renderChunk.lodSelection.rendersProps != chunk.lodSelection.rendersProps
+            buffers.renderChunk.lodSelection.rendersProps != chunk.lodSelection.rendersProps ||
+            (chunk.debugBounds != nil && buffers.debugBoundsLineVertexCount == 0)
     }
 
     func store(_ buffers: MetalChunkBuffers, for coordinate: ChunkCoordinate) {

@@ -88,6 +88,12 @@ struct MetalGameView: NSViewRepresentable {
 private struct DebugViewportState: Equatable {
     let runMode: DebugWorldRunMode
     let showChunkBounds: Bool
+    let renderTerrain: Bool
+    let renderProps: Bool
+    let renderPlayer: Bool
+    let freezeSimulation: Bool
+    let freezeChunkStreaming: Bool
+    let forcedLODLevel: LODLevel?
     let terrainMaterialDebugMode: TerrainMaterialDebugMode
     let terrainSplatDebugLayerIndex: Int
 
@@ -95,6 +101,12 @@ private struct DebugViewportState: Equatable {
     init(metrics: DebugMetrics) {
         self.runMode = metrics.debugWorldRunMode
         self.showChunkBounds = metrics.showChunkBounds
+        self.renderTerrain = metrics.renderTerrain
+        self.renderProps = metrics.renderProps
+        self.renderPlayer = metrics.renderPlayer
+        self.freezeSimulation = metrics.freezeSimulation
+        self.freezeChunkStreaming = metrics.freezeChunkStreaming
+        self.forcedLODLevel = metrics.forcedLODLevel
         self.terrainMaterialDebugMode = metrics.terrainMaterialDebugMode
         self.terrainSplatDebugLayerIndex = metrics.terrainSplatDebugLayerIndex
     }

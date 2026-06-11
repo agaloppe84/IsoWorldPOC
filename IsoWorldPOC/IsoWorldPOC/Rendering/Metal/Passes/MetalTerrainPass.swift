@@ -39,6 +39,7 @@ struct MetalTerrainPass {
 
             metrics.terrainDrawCalls += 1
             metrics.terrainChunksDrawn += 1
+            metrics.terrainIndicesDrawn += buffers.terrainIndexCount
         }
 
         return metrics

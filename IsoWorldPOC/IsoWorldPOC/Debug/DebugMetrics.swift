@@ -13,8 +13,12 @@ import simd
 final class DebugMetrics: ObservableObject {
     @Published var framesPerSecond: Float = 0
     @Published var frameTimeMilliseconds: Float = 0
-    @Published var debugWorldRunMode: DebugWorldRunMode = .slowInspection
+    @Published var debugWorldRunMode: DebugWorldRunMode
     @Published var renderedFrameCount = 0
+    @Published var simulationUpdateMs: Float = 0
+    @Published var snapshotBuildMs: Float = 0
+    @Published var bufferSyncMs: Float = 0
+    @Published var renderEncodeMs: Float = 0
     @Published var inputState = PlayerInputState()
     @Published var controllerName = "None"
     @Published var playerPosition = SIMD3<Float>(0, 0, 0)
@@ -56,7 +60,17 @@ final class DebugMetrics: ObservableObject {
     @Published var metalVisiblePropMaterialCount = 0
     @Published var metalTerrainTextureLayerCount = 0
     @Published var metalTerrainTextureArrayCount = 0
-    @Published var showChunkBounds = true
+    @Published var metalVisibleTerrainIndexCount = 0
+    @Published var metalVisiblePropIndexCount = 0
+    @Published var estimatedChunkCPUBytes = 0
+    @Published var estimatedGPUBufferBytes = 0
+    @Published var showChunkBounds: Bool
+    @Published var renderTerrain: Bool
+    @Published var renderProps: Bool
+    @Published var renderPlayer: Bool
+    @Published var freezeSimulation: Bool
+    @Published var freezeChunkStreaming: Bool
+    @Published var forcedLODLevel: LODLevel?
     @Published var cameraYaw: Float = 0
     @Published var cameraPitch: Float = 0
     @Published var cameraDistance: Float = 0
@@ -68,6 +82,26 @@ final class DebugMetrics: ObservableObject {
     @Published var terrainMaterialDebugMode: TerrainMaterialDebugMode = .normal
     @Published var terrainSplatDebugLayerIndex = 0
     @Published var rendererMode = RendererMode.activeMode
+
+    init(
+        debugWorldRunMode: DebugWorldRunMode = .slowInspection,
+        showChunkBounds: Bool = true,
+        renderTerrain: Bool = true,
+        renderProps: Bool = true,
+        renderPlayer: Bool = true,
+        freezeSimulation: Bool = false,
+        freezeChunkStreaming: Bool = false,
+        forcedLODLevel: LODLevel? = nil
+    ) {
+        self.debugWorldRunMode = debugWorldRunMode
+        self.showChunkBounds = showChunkBounds
+        self.renderTerrain = renderTerrain
+        self.renderProps = renderProps
+        self.renderPlayer = renderPlayer
+        self.freezeSimulation = freezeSimulation
+        self.freezeChunkStreaming = freezeChunkStreaming
+        self.forcedLODLevel = forcedLODLevel
+    }
 
     var renderCadenceDescription: String {
         debugWorldRunMode.cadencePolicy.displayName
@@ -97,6 +131,18 @@ final class DebugMetrics: ObservableObject {
         assignIfNeeded(\.framesPerSecond, framesPerSecond)
         assignIfNeeded(\.frameTimeMilliseconds, frameTimeMilliseconds)
         assignIfNeeded(\.renderedFrameCount, renderedFrameCount)
+    }
+
+    func applyPipelineTiming(
+        simulationUpdateMs: Float,
+        snapshotBuildMs: Float,
+        bufferSyncMs: Float,
+        renderEncodeMs: Float
+    ) {
+        assignIfNeeded(\.simulationUpdateMs, simulationUpdateMs)
+        assignIfNeeded(\.snapshotBuildMs, snapshotBuildMs)
+        assignIfNeeded(\.bufferSyncMs, bufferSyncMs)
+        assignIfNeeded(\.renderEncodeMs, renderEncodeMs)
     }
 
     private func assignIfNeeded<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<DebugMetrics, Value>, _ value: Value) {

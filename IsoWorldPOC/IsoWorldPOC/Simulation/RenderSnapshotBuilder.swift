@@ -10,13 +10,25 @@ import EngineCore
 struct RenderSnapshotDebugOptions {
     static let defaults = RenderSnapshotDebugOptions(
         showChunkBounds: true,
+        renderTerrain: true,
+        renderProps: true,
+        renderPlayer: true,
         terrainMaterialDebugMode: .normal,
-        terrainSplatDebugLayerIndex: 0
+        terrainSplatDebugLayerIndex: 0,
+        freezeSimulation: false,
+        freezeChunkStreaming: false,
+        forcedLODLevel: nil
     )
 
     let showChunkBounds: Bool
+    let renderTerrain: Bool
+    let renderProps: Bool
+    let renderPlayer: Bool
     let terrainMaterialDebugMode: TerrainMaterialDebugMode
     let terrainSplatDebugLayerIndex: Int
+    let freezeSimulation: Bool
+    let freezeChunkStreaming: Bool
+    let forcedLODLevel: LODLevel?
 }
 
 @MainActor
@@ -28,7 +40,7 @@ struct RenderSnapshotBuilder {
         debugOptions: RenderSnapshotDebugOptions
     ) -> RenderWorldSnapshot {
         let chunks = chunkStreamer.activeChunkData().map { renderData in
-            renderChunk(from: renderData)
+            renderChunk(from: renderData, debugOptions: debugOptions)
         }
 
         return RenderWorldSnapshot(
@@ -37,13 +49,19 @@ struct RenderSnapshotBuilder {
             chunks: chunks,
             debugOptions: RenderDebugOptions(
                 showChunkBounds: debugOptions.showChunkBounds,
+                renderTerrain: debugOptions.renderTerrain,
+                renderProps: debugOptions.renderProps,
+                renderPlayer: debugOptions.renderPlayer,
                 terrainMaterialDebugMode: debugOptions.terrainMaterialDebugMode,
                 terrainSplatDebugLayerIndex: debugOptions.terrainSplatDebugLayerIndex
             )
         )
     }
 
-    private func renderChunk(from renderData: ChunkStreamerRenderData) -> RenderChunk {
+    private func renderChunk(
+        from renderData: ChunkStreamerRenderData,
+        debugOptions: RenderSnapshotDebugOptions
+    ) -> RenderChunk {
         let data = renderData.data
         let origin = WorldPosition(x: data.originX, y: 0, z: data.originZ)
 
@@ -67,7 +85,7 @@ struct RenderSnapshotBuilder {
                     z: ProceduralChunkDataFactory.chunkWorldSize
                 ),
                 state: renderData.debugState
-            ),
+            ).enabled(if: debugOptions.showChunkBounds),
             isVisible: renderData.isVisible,
             lodSelection: renderData.lodSelection,
             approximateTriangleCount: data.terrainGeometry.triangleCount(for: renderData.lodSelection.level)
@@ -102,5 +120,11 @@ struct RenderSnapshotBuilder {
                 isVisible: isVisible
             )
         }
+    }
+}
+
+private extension RenderChunkDebugBounds {
+    func enabled(if isEnabled: Bool) -> RenderChunkDebugBounds? {
+        isEnabled ? self : nil
     }
 }
