@@ -1,5 +1,5 @@
 //
-//  MetalFrameContext.swift
+//  RenderFrameContext.swift
 //  IsoWorldPOC
 //
 //  Created by Work on 10/06/2026.
@@ -27,6 +27,8 @@ struct MetalFrameContext {
         MetalRenderDebugUniforms(options: snapshot.debugOptions)
     }
 }
+
+typealias RenderFrameContext = MetalFrameContext
 
 struct MetalLightingUniforms {
     let sunDirectionAndIntensity: SIMD4<Float>

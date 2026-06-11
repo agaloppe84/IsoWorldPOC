@@ -36,6 +36,17 @@ struct IsoWorldPOCTests {
         #expect(policy.allowContinuousAnimation == true)
     }
 
+    @Test func worldFrameGraphKeepsBaselinePassOrder() {
+        let passKinds = FrameGraph.worldRenderer.passDescriptors.map(\.kind)
+
+        #expect(passKinds == [
+            .depthPrepass,
+            .opaque,
+            .debugOverlay,
+            .hudOverlay,
+        ])
+    }
+
     @MainActor
     @Test func appStoreStartsInMainMenu() {
         let store = AppStore()

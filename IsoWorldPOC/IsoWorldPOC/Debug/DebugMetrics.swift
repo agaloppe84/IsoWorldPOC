@@ -44,6 +44,8 @@ final class DebugMetrics: ObservableObject {
     @Published var metalPropDrawCallCount = 0
     @Published var metalPlayerDrawCallCount = 0
     @Published var metalDebugDrawCallCount = 0
+    @Published var metalFrameGraphPassCount = 0
+    @Published var metalFrameGraphEnabledPassCount = 0
     @Published var metalBufferCount = 0
     @Published var metalRenderedChunkCount = 0
     @Published var metalRenderedPropCount = 0

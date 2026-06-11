@@ -25,20 +25,19 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private let terrainTextureCatalog: TerrainTextureCatalog?
     private let terrainSamplerState: MTLSamplerState?
     private let debugMetrics: DebugMetrics
-    private let terrainPass = MetalTerrainPass()
-    private let propPass = MetalPropPass()
-    private let playerPass = MetalPlayerPass()
-    private let debugPass = MetalDebugPass()
+    private let frameGraph = FrameGraph.worldRenderer
+    private let resourceRegistry: GPUResourceRegistry
+    private let payloadUploader: RenderPayloadUploader
+    private let depthPrepass = DepthPrepass()
+    private let opaquePass = OpaquePass()
+    private let debugOverlayPass = DebugOverlayPass()
+    private let hudOverlayPass = HUDOverlayPass()
     private var snapshot: RenderWorldSnapshot
-    private var chunkBuffersByCoordinate: [ChunkCoordinate: MetalChunkBuffers] = [:]
-    private var playerBuffers: MetalIndexedMeshBuffers?
     private var lastDrawMetrics = MetalFrameDrawMetrics.empty
+    private var lastFramePlan = RenderFramePlan.empty
     private var lastFrameTime = CACurrentMediaTime()
     private var smoothedFrameTime: Float?
     private var drawableSize = SIMD2<Float>(1, 1)
-    private var chunkUploadsThisFrame = 0
-    private var chunkUploadSampleCount = 0
-    private var totalChunkUploadTimeMs: Float = 0
     private var latestFramesPerSecond: Float = 0
     private var latestFrameTimeMilliseconds: Float = 0
     private var renderedFrameCount = 0
@@ -55,6 +54,10 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         self.terrainTextureCatalog = TerrainTextureCatalog.makePlaceholder(device: device)
         self.terrainSamplerState = TerrainTextureCatalog.makeSamplerState(device: device)
         self.debugMetrics = debugMetrics
+        self.resourceRegistry = GPUResourceRegistry(
+            playerBuffers: MetalRenderer.makePlayerBuffers(device: device)
+        )
+        self.payloadUploader = RenderPayloadUploader(device: device)
         self.runtime = WorldRuntime(
             debugOptions: RenderSnapshotDebugOptions(
                 showChunkBounds: debugMetrics.showChunkBounds,
@@ -64,7 +67,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             )
         )
         self.snapshot = runtime.snapshot
-        self.playerBuffers = MetalRenderer.makePlayerBuffers(device: device)
 
         super.init()
 
@@ -106,7 +108,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         let deltaTime = updatePerformanceMetrics()
         update(deltaTime: deltaTime)
 
-        chunkUploadsThisFrame = 0
         syncBuffers(with: snapshot)
 
         guard
@@ -132,11 +133,12 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
 
         let frameContext = MetalFrameContext(
             snapshot: snapshot,
-            chunkBuffersByCoordinate: chunkBuffersByCoordinate,
-            playerBuffers: playerBuffers,
+            chunkBuffersByCoordinate: resourceRegistry.chunkBuffersByCoordinate,
+            playerBuffers: resourceRegistry.playerBuffers,
             playerPosition: runtime.playerPosition,
             viewProjectionMatrix: makeViewProjectionMatrix(from: snapshot.camera)
         )
+        let framePlan = frameGraph.makePlan(for: frameContext)
         var lightingUniforms = frameContext.lightingUniforms
         var debugUniforms = frameContext.debugUniforms
         renderEncoder.setVertexBytes(
@@ -159,15 +161,15 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         renderEncoder.setFragmentSamplerState(terrainSamplerState, index: 0)
 
         var drawMetrics = MetalFrameDrawMetrics.empty
-        drawMetrics.add(terrainPass.encode(context: frameContext, renderEncoder: renderEncoder))
-        drawMetrics.add(propPass.encode(context: frameContext, renderEncoder: renderEncoder))
-        drawMetrics.add(playerPass.encode(context: frameContext, renderEncoder: renderEncoder))
-        drawMetrics.add(debugPass.encode(
-            context: frameContext,
-            renderEncoder: renderEncoder,
-            depthStencilState: debugBoundsDepthStencilState
-        ))
+        for pass in framePlan.enabledPasses {
+            drawMetrics.add(encode(
+                passKind: pass.descriptor.kind,
+                context: frameContext,
+                renderEncoder: renderEncoder
+            ))
+        }
         lastDrawMetrics = drawMetrics
+        lastFramePlan = framePlan
 
         renderEncoder.endEncoding()
 
@@ -229,22 +231,27 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     }
 
     private func syncBuffers(with snapshot: RenderWorldSnapshot) {
-        let requiredCoordinates = Set(snapshot.chunks.map(\.coordinate))
+        payloadUploader.sync(snapshot: snapshot, registry: resourceRegistry)
+    }
 
-        for loadedCoordinate in Array(chunkBuffersByCoordinate.keys) where !requiredCoordinates.contains(loadedCoordinate) {
-            chunkBuffersByCoordinate.removeValue(forKey: loadedCoordinate)
-        }
-
-        for chunk in snapshot.chunks where chunkBuffersByCoordinate[chunk.coordinate] == nil {
-            let uploadStart = currentTimeMilliseconds()
-            guard let buffers = MetalChunkBuffers(device: device, renderChunk: chunk) else {
-                continue
-            }
-
-            chunkBuffersByCoordinate[chunk.coordinate] = buffers
-            chunkUploadsThisFrame += 1
-            chunkUploadSampleCount += 1
-            totalChunkUploadTimeMs += Float(currentTimeMilliseconds() - uploadStart)
+    private func encode(
+        passKind: RenderPassKind,
+        context: MetalFrameContext,
+        renderEncoder: MTLRenderCommandEncoder
+    ) -> MetalFrameDrawMetrics {
+        switch passKind {
+        case .depthPrepass:
+            return depthPrepass.encode(context: context, renderEncoder: renderEncoder)
+        case .opaque:
+            return opaquePass.encode(context: context, renderEncoder: renderEncoder)
+        case .debugOverlay:
+            return debugOverlayPass.encode(
+                context: context,
+                renderEncoder: renderEncoder,
+                depthStencilState: debugBoundsDepthStencilState
+            )
+        case .hudOverlay:
+            return hudOverlayPass.encode(context: context, renderEncoder: renderEncoder)
         }
     }
 
@@ -280,9 +287,9 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             renderedFrameCount: renderedFrameCount
         )
         runtime.applyDebugMetrics(to: debugMetrics)
-        debugMetrics.cachedChunkCount = chunkBuffersByCoordinate.count
-        debugMetrics.averageChunkUploadMs = average(totalChunkUploadTimeMs, sampleCount: chunkUploadSampleCount)
-        debugMetrics.chunkUploadsThisFrame = chunkUploadsThisFrame
+        debugMetrics.cachedChunkCount = resourceRegistry.cachedChunkCount
+        debugMetrics.averageChunkUploadMs = payloadUploader.averageChunkUploadMs
+        debugMetrics.chunkUploadsThisFrame = payloadUploader.chunkUploadsThisFrame
         debugMetrics.metalDrawCallCount = lastDrawMetrics.totalDrawCalls
         debugMetrics.metalTerrainDrawCallCount = lastDrawMetrics.terrainDrawCalls
         debugMetrics.metalPropDrawCallCount = lastDrawMetrics.propDrawCalls
@@ -290,19 +297,13 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         debugMetrics.metalDebugDrawCallCount = lastDrawMetrics.debugDrawCalls
         debugMetrics.metalRenderedChunkCount = lastDrawMetrics.terrainChunksDrawn
         debugMetrics.metalRenderedPropCount = lastDrawMetrics.propsDrawn
-        debugMetrics.metalBufferCount = metalBufferCount
+        debugMetrics.metalBufferCount = resourceRegistry.bufferCount
+        debugMetrics.metalFrameGraphPassCount = lastFramePlan.passCount
+        debugMetrics.metalFrameGraphEnabledPassCount = lastFramePlan.enabledPassCount
         debugMetrics.metalTerrainTextureLayerCount = terrainTextureCatalog?.layerCount ?? 0
         debugMetrics.metalTerrainTextureArrayCount = terrainTextureCatalog?.textureArrayCount ?? 0
         debugMetrics.metalVisibleTerrainMaterialCount = visibleTerrainMaterialCount
         debugMetrics.metalVisiblePropMaterialCount = visiblePropMaterialCount
-    }
-
-    private var metalBufferCount: Int {
-        let playerBufferCount = playerBuffers?.bufferCount ?? 0
-
-        return chunkBuffersByCoordinate.values.reduce(playerBufferCount) { total, buffers in
-            total + buffers.bufferCount
-        }
     }
 
     private var visibleTerrainMaterialCount: Int {
@@ -352,18 +353,6 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         latestFramesPerSecond = 1 / smoothedFrameTime
 
         return min(deltaTime, 1.0 / 15.0)
-    }
-
-    private func currentTimeMilliseconds() -> Double {
-        ProcessInfo.processInfo.systemUptime * 1_000
-    }
-
-    private func average(_ total: Float, sampleCount: Int) -> Float? {
-        guard sampleCount > 0 else {
-            return nil
-        }
-
-        return total / Float(sampleCount)
     }
 }
 

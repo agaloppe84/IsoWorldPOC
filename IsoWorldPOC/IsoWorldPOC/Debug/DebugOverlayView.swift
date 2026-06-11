@@ -36,6 +36,7 @@ struct DebugOverlayView: View {
             Text("mesh build avg: \(format(metrics.averageTerrainMeshBuildTimeMs)) ms")
             Text("draw calls total: \(metrics.metalDrawCallCount)")
             Text("passes t/p/pl/dbg: \(metrics.metalTerrainDrawCallCount) / \(metrics.metalPropDrawCallCount) / \(metrics.metalPlayerDrawCallCount) / \(metrics.metalDebugDrawCallCount)")
+            Text("frame graph active/total: \(metrics.metalFrameGraphEnabledPassCount) / \(metrics.metalFrameGraphPassCount)")
             Text("gpu buffers: \(metrics.metalBufferCount)")
             Text("terrain textures arrays/layers: \(metrics.metalTerrainTextureArrayCount) / \(metrics.metalTerrainTextureLayerCount)")
             Text("materials terrain / prop: \(metrics.metalVisibleTerrainMaterialCount) / \(metrics.metalVisiblePropMaterialCount)")
