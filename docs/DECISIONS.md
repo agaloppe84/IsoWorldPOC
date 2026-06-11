@@ -391,3 +391,15 @@ Consequence: `DebugMetrics` separe les controles utilisateur, qui restent `@Publ
 Garantie: les tests Xcode verifient que les timings de boucle sont exposes via `DebugTelemetry` apres publication explicite.
 
 Limite actuelle: la telemetry reste publiee depuis le main thread car le renderer macOS vit encore dans la boucle MTKView/SwiftUI. Un profil Instruments reste utile si la cadence reste basse apres ce decouplage.
+
+## 039 - Store dedie pour telemetry debug Step 12-QUINQUIES
+
+Decision: deplacer la publication de telemetry dans un `DebugTelemetryStore` separe de `DebugMetrics`.
+
+Raison: apres le premier decouplage, les tests manuels montraient encore environ 70 ms de cout `publish` avec l'overlay visible. La cause probable etait l'invalidation SwiftUI de `GameRootView`, de `MetalGameView` et du panneau complet a chaque update de chiffres.
+
+Consequence: `DebugMetrics` reste l'objet observable des controles utilisateur, tandis que `DebugTelemetryStore` est observe uniquement par les vues texte de telemetry. L'overlay rend les valeurs dynamiques sous forme de blocs texte monospaced pour reduire le nombre de sous-vues SwiftUI reconstruites par tick.
+
+Garantie: le build Xcode valide le split SwiftUI et les tests continuent de verifier que la telemetry publiee expose les timings de frame.
+
+Limite actuelle: si le cout `publish` reste eleve, le prochain niveau sera de rendre le debug HUD hors SwiftUI, par exemple via AppKit leger ou via une passe Metal/HUD dediee.

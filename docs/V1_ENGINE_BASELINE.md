@@ -115,6 +115,17 @@ Step 12-QUATER decouple la telemetry SwiftUI du renderer:
 
 Le toggle `pause metrics publish` reste disponible comme coupe-circuit de diagnostic, mais il ne doit plus etre necessaire pour retrouver une cadence fluide en usage debug normal.
 
+## Step 12-QUINQUIES livre
+
+Step 12-QUINQUIES corrige le cout restant de publication observe dans Xcode:
+
+- La telemetry vit dans `DebugTelemetryStore`, separe de `DebugMetrics`.
+- `GameRootView` et `MetalGameView` ne sont plus invalides par les updates de chiffres debug.
+- `DebugOverlayView` separe les controles interactifs des blocs texte de telemetry.
+- Les lignes dynamiques FPS/player/chunks sont rendues en blocs monospaced compacts au lieu de dizaines de `Text` SwiftUI independants.
+
+Le but est que `pause metrics publish` redevienne un outil de diagnostic, pas une condition necessaire pour obtenir une cadence correcte.
+
 ## Prochaine cible
 
 Step 13 peut ouvrir le `Tools Hub` minimal. Il doit rester data-driven et consommer les systemes V1 existants sans contourner `EngineCore`.

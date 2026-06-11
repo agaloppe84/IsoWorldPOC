@@ -85,8 +85,21 @@ struct DebugTelemetry: Equatable {
 }
 
 @MainActor
-final class DebugMetrics: ObservableObject {
+final class DebugTelemetryStore: ObservableObject {
     @Published private(set) var telemetry = DebugTelemetry()
+
+    func publish(_ nextTelemetry: DebugTelemetry) {
+        guard telemetry != nextTelemetry else {
+            return
+        }
+
+        telemetry = nextTelemetry
+    }
+}
+
+@MainActor
+final class DebugMetrics: ObservableObject {
+    let telemetryStore = DebugTelemetryStore()
     @Published var debugWorldRunMode: DebugWorldRunMode
     @Published var showChunkBounds: Bool
     @Published var renderTerrain: Bool
@@ -256,7 +269,7 @@ final class DebugMetrics: ObservableObject {
     }
 
     func publishTelemetry() {
-        assignIfNeeded(\.telemetry, makeTelemetry())
+        telemetryStore.publish(makeTelemetry())
     }
 
     private func makeTelemetry() -> DebugTelemetry {

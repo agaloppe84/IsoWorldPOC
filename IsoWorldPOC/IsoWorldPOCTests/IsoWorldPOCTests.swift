@@ -6,6 +6,7 @@
 //
 
 import EngineCore
+import Combine
 import simd
 import Testing
 @testable import IsoWorldPOC
@@ -72,13 +73,44 @@ struct IsoWorldPOCTests {
         )
         metrics.publishTelemetry()
 
-        #expect(metrics.telemetry.framesPerSecond == 30)
-        #expect(metrics.telemetry.rawFrameIntervalMs == 45)
-        #expect(metrics.telemetry.drawTotalMs == 12)
-        #expect(metrics.telemetry.frameSchedulingGapMs == 33)
-        #expect(metrics.telemetry.debugMetricsPublishMs == 2)
-        #expect(metrics.telemetry.unaccountedDrawMs == 1)
-        #expect(metrics.telemetry.renderedFrameCount == 7)
+        let telemetry = metrics.telemetryStore.telemetry
+        #expect(telemetry.framesPerSecond == 30)
+        #expect(telemetry.rawFrameIntervalMs == 45)
+        #expect(telemetry.drawTotalMs == 12)
+        #expect(telemetry.frameSchedulingGapMs == 33)
+        #expect(telemetry.debugMetricsPublishMs == 2)
+        #expect(telemetry.unaccountedDrawMs == 1)
+        #expect(telemetry.renderedFrameCount == 7)
+    }
+
+    @MainActor
+    @Test func telemetryPublishDoesNotInvalidateDebugMetricsControls() {
+        let metrics = DebugMetrics()
+        var controlsInvalidationCount = 0
+        var telemetryInvalidationCount = 0
+        let controlsCancellable = metrics.objectWillChange.sink {
+            controlsInvalidationCount += 1
+        }
+        let telemetryCancellable = metrics.telemetryStore.objectWillChange.sink {
+            telemetryInvalidationCount += 1
+        }
+
+        metrics.applyFrameTiming(
+            framesPerSecond: 30,
+            frameTimeMilliseconds: 33.33,
+            rawFrameIntervalMs: 45,
+            drawTotalMs: 12,
+            frameSchedulingGapMs: 33,
+            debugMetricsPublishMs: 2,
+            unaccountedDrawMs: 1,
+            renderedFrameCount: 7
+        )
+        metrics.publishTelemetry()
+
+        #expect(controlsInvalidationCount == 0)
+        #expect(telemetryInvalidationCount == 1)
+        _ = controlsCancellable
+        _ = telemetryCancellable
     }
 
     @Test func renderSnapshotDebugOptionsDefaultToDebugInspection() {
