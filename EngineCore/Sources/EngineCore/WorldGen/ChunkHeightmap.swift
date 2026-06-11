@@ -7,12 +7,29 @@ public struct ChunkHeightmap: Equatable, Codable, Sendable {
     public let coordinate: ChunkCoordinate
     public let samples: [TerrainSample]
 
+    public var sampleGrid: TerrainSampleGrid {
+        TerrainSampleGrid(seed: seed, coordinate: coordinate, samples: samples)
+    }
+
     public init(seed: WorldSeed, coordinate: ChunkCoordinate, samples: [TerrainSample]) {
         precondition(samples.count == Self.sampleCount, "ChunkHeightmap requires exactly 64x64 samples.")
 
         self.seed = seed
         self.coordinate = coordinate
         self.samples = samples
+    }
+
+    public init(sampleGrid: TerrainSampleGrid) {
+        precondition(
+            sampleGrid.resolution == Self.resolution,
+            "ChunkHeightmap requires a TerrainSampleGrid with ChunkHeightmap.resolution."
+        )
+
+        self.init(
+            seed: sampleGrid.seed,
+            coordinate: sampleGrid.coordinate,
+            samples: sampleGrid.samples
+        )
     }
 
     public subscript(localX: Int, localZ: Int) -> TerrainSample {
@@ -40,11 +57,7 @@ public struct ChunkHeightmap: Equatable, Codable, Sendable {
         hasher.combine(Self.resolution)
 
         for sample in samples {
-            hasher.combine(sample.localX)
-            hasher.combine(sample.localZ)
-            hasher.combine(sample.worldX)
-            hasher.combine(sample.worldZ)
-            hasher.combine(sample.height)
+            sample.stableHash(into: &hasher)
         }
 
         return hasher.finalize().value

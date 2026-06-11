@@ -34,6 +34,7 @@ enum ProceduralChunkDataFactory {
     static let triangleCountPerChunk = (chunkResolution - 1) * (chunkResolution - 1) * 2
 
     private static let biomeSampler = BiomeSampler(seed: activeSeed)
+    private static let terrainSystem = TerrainSystem(seed: activeSeed)
     private static let propGenerator = PropPlacementGenerator(seed: activeSeed, maxPropsPerChunk: 18)
     private static let assetGenerator = ProceduralAssetGenerator(seed: activeSeed)
 
@@ -128,12 +129,10 @@ enum ProceduralChunkDataFactory {
 
             for localX in 0..<chunkResolution {
                 materials.append(
-                    biomeSampler.terrainVertexMaterial(
-                        for: coordinate,
-                        localX: localX,
-                        localZ: localZ,
-                        samplesPerChunk: chunkResolution
-                    )
+                    terrainSystem
+                        .sample(localX: localX, localZ: localZ, in: coordinate)
+                        .materialWeights
+                        .terrainVertexMaterial()
                 )
             }
         }

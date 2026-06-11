@@ -266,6 +266,125 @@ final class EngineCoreTests: XCTestCase {
         }
     }
 
+    func testTerrainSystemProducesInspectableSampleGridFields() {
+        let grid = TerrainSystem(seed: WorldSeed(42)).sampleGrid(for: .origin)
+        let sample = grid[12, 34]
+        let normalLength = (
+            sample.normal.x * sample.normal.x +
+                sample.normal.y * sample.normal.y +
+                sample.normal.z * sample.normal.z
+        ).squareRoot()
+
+        XCTAssertEqual(grid.resolution, ChunkHeightmap.resolution)
+        XCTAssertEqual(grid.samples.count, ChunkHeightmap.sampleCount)
+        XCTAssertTrue(sample.height.isFinite)
+        XCTAssertEqual(normalLength, 1, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(sample.slope, 0)
+        XCTAssertGreaterThanOrEqual(sample.curvature, 0)
+        XCTAssertGreaterThanOrEqual(sample.roughness, 0)
+        XCTAssertLessThanOrEqual(sample.roughness, 1)
+        XCTAssertGreaterThanOrEqual(sample.moisture, 0)
+        XCTAssertLessThanOrEqual(sample.moisture, 1)
+        XCTAssertGreaterThanOrEqual(sample.temperature, 0)
+        XCTAssertLessThanOrEqual(sample.temperature, 1)
+        XCTAssertTrue(sample.materialWeights.isNormalized)
+        XCTAssertGreaterThanOrEqual(sample.walkability, 0)
+        XCTAssertLessThanOrEqual(sample.walkability, 1)
+        XCTAssertGreaterThanOrEqual(sample.climbability, 0)
+        XCTAssertLessThanOrEqual(sample.climbability, 1)
+    }
+
+    func testTerrainSystemSharesDerivedFieldsBetweenAdjacentChunks() {
+        let terrain = TerrainSystem(seed: WorldSeed(99))
+        let left = terrain.sampleGrid(for: .origin)
+        let right = terrain.sampleGrid(for: ChunkCoordinate(x: 1, y: 0, z: 0))
+        let back = terrain.sampleGrid(for: ChunkCoordinate(x: 0, y: 0, z: 1))
+
+        for localZ in [0, 17, ChunkHeightmap.resolution - 1] {
+            let leftSample = left[ChunkHeightmap.resolution - 1, localZ]
+            let rightSample = right[0, localZ]
+
+            XCTAssertEqual(leftSample.worldX, rightSample.worldX)
+            XCTAssertEqual(leftSample.worldZ, rightSample.worldZ)
+            XCTAssertEqual(leftSample.height, rightSample.height, accuracy: 0.0001)
+            XCTAssertEqual(leftSample.slope, rightSample.slope, accuracy: 0.0001)
+            XCTAssertEqual(leftSample.curvature, rightSample.curvature, accuracy: 0.0001)
+            XCTAssertEqual(leftSample.materialWeights, rightSample.materialWeights)
+        }
+
+        for localX in [0, 23, ChunkHeightmap.resolution - 1] {
+            let frontSample = left[localX, ChunkHeightmap.resolution - 1]
+            let backSample = back[localX, 0]
+
+            XCTAssertEqual(frontSample.worldX, backSample.worldX)
+            XCTAssertEqual(frontSample.worldZ, backSample.worldZ)
+            XCTAssertEqual(frontSample.height, backSample.height, accuracy: 0.0001)
+            XCTAssertEqual(frontSample.slope, backSample.slope, accuracy: 0.0001)
+            XCTAssertEqual(frontSample.curvature, backSample.curvature, accuracy: 0.0001)
+            XCTAssertEqual(frontSample.materialWeights, backSample.materialWeights)
+        }
+    }
+
+    func testTerrainSystemDerivesPlaceholderMaterialsFromFields() {
+        let terrain = TerrainSystem(seed: WorldSeed(99))
+        let coordinates = [
+            ChunkCoordinate.origin,
+            ChunkCoordinate(x: 2, y: 0, z: -3),
+            ChunkCoordinate(x: -4, y: 0, z: 5),
+        ]
+        let samples = coordinates.flatMap { terrain.sampleGrid(for: $0).samples }
+        let derivedMaterialKinds = Set(samples.flatMap { sample in
+            sample.materialWeights.splat.layers.map(\.materialKind)
+        })
+
+        XCTAssertTrue(derivedMaterialKinds.contains(.rock) || derivedMaterialKinds.contains(.snow))
+        XCTAssertTrue(samples.allSatisfy { $0.materialWeights.isNormalized })
+    }
+
+    func testTerrainDebugLayersExposeSampleValues() {
+        let grid = TerrainSystem(seed: WorldSeed(42)).sampleGrid(for: .origin)
+        let layers = TerrainDebugLayers(grid: grid)
+        let sample = grid[7, 9]
+
+        XCTAssertEqual(layers.value(for: .altitude, localX: 7, localZ: 9), sample.height, accuracy: 0.0001)
+        XCTAssertEqual(layers.value(for: .slope, localX: 7, localZ: 9), sample.slope, accuracy: 0.0001)
+        XCTAssertEqual(layers.value(for: .walkability, localX: 7, localZ: 9), sample.walkability, accuracy: 0.0001)
+        XCTAssertEqual(layers.values(for: .moisture).count, ChunkHeightmap.sampleCount)
+    }
+
+    func testTerrainValidationReportSummarizesGoldenSeeds() {
+        let seeds = [WorldSeed(1), WorldSeed(42), WorldSeed(12_345)]
+
+        for seed in seeds {
+            let report = TerrainSystem(seed: seed)
+                .validationReport(for: ChunkCoordinate(x: 1, y: 0, z: -2))
+
+            XCTAssertTrue(report.isValid)
+            XCTAssertLessThanOrEqual(report.minHeight, report.maxHeight)
+            XCTAssertGreaterThanOrEqual(report.maxSlope, 0)
+            XCTAssertGreaterThanOrEqual(report.walkableRatio, 0)
+            XCTAssertLessThanOrEqual(report.walkableRatio, 1)
+            XCTAssertGreaterThanOrEqual(report.climbableRatio, 0)
+            XCTAssertLessThanOrEqual(report.climbableRatio, 1)
+            XCTAssertEqual(
+                report.materialCoverage.values.reduce(0, +),
+                1,
+                accuracy: 0.0001
+            )
+        }
+    }
+
+    func testTerrainSystemVertexMaterialsComeFromSampleGridWeights() {
+        let terrain = TerrainSystem(seed: WorldSeed(99))
+        let coordinate = ChunkCoordinate(x: -2, y: 0, z: 3)
+        let grid = terrain.sampleGrid(for: coordinate)
+        let materials = terrain.terrainVertexMaterials(for: coordinate)
+        let index = 18 * ChunkHeightmap.resolution + 11
+
+        XCTAssertEqual(materials.count, ChunkHeightmap.sampleCount)
+        XCTAssertEqual(materials[index].splat, grid[11, 18].materialWeights.splat)
+    }
+
     func testBiomeDefinitionsExposePlaceholderMaterialData() {
         for type in BiomeType.allCases {
             let biome = Biome.definition(for: type)

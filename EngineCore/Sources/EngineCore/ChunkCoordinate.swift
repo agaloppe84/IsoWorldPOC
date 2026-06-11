@@ -194,7 +194,7 @@ private struct TerrainGeometryBufferBuilder {
     let coordinate: ChunkCoordinate
     let horizontalScale: Float
     let verticalScale: Float
-    let heightFunction: TerrainHeightFunction
+    let fieldProvider: DefaultTerrainFieldProvider
 
     init(
         seed: WorldSeed,
@@ -205,7 +205,7 @@ private struct TerrainGeometryBufferBuilder {
         self.coordinate = coordinate
         self.horizontalScale = horizontalScale
         self.verticalScale = verticalScale
-        self.heightFunction = TerrainHeightFunction(seed: seed)
+        self.fieldProvider = DefaultTerrainFieldProvider(seed: seed)
     }
 
     func build() -> TerrainGeometryBuffers {
@@ -299,7 +299,7 @@ private struct TerrainGeometryBufferBuilder {
     }
 
     private func heightAtWorld(worldX: Int, worldZ: Int) -> Float {
-        heightFunction.heightAt(worldX: worldX, worldZ: worldZ, verticalChunk: coordinate.y)
+        fieldProvider.heightAt(worldX: worldX, worldZ: worldZ, verticalChunk: coordinate.y)
     }
 
     private func worldX(localX: Int) -> Int {
