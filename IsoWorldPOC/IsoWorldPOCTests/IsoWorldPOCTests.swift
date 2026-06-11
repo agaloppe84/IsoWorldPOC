@@ -125,4 +125,77 @@ struct IsoWorldPOCTests {
         #expect(MaterialBindingTable.terrainSamplerIndex == 0)
     }
 
+    @Test func metalPropMeshBakesNaturalConeAndCapsuleShapes() {
+        let variant = PropVariant(
+            placement: PropPlacement(
+                placementIndex: 0,
+                type: .deadwood,
+                localX: 0,
+                localZ: 0,
+                worldX: 0,
+                worldZ: 0,
+                rotationRadians: 0,
+                scale: 1
+            ),
+            archetypeID: "test.natural",
+            variantSeed: 1,
+            size: PropVector3(x: 1, y: 1, z: 1),
+            proportions: PropVector3(x: 1, y: 1, z: 1),
+            geometry: PropGeometryDescriptor(parts: [
+                PropGeometryPart(
+                    shape: .capsule,
+                    size: PropVector3(x: 0.3, y: 1.0, z: 0.3),
+                    position: PropVector3(x: 0, y: 0.5, z: 0),
+                    materialSlot: .primary
+                ),
+                PropGeometryPart(
+                    shape: .cone,
+                    size: PropVector3(x: 0.4, y: 0.8, z: 0.4),
+                    position: PropVector3(x: 0.4, y: 0.4, z: 0),
+                    materialSlot: .accent
+                ),
+            ]),
+            primaryMaterial: samplePropMaterial(identifier: "primary"),
+            secondaryMaterial: samplePropMaterial(identifier: "secondary"),
+            accentMaterial: samplePropMaterial(identifier: "accent"),
+            collisionSize: PropVector3(x: 1, y: 1, z: 1)
+        )
+        let chunk = RenderChunk(
+            coordinate: .origin,
+            origin: WorldPosition(x: 0, y: 0, z: 0),
+            terrainGeometry: sampleTerrainGeometry(),
+            biome: Biome.definition(for: .temperateForest),
+            terrainMaterial: .definition(for: .grass),
+            props: [
+                RenderProp(
+                    variant: variant,
+                    worldPosition: WorldPosition(x: 0, y: 0, z: 0),
+                    rotationRadians: 0
+                )
+            ],
+            approximateTriangleCount: 2
+        )
+        let mesh = MetalChunkBuffers.propMesh(for: chunk)
+
+        #expect(mesh.vertices.count > 24)
+        #expect(mesh.indices.count > 36)
+        #expect(mesh.indices.count.isMultiple(of: 3))
+    }
+
+    private func samplePropMaterial(identifier: String) -> PropMaterialDescriptor {
+        PropMaterialDescriptor(
+            identifier: identifier,
+            color: BiomeColor(red: 0.4, green: 0.5, blue: 0.3),
+            roughness: 0.8
+        )
+    }
+
+    private func sampleTerrainGeometry() -> TerrainGeometryBuffers {
+        ChunkCoordinate.origin.makeTerrainGeometry(
+            seed: WorldSeed(1),
+            horizontalScale: 1,
+            verticalScale: 1
+        )
+    }
+
 }

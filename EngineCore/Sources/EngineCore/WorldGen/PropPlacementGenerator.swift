@@ -34,6 +34,14 @@ public struct PropPlacementGenerator: Sendable {
     ) -> [PropPlacement] {
         precondition(samplesPerChunk > 1, "samplesPerChunk must contain at least two samples.")
 
+        if samplesPerChunk == ChunkHeightmap.resolution {
+            return placements(
+                for: coordinate,
+                biome: biome,
+                terrainSampleGrid: TerrainSystem(seed: seed).sampleGrid(for: coordinate)
+            )
+        }
+
         guard maxPropsPerChunk > 0 else {
             return []
         }
@@ -63,6 +71,18 @@ public struct PropPlacementGenerator: Sendable {
                 scale: scale(for: type, random: &random)
             )
         }
+    }
+
+    public func placements(
+        for coordinate: ChunkCoordinate,
+        biome: Biome,
+        terrainSampleGrid: TerrainSampleGrid
+    ) -> [PropPlacement] {
+        PropSystem(seed: seed, maxPropsPerChunk: maxPropsPerChunk).placements(
+            for: coordinate,
+            biome: biome,
+            terrainSampleGrid: terrainSampleGrid
+        )
     }
 
     private func targetPropCount(for biome: Biome, random: inout StableRNG) -> Int {
@@ -105,36 +125,51 @@ public struct PropPlacementGenerator: Sendable {
     private func propType(for biomeType: BiomeType, roll: Float) -> PropType {
         switch biomeType {
         case .grassland:
-            if roll < 0.55 { return .rock }
-            if roll < 0.90 { return .tree }
+            if roll < 0.34 { return .grass }
+            if roll < 0.58 { return .pebble }
+            if roll < 0.78 { return .rock }
+            if roll < 0.94 { return .tree }
             return .crystal
         case .temperateForest:
-            if roll < 0.72 { return .tree }
-            if roll < 0.94 { return .rock }
+            if roll < 0.42 { return .tree }
+            if roll < 0.70 { return .grass }
+            if roll < 0.84 { return .deadwood }
+            if roll < 0.96 { return .rock }
             return .crystal
         case .mountain:
-            if roll < 0.72 { return .rock }
-            if roll < 0.92 { return .crystal }
+            if roll < 0.52 { return .rock }
+            if roll < 0.74 { return .pebble }
+            if roll < 0.94 { return .crystal }
             return .tree
         case .desert:
+            if roll < 0.48 { return .pebble }
             if roll < 0.78 { return .rock }
-            if roll < 0.96 { return .crystal }
-            return .tree
+            if roll < 0.92 { return .crystal }
+            if roll < 0.98 { return .deadwood }
+            return .grass
         case .marsh:
+            if roll < 0.36 { return .grass }
             if roll < 0.58 { return .tree }
-            if roll < 0.88 { return .rock }
-            return .crystal
-        case .taiga:
-            if roll < 0.64 { return .tree }
+            if roll < 0.76 { return .deadwood }
             if roll < 0.92 { return .rock }
             return .crystal
+        case .taiga:
+            if roll < 0.44 { return .tree }
+            if roll < 0.64 { return .grass }
+            if roll < 0.80 { return .deadwood }
+            if roll < 0.94 { return .rock }
+            return .crystal
         case .coast:
+            if roll < 0.40 { return .pebble }
             if roll < 0.66 { return .rock }
-            if roll < 0.84 { return .tree }
+            if roll < 0.78 { return .deadwood }
+            if roll < 0.90 { return .grass }
             return .crystal
         case .freshwater:
-            if roll < 0.52 { return .rock }
-            if roll < 0.92 { return .tree }
+            if roll < 0.32 { return .grass }
+            if roll < 0.54 { return .pebble }
+            if roll < 0.76 { return .tree }
+            if roll < 0.92 { return .deadwood }
             return .crystal
         }
     }
@@ -145,8 +180,14 @@ public struct PropPlacementGenerator: Sendable {
         switch type {
         case .rock:
             return 0.65 + roll * 0.65
+        case .pebble:
+            return 0.30 + roll * 0.32
+        case .grass:
+            return 0.45 + roll * 0.40
         case .tree:
             return 0.85 + roll * 0.55
+        case .deadwood:
+            return 0.55 + roll * 0.42
         case .crystal:
             return 0.55 + roll * 0.45
         }

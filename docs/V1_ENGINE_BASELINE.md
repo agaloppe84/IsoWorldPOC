@@ -20,9 +20,10 @@ Le code actif ne doit plus adapter ses noms, alias ou tests a l'ancien pipeline.
 
 - `BiomeType` contient uniquement les biomes V1: `temperateForest`, `grassland`, `desert`, `mountain`, `marsh`, `taiga`, `coast`, `freshwater`.
 - `TerrainMaterialKind` contient les materiaux terrain V1: `grass`, `rock`, `dirt`, `sand`, `mud`, `snow`.
-- `PropType` contient les types de props V1: `rock`, `tree`, `crystal`.
+- `PropType` contient les types de props V1: `rock`, `pebble`, `grass`, `tree`, `deadwood`, `crystal`.
 - `StableRNG` est le generateur deterministe public du moteur.
 - `LODPolicy` et `LODSelection` decrivent la visibilite et le niveau de detail des chunks avant upload GPU.
+- `PropSystem` decrit les props naturels V1 depuis terrain, biome, seed, catalogue et regles de placement.
 - `RenderWorldSnapshot` transporte les donnees neutres consommees par le renderer, sans dependance Metal ni option debug non consommee.
 - `TerrainTextureCatalog.makePreview` genere les texture arrays temporaires de preview pour valider le pipeline PBR.
 
@@ -51,6 +52,18 @@ chunk data V1 -> snapshot V1 -> upload GPU -> passes Metal
 
 La selection LOD reste deterministe et testable dans `EngineCore`. Le streamer applique un budget de chunks visibles et de props rendus, le snapshot transporte la selection, le renderer upload uniquement les chunks visibles et l'index buffer terrain suit le niveau LOD choisi.
 
+## Step 11 livre
+
+Step 11 ajoute les props naturels simples au-dessus du budget LOD:
+
+- `EngineCore/Props` porte `PropSystem`, `PropCatalog`, `PropContext`, `PropPlacementRule`, `PropRecipe`, `PropVariantGenome` et `PropChunkData`.
+- `PropCatalog.naturalV1` couvre rochers, cailloux, herbes, arbres, bois mort et cristaux.
+- Le placement utilise biome, slope, moisture et walkability depuis `TerrainSampleGrid`.
+- Les IDs de props sont stables via `StableID.prop`.
+- Le renderer Metal bake `box`, `capsule` et `cone` dans le buffer props du chunk existant.
+
+La V1 ne cree pas encore de GPU instancing dedie, d'imposteurs, de prop LOD par instance ou de debug placement interactif.
+
 ## Prochaine cible
 
-Step 11 peut ajouter les props naturels simples au-dessus de ce budget LOD. Les nouveaux props doivent respecter la selection LOD existante et ne pas creer de chemin d'instancing parallele sans contrat moteur.
+Step 12 peut ouvrir le `WorldPreparePipeline` reel. Il doit consommer les donnees V1 existantes sans recreer un second flux de generation de chunks, props ou snapshots.

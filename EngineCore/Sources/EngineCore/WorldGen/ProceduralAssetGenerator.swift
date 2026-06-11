@@ -1,3 +1,5 @@
+import Foundation
+
 public struct ProceduralAssetGenerator: Sendable {
     public let seed: WorldSeed
 
@@ -62,8 +64,14 @@ public struct ProceduralAssetGenerator: Sendable {
         switch type {
         case .rock:
             rockGeometry(size: size)
+        case .pebble:
+            pebbleGeometry(size: size)
+        case .grass:
+            grassGeometry(size: size, random: &random)
         case .tree:
             treeGeometry(size: size, biome: biome)
+        case .deadwood:
+            deadwoodGeometry(size: size, random: &random)
         case .crystal:
             crystalGeometry(size: size, random: &random)
         }
@@ -73,7 +81,7 @@ public struct ProceduralAssetGenerator: Sendable {
         PropGeometryDescriptor(
             parts: [
                 PropGeometryPart(
-                    shape: .box,
+                    shape: .capsule,
                     size: size,
                     cornerRadius: min(size.x, min(size.y, size.z)) * 0.22,
                     position: PropVector3(x: 0, y: size.y * 0.5, z: 0),
@@ -83,28 +91,108 @@ public struct ProceduralAssetGenerator: Sendable {
         )
     }
 
+    private func pebbleGeometry(size: PropVector3) -> PropGeometryDescriptor {
+        PropGeometryDescriptor(
+            parts: [
+                PropGeometryPart(
+                    shape: .capsule,
+                    size: size,
+                    cornerRadius: min(size.x, min(size.y, size.z)) * 0.18,
+                    position: PropVector3(x: 0, y: size.y * 0.5, z: 0),
+                    materialSlot: .primary
+                )
+            ]
+        )
+    }
+
+    private func grassGeometry(size: PropVector3, random: inout StableRNG) -> PropGeometryDescriptor {
+        let bladeCount = 3 + Int(random.next() % 3)
+        let bladeWidth = max(size.x * 0.18, 0.025)
+        let bladeDepth = max(size.z * 0.12, 0.018)
+        var parts: [PropGeometryPart] = []
+        parts.reserveCapacity(bladeCount)
+
+        for index in 0..<bladeCount {
+            let angle = (Float(index) / Float(bladeCount)) * Float.pi * 2 +
+                randomUnit(&random) * 0.35
+            let height = size.y * (0.72 + randomUnit(&random) * 0.38)
+            let radius = min(size.x, size.z) * (0.10 + randomUnit(&random) * 0.18)
+
+            parts.append(PropGeometryPart(
+                shape: .cone,
+                size: PropVector3(x: bladeWidth, y: height, z: bladeDepth),
+                position: PropVector3(
+                    x: cos(angle) * radius,
+                    y: height * 0.5,
+                    z: sin(angle) * radius
+                ),
+                rotationRadians: PropVector3(
+                    x: sin(angle) * 0.20,
+                    y: angle,
+                    z: cos(angle) * 0.20
+                ),
+                materialSlot: index == 0 ? .secondary : .primary
+            ))
+        }
+
+        return PropGeometryDescriptor(parts: parts)
+    }
+
     private func treeGeometry(size: PropVector3, biome: Biome) -> PropGeometryDescriptor {
         let trunkHeight = size.y * trunkHeightRatio(for: biome)
         let crownHeight = max(size.y - trunkHeight * 0.65, size.y * 0.35)
         let trunkWidth = max(size.x * 0.22, 0.08)
         let crownWidth = size.x
         let crownDepth = size.z
+        let crownShape: PropGeometryShape = biome.type == .taiga ? .cone : .capsule
 
         return PropGeometryDescriptor(
             parts: [
                 PropGeometryPart(
-                    shape: .box,
+                    shape: .capsule,
                     size: PropVector3(x: trunkWidth, y: trunkHeight, z: trunkWidth),
                     cornerRadius: trunkWidth * 0.16,
                     position: PropVector3(x: 0, y: trunkHeight * 0.5, z: 0),
                     materialSlot: .primary
                 ),
                 PropGeometryPart(
-                    shape: .box,
+                    shape: crownShape,
                     size: PropVector3(x: crownWidth, y: crownHeight, z: crownDepth),
                     cornerRadius: min(crownWidth, min(crownHeight, crownDepth)) * 0.18,
                     position: PropVector3(x: 0, y: trunkHeight + crownHeight * 0.34, z: 0),
                     materialSlot: .secondary
+                )
+            ]
+        )
+    }
+
+    private func deadwoodGeometry(size: PropVector3, random: inout StableRNG) -> PropGeometryDescriptor {
+        let branchAngle = (randomUnit(&random) - 0.5) * 0.9
+        let smallBranchScale = 0.42 + randomUnit(&random) * 0.18
+
+        return PropGeometryDescriptor(
+            parts: [
+                PropGeometryPart(
+                    shape: .capsule,
+                    size: PropVector3(x: size.x, y: size.z, z: size.x),
+                    position: PropVector3(x: 0, y: size.y * 0.48, z: 0),
+                    rotationRadians: PropVector3(x: Float.pi * 0.5, y: branchAngle, z: 0),
+                    materialSlot: .primary
+                ),
+                PropGeometryPart(
+                    shape: .capsule,
+                    size: PropVector3(
+                        x: size.x * 0.55,
+                        y: size.z * smallBranchScale,
+                        z: size.x * 0.55
+                    ),
+                    position: PropVector3(x: size.x * 0.18, y: size.y * 0.62, z: size.z * 0.04),
+                    rotationRadians: PropVector3(
+                        x: Float.pi * 0.5,
+                        y: branchAngle + 0.9,
+                        z: 0.18
+                    ),
+                    materialSlot: .accent
                 )
             ]
         )
@@ -117,7 +205,7 @@ public struct ProceduralAssetGenerator: Sendable {
         return PropGeometryDescriptor(
             parts: [
                 PropGeometryPart(
-                    shape: .box,
+                    shape: .cone,
                     size: size,
                     cornerRadius: min(size.x, size.z) * 0.12,
                     position: PropVector3(x: 0, y: size.y * 0.5, z: 0),
@@ -125,7 +213,7 @@ public struct ProceduralAssetGenerator: Sendable {
                     materialSlot: .primary
                 ),
                 PropGeometryPart(
-                    shape: .box,
+                    shape: .cone,
                     size: PropVector3(
                         x: size.x * secondaryScale,
                         y: size.y * secondaryScale,
@@ -168,6 +256,25 @@ public struct ProceduralAssetGenerator: Sendable {
                 roughness: 0.88
             )
             return (rock, rock, rock)
+        case .pebble:
+            let pebble = PropMaterialDescriptor(
+                identifier: "prop.material.pebble.\(biome.type.rawValue)",
+                color: varied(rockColor(for: biome), amount: 0.10, random: &random),
+                roughness: 0.92
+            )
+            return (pebble, pebble, pebble)
+        case .grass:
+            let grass = PropMaterialDescriptor(
+                identifier: "prop.material.grass.\(biome.type.rawValue)",
+                color: varied(foliageColor(for: biome), amount: 0.12, random: &random),
+                roughness: 0.84
+            )
+            let highlight = PropMaterialDescriptor(
+                identifier: "prop.material.grassHighlight.\(biome.type.rawValue)",
+                color: varied(foliageAccentColor(for: biome), amount: 0.10, random: &random),
+                roughness: 0.82
+            )
+            return (grass, highlight, grass)
         case .tree:
             return (
                 PropMaterialDescriptor(
@@ -186,6 +293,18 @@ public struct ProceduralAssetGenerator: Sendable {
                     roughness: 0.78
                 )
             )
+        case .deadwood:
+            let bark = PropMaterialDescriptor(
+                identifier: "prop.material.deadwood.\(biome.type.rawValue)",
+                color: varied(deadwoodColor(for: biome), amount: 0.10, random: &random),
+                roughness: 0.90
+            )
+            let exposed = PropMaterialDescriptor(
+                identifier: "prop.material.deadwoodAccent.\(biome.type.rawValue)",
+                color: varied(deadwoodAccentColor(for: biome), amount: 0.08, random: &random),
+                roughness: 0.86
+            )
+            return (bark, bark, exposed)
         case .crystal:
             let crystal = PropMaterialDescriptor(
                 identifier: "prop.material.crystal.\(biome.type.rawValue)",
@@ -198,6 +317,41 @@ public struct ProceduralAssetGenerator: Sendable {
                 roughness: 0.30
             )
             return (crystal, crystal, accent)
+        }
+    }
+
+    private func foliageAccentColor(for biome: Biome) -> BiomeColor {
+        switch biome.type {
+        case .desert, .coast:
+            BiomeColor(red: 0.56, green: 0.48, blue: 0.22)
+        case .marsh, .freshwater:
+            BiomeColor(red: 0.14, green: 0.55, blue: 0.36)
+        case .taiga:
+            BiomeColor(red: 0.13, green: 0.36, blue: 0.30)
+        default:
+            BiomeColor(red: 0.24, green: 0.52, blue: 0.20)
+        }
+    }
+
+    private func deadwoodColor(for biome: Biome) -> BiomeColor {
+        switch biome.type {
+        case .coast, .freshwater:
+            BiomeColor(red: 0.42, green: 0.34, blue: 0.24)
+        case .marsh:
+            BiomeColor(red: 0.22, green: 0.16, blue: 0.11)
+        default:
+            BiomeColor(red: 0.31, green: 0.21, blue: 0.13)
+        }
+    }
+
+    private func deadwoodAccentColor(for biome: Biome) -> BiomeColor {
+        switch biome.type {
+        case .coast, .freshwater:
+            BiomeColor(red: 0.58, green: 0.48, blue: 0.34)
+        case .marsh:
+            BiomeColor(red: 0.34, green: 0.26, blue: 0.18)
+        default:
+            BiomeColor(red: 0.45, green: 0.32, blue: 0.20)
         }
     }
 
@@ -266,7 +420,13 @@ public struct ProceduralAssetGenerator: Sendable {
         switch type {
         case .rock:
             size
+        case .pebble:
+            PropVector3(x: size.x, y: size.y * 0.8, z: size.z)
+        case .grass:
+            PropVector3(x: size.x, y: size.y * 0.7, z: size.z)
         case .tree:
+            PropVector3(x: size.x, y: size.y, z: size.z)
+        case .deadwood:
             PropVector3(x: size.x, y: size.y, z: size.z)
         case .crystal:
             PropVector3(x: size.x * 1.2, y: size.y, z: size.z * 1.2)

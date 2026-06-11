@@ -109,6 +109,19 @@ L'overlay peut basculer le debug terrain entre rendu normal, biome primaire, bio
 
 Cette approche garde les props et terrains batchables par chunk. Elle evite de multiplier les draw calls par biome ou materiau. Le shader utilise actuellement la roughness pour adoucir la reponse diffuse des materiaux rugueux.
 
+### Props naturels V1
+
+Les props naturels V1 restent dans le pipeline chunk existant:
+
+- `EngineCore/Props` definit `PropSystem`, `PropCatalog`, `PropPlacementRule`, `PropContext`, `PropRecipe`, `PropVariantGenome` et `PropChunkData`.
+- `PropSystem` recoit le `TerrainSampleGrid`, le biome dominant et le seed monde pour produire des placements, recipes, IDs stables et variants deterministes.
+- `PropCatalog.naturalV1` couvre rochers, cailloux, herbes, arbres, bois mort et cristaux.
+- Les regles de placement utilisent biome, slope, moisture et walkability.
+- `ProceduralChunkDataFactory` consomme `PropChunkData` puis expose les placements et variants dans le meme snapshot V1 qu'avant.
+- `MetalChunkBuffers` bake les shapes `box`, `capsule` et `cone` dans le buffer props du chunk.
+
+Cette baseline ne cree pas encore de chemin d'instancing GPU parallele, de billboards, d'imposteurs ou de collisions detaillees par prop.
+
 ### LOD baseline
 
 Le LOD V1 est un systeme classique et explicite, avant tout HLOD ou virtual geometry.
@@ -172,7 +185,7 @@ Le renderer Metal ne doit donc pas construire le monde ni decider quels chunks e
 - biome dominant;
 - materiau terrain abstrait;
 - materiaux terrain par vertex/sample issus du biome;
-- placements et variants de props;
+- placements et variants de props issus de `PropSystem`;
 - origine monde du chunk;
 - metriques simples de generation.
 

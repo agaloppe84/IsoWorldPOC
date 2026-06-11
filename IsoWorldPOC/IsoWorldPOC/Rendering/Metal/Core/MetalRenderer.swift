@@ -503,7 +503,7 @@ struct MetalChunkBuffers {
         }
     }
 
-    private static func propMesh(for chunk: RenderChunk) -> (
+    static func propMesh(for chunk: RenderChunk) -> (
         vertices: [MetalTerrainVertex],
         indices: [UInt32]
     ) {
@@ -517,11 +517,13 @@ struct MetalChunkBuffers {
                 let baseIndex = UInt32(vertices.count)
                 let material = prop.variant.material(for: part.materialSlot)
                 let color = propColor(for: material)
-                let partVertices = centeredBoxVertices(
+                let partMesh = centeredMesh(
+                    for: part.shape,
                     size: vector(from: part.size),
                     color: color,
                     material: MetalMaterialPayload.prop(material)
-                ).map { vertex in
+                )
+                let partVertices = partMesh.vertices.map { vertex in
                     transformedPropVertex(
                         vertex,
                         part: part,
@@ -531,11 +533,30 @@ struct MetalChunkBuffers {
                 }
 
                 vertices.append(contentsOf: partVertices)
-                indices.append(contentsOf: boxIndices().map { baseIndex + $0 })
+                indices.append(contentsOf: partMesh.indices.map { baseIndex + $0 })
             }
         }
 
         return (vertices, indices)
+    }
+
+    private static func centeredMesh(
+        for shape: PropGeometryShape,
+        size: SIMD3<Float>,
+        color: SIMD4<Float>,
+        material: SIMD4<Float>
+    ) -> (
+        vertices: [MetalTerrainVertex],
+        indices: [UInt32]
+    ) {
+        switch shape {
+        case .box:
+            return (centeredBoxVertices(size: size, color: color, material: material), boxIndices())
+        case .capsule:
+            return centeredCapsuleMesh(size: size, color: color, material: material)
+        case .cone:
+            return centeredConeMesh(size: size, color: color, material: material)
+        }
     }
 
     private static func transformedPropVertex(
@@ -613,6 +634,151 @@ struct MetalChunkBuffers {
             MetalTerrainVertex(position: [halfX, -halfY, halfZ], normal: bottomNormal, color: color, material: material),
             MetalTerrainVertex(position: [-halfX, -halfY, halfZ], normal: bottomNormal, color: color, material: material),
         ]
+    }
+
+    private static func centeredConeMesh(
+        size: SIMD3<Float>,
+        color: SIMD4<Float>,
+        material: SIMD4<Float>
+    ) -> (
+        vertices: [MetalTerrainVertex],
+        indices: [UInt32]
+    ) {
+        let segments = 10
+        let halfY = size.y * 0.5
+        let radiusX = max(size.x * 0.5, 0.001)
+        let radiusZ = max(size.z * 0.5, 0.001)
+        let tipIndex = UInt32(0)
+        let baseCenterIndex = UInt32(1)
+        var vertices = [
+            MetalTerrainVertex(
+                position: SIMD3<Float>(0, halfY, 0),
+                normal: SIMD3<Float>(0, 1, 0),
+                color: color,
+                material: material
+            ),
+            MetalTerrainVertex(
+                position: SIMD3<Float>(0, -halfY, 0),
+                normal: SIMD3<Float>(0, -1, 0),
+                color: color,
+                material: material
+            ),
+        ]
+        var indices: [UInt32] = []
+
+        vertices.reserveCapacity(2 + segments * 2)
+        indices.reserveCapacity(segments * 6)
+
+        for segment in 0..<segments {
+            let angle = Float(segment) / Float(segments) * Float.pi * 2
+            let x = cos(angle) * radiusX
+            let z = sin(angle) * radiusZ
+            let sideNormal = simd_normalize(SIMD3<Float>(x / radiusX, radiusX / max(size.y, 0.001), z / radiusZ))
+
+            vertices.append(MetalTerrainVertex(
+                position: SIMD3<Float>(x, -halfY, z),
+                normal: sideNormal,
+                color: color,
+                material: material
+            ))
+            vertices.append(MetalTerrainVertex(
+                position: SIMD3<Float>(x, -halfY, z),
+                normal: SIMD3<Float>(0, -1, 0),
+                color: color,
+                material: material
+            ))
+        }
+
+        for segment in 0..<segments {
+            let currentSide = UInt32(2 + segment * 2)
+            let currentBase = currentSide + 1
+            let nextSide = UInt32(2 + ((segment + 1) % segments) * 2)
+            let nextBase = nextSide + 1
+
+            indices.append(contentsOf: [tipIndex, currentSide, nextSide])
+            indices.append(contentsOf: [baseCenterIndex, nextBase, currentBase])
+        }
+
+        return (vertices, indices)
+    }
+
+    private static func centeredCapsuleMesh(
+        size: SIMD3<Float>,
+        color: SIMD4<Float>,
+        material: SIMD4<Float>
+    ) -> (
+        vertices: [MetalTerrainVertex],
+        indices: [UInt32]
+    ) {
+        let segments = 10
+        let radiusX = max(size.x * 0.5, 0.001)
+        let radiusZ = max(size.z * 0.5, 0.001)
+        let capHeight = min(size.y * 0.25, max(radiusX, radiusZ))
+        let cylinderHalfHeight = max(size.y * 0.5 - capHeight, 0.001)
+        let topPoleIndex = UInt32(0)
+        let bottomPoleIndex = UInt32(1)
+        var vertices = [
+            MetalTerrainVertex(
+                position: SIMD3<Float>(0, cylinderHalfHeight + capHeight, 0),
+                normal: SIMD3<Float>(0, 1, 0),
+                color: color,
+                material: material
+            ),
+            MetalTerrainVertex(
+                position: SIMD3<Float>(0, -cylinderHalfHeight - capHeight, 0),
+                normal: SIMD3<Float>(0, -1, 0),
+                color: color,
+                material: material
+            ),
+        ]
+        var indices: [UInt32] = []
+
+        vertices.reserveCapacity(2 + segments * 2)
+        indices.reserveCapacity(segments * 12)
+
+        for segment in 0..<segments {
+            let angle = Float(segment) / Float(segments) * Float.pi * 2
+            let x = cos(angle) * radiusX
+            let z = sin(angle) * radiusZ
+            let normal = simd_normalize(SIMD3<Float>(x / radiusX, 0, z / radiusZ))
+
+            vertices.append(MetalTerrainVertex(
+                position: SIMD3<Float>(x, cylinderHalfHeight, z),
+                normal: normal,
+                color: color,
+                material: material
+            ))
+            vertices.append(MetalTerrainVertex(
+                position: SIMD3<Float>(x, -cylinderHalfHeight, z),
+                normal: normal,
+                color: color,
+                material: material
+            ))
+        }
+
+        for segment in 0..<segments {
+            let topCurrent = UInt32(2 + segment * 2)
+            let bottomCurrent = topCurrent + 1
+            let topNext = UInt32(2 + ((segment + 1) % segments) * 2)
+            let bottomNext = topNext + 1
+
+            indices.append(contentsOf: [
+                topCurrent,
+                bottomCurrent,
+                topNext,
+                topNext,
+                bottomCurrent,
+                bottomNext,
+                topPoleIndex,
+                topCurrent,
+                topNext,
+                bottomPoleIndex,
+                bottomNext,
+                bottomCurrent,
+            ])
+        }
+
+        return (vertices, indices)
     }
 
     private static func propColor(for material: PropMaterialDescriptor) -> SIMD4<Float> {

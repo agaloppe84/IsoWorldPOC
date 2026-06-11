@@ -331,3 +331,15 @@ Consequence: `ChunkDataStreamer` utilise un rayon candidat de 2 chunks, applique
 Garantie: les tests couvrent selection par distance, hysteresis, screen error, stats LOD et indices terrain edge-preserving.
 
 Limite actuelle: pas encore de HLOD, occlusion culling GPU, meshlets, indirect draw, collision LOD avancee ou instancing GPU dedie.
+
+## 034 - Props naturels V1 par PropSystem
+
+Decision: introduire `EngineCore/Props` comme facade V1 pour les props naturels simples, branchee sur le pipeline chunk existant.
+
+Raison: Step 11 doit augmenter la densite visible sans recreer une architecture parallele de rendu ou d'instancing. Les decisions de placement doivent utiliser le terrain et les biomes deja disponibles, rester deterministes et produire des donnees inspectables.
+
+Consequence: `PropSystem` produit `PropChunkData` depuis `TerrainSampleGrid`, biome et seed. Le catalogue naturel V1 couvre rochers, cailloux, herbes, arbres, bois mort et cristaux. Les regles de placement scorent biome, slope, moisture et walkability. `ProceduralChunkDataFactory` consomme ce chunk data et le renderer Metal bake les shapes `box`, `capsule` et `cone` dans le buffer props de chunk existant.
+
+Garantie: les tests couvrent catalogue naturel, determinisme, filtrage terrain, IDs stables, alignement sur le stride terrain et bake Metal des shapes naturelles.
+
+Limite actuelle: pas encore de GPU instancing dedie, prop LOD par instance, imposteurs, billboards, collisions detaillees, animation de vegetation ou debug placement interactif.

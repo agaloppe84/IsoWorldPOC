@@ -35,8 +35,7 @@ enum ProceduralChunkDataFactory {
 
     private static let biomeSampler = BiomeSampler(seed: activeSeed)
     private static let terrainSystem = TerrainSystem(seed: activeSeed)
-    private static let propGenerator = PropPlacementGenerator(seed: activeSeed, maxPropsPerChunk: 18)
-    private static let assetGenerator = ProceduralAssetGenerator(seed: activeSeed)
+    private static let propSystem = PropSystem(seed: activeSeed, maxPropsPerChunk: 28)
 
     static func makeChunkData(coordinate: ChunkCoordinate) -> ProceduralChunkData {
         do {
@@ -62,6 +61,10 @@ enum ProceduralChunkDataFactory {
 
         try cancellationToken?.checkCancellation()
 
+        let terrainSampleGrid = terrainSystem.sampleGrid(for: coordinate)
+
+        try cancellationToken?.checkCancellation()
+
         let biome = biomeSampler.dominantBiome(
             for: coordinate,
             samplesPerChunk: chunkResolution
@@ -70,29 +73,17 @@ enum ProceduralChunkDataFactory {
         try cancellationToken?.checkCancellation()
 
         let terrainVertexMaterials = try makeTerrainVertexMaterials(
-            for: coordinate,
+            from: terrainSampleGrid,
             cancellationToken: cancellationToken
         )
 
         try cancellationToken?.checkCancellation()
 
-        let propPlacements = propGenerator.placements(
+        let propChunkData = propSystem.chunkData(
             for: coordinate,
             biome: biome,
-            samplesPerChunk: chunkResolution
+            terrainSampleGrid: terrainSampleGrid
         )
-
-        var propVariants: [PropVariant] = []
-        propVariants.reserveCapacity(propPlacements.count)
-
-        for placement in propPlacements {
-            try cancellationToken?.checkCancellation()
-            propVariants.append(assetGenerator.variant(
-                for: placement,
-                biome: biome,
-                chunk: coordinate
-            ))
-        }
 
         try cancellationToken?.checkCancellation()
 
@@ -109,8 +100,8 @@ enum ProceduralChunkDataFactory {
             meshNormals: terrainGeometry.normals.map { SIMD3<Float>($0.x, $0.y, $0.z) },
             meshTextureCoordinates: terrainGeometry.textureCoordinates.map { SIMD2<Float>($0.u, $0.v) },
             meshIndices: terrainGeometry.indices,
-            propPlacements: propPlacements,
-            propVariants: propVariants,
+            propPlacements: propChunkData.placements,
+            propVariants: propChunkData.variants,
             originX: originX,
             originZ: originZ,
             dataGenerationTimeMs: Float(currentTimeMilliseconds() - dataGenerationStart)
@@ -118,23 +109,15 @@ enum ProceduralChunkDataFactory {
     }
 
     private static func makeTerrainVertexMaterials(
-        for coordinate: ChunkCoordinate,
+        from terrainSampleGrid: TerrainSampleGrid,
         cancellationToken: CancellationToken?
     ) throws -> [TerrainVertexMaterial] {
         var materials: [TerrainVertexMaterial] = []
         materials.reserveCapacity(chunkResolution * chunkResolution)
 
-        for localZ in 0..<chunkResolution {
+        for sample in terrainSampleGrid.samples {
             try cancellationToken?.checkCancellation()
-
-            for localX in 0..<chunkResolution {
-                materials.append(
-                    terrainSystem
-                        .sample(localX: localX, localZ: localZ, in: coordinate)
-                        .materialWeights
-                        .terrainVertexMaterial()
-                )
-            }
+            materials.append(sample.materialWeights.terrainVertexMaterial())
         }
 
         return materials
