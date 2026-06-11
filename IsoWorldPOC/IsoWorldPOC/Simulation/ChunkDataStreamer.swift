@@ -15,12 +15,13 @@ final class ChunkDataStreamer {
     private let preloadRadiusValue = 2
     private let maxConcurrentChunkJobs = 2
     private let maxReadyChunksPerFrame = 1
+    private let chunkJobScheduler = JobScheduler()
 
     private var loadedChunkData: [ChunkCoordinate: ProceduralChunkData] = [:]
     private var samplers: [ChunkCoordinate: TerrainSampler] = [:]
     private var pendingChunkQueue: [ChunkCoordinate] = []
     private var pendingChunkSet = Set<ChunkCoordinate>()
-    private var generatingChunkSet = Set<ChunkCoordinate>()
+    private var chunkJobHandles: [ChunkCoordinate: JobHandle<ProceduralChunkData>] = [:]
     private var readyChunkData: [ChunkCoordinate: ProceduralChunkData] = [:]
     private var activeChunkSet = Set<ChunkCoordinate>()
     private var desiredPreloadChunks = Set<ChunkCoordinate>()
@@ -36,6 +37,10 @@ final class ChunkDataStreamer {
         let initialData = ProceduralChunkDataFactory.makeChunkData(coordinate: .origin)
         loadChunkData(initialData)
         generatedChunkCount = 1
+    }
+
+    deinit {
+        chunkJobScheduler.cancelAll()
     }
 
     var activeChunkCount: Int {
@@ -69,7 +74,7 @@ final class ChunkDataStreamer {
     }
 
     var chunkJobsGenerating: Int {
-        generatingChunkSet.count
+        chunkJobHandles.count
     }
 
     var chunksReadyForUpload: Int {
@@ -84,6 +89,10 @@ final class ChunkDataStreamer {
         average(totalChunkDataGenerationTimeMs, sampleCount: chunkDataGenerationSampleCount)
     }
 
+    var jobSchedulerSnapshot: JobSchedulerSnapshot {
+        chunkJobScheduler.snapshot
+    }
+
     func activeChunkData() -> [ChunkStreamerRenderData] {
         sorted(activeChunkSet).compactMap { coordinate in
             guard let data = loadedChunkData[coordinate] else {
@@ -96,6 +105,27 @@ final class ChunkDataStreamer {
                 isVisible: activeChunkSet.contains(coordinate)
             )
         }
+    }
+
+    func debugSnapshot(
+        frameIndex: UInt64,
+        currentGroundChunk: ChunkCoordinate?
+    ) -> DebugSnapshot {
+        DebugSnapshot(
+            frameIndex: frameIndex,
+            currentChunk: currentChunk,
+            currentGroundChunk: currentGroundChunk,
+            activeChunkCount: activeChunkCount,
+            visibleChunkCount: visibleChunkCount,
+            generatedChunkCount: generatedChunkCount,
+            cachedChunkCount: cachedChunkCount,
+            approximateTriangleCount: approximateTriangleCount,
+            approximatePropCount: approximatePropCount,
+            jobs: jobSchedulerSnapshot,
+            chunksReadyForUpload: chunksReadyForUpload,
+            chunkUploadsThisFrame: readyChunksActivatedThisFrame,
+            averageChunkGenerationTimeMs: averageChunkDataGenerationMs
+        )
     }
 
     func update(around playerPosition: SIMD3<Float>) {
@@ -156,6 +186,10 @@ final class ChunkDataStreamer {
             pendingChunkQueue = pendingChunkQueue.filter { preloadChunks.contains($0) }
             pendingChunkSet = Set(pendingChunkQueue)
         }
+
+        for coordinate in chunkJobHandles.keys where !preloadChunks.contains(coordinate) {
+            chunkJobHandles[coordinate]?.cancel()
+        }
     }
 
     private func enqueueMissingChunks(
@@ -166,7 +200,7 @@ final class ChunkDataStreamer {
             loadedChunkData[coordinate] == nil &&
                 readyChunkData[coordinate] == nil &&
                 !pendingChunkSet.contains(coordinate) &&
-                !generatingChunkSet.contains(coordinate)
+                chunkJobHandles[coordinate] == nil
         }
 
         for coordinate in sortedByLoadPriority(candidates, activeChunks: activeChunks) {
@@ -176,7 +210,7 @@ final class ChunkDataStreamer {
     }
 
     private func startGenerationJobsIfNeeded() {
-        while generatingChunkSet.count < maxConcurrentChunkJobs && !pendingChunkQueue.isEmpty {
+        while chunkJobHandles.count < maxConcurrentChunkJobs && !pendingChunkQueue.isEmpty {
             let coordinate = pendingChunkQueue.removeFirst()
             pendingChunkSet.remove(coordinate)
 
@@ -184,17 +218,35 @@ final class ChunkDataStreamer {
                 continue
             }
 
-            generatingChunkSet.insert(coordinate)
+            let job = EngineJob<ProceduralChunkData>(
+                name: "generate-chunk-\(coordinate.x)-\(coordinate.y)-\(coordinate.z)",
+                priority: .utility
+            ) { cancellationToken in
+                try ProceduralChunkDataFactory.makeChunkData(
+                    coordinate: coordinate,
+                    cancellationToken: cancellationToken
+                )
+            }
+            let handle = chunkJobScheduler.submit(job)
+            let jobID = handle.id
+            chunkJobHandles[coordinate] = handle
 
-            Task.detached(priority: .utility) { [weak self] in
-                let data = ProceduralChunkDataFactory.makeChunkData(coordinate: coordinate)
-                await self?.handleGeneratedChunkData(data)
+            Task { [weak self, handle, coordinate, jobID] in
+                do {
+                    let data = try await handle.value()
+                    self?.handleGeneratedChunkData(data, jobID: jobID)
+                } catch {
+                    self?.handleChunkJobFailure(coordinate: coordinate, jobID: jobID)
+                }
             }
         }
     }
 
-    private func handleGeneratedChunkData(_ data: ProceduralChunkData) {
-        generatingChunkSet.remove(data.coordinate)
+    private func handleGeneratedChunkData(_ data: ProceduralChunkData, jobID: EngineJobID) {
+        guard completeChunkJob(coordinate: data.coordinate, jobID: jobID) else {
+            return
+        }
+
         chunkDataGenerationSampleCount += 1
         totalChunkDataGenerationTimeMs += data.dataGenerationTimeMs
 
@@ -203,6 +255,23 @@ final class ChunkDataStreamer {
         }
 
         startGenerationJobsIfNeeded()
+    }
+
+    private func handleChunkJobFailure(coordinate: ChunkCoordinate, jobID: EngineJobID) {
+        guard completeChunkJob(coordinate: coordinate, jobID: jobID) else {
+            return
+        }
+
+        startGenerationJobsIfNeeded()
+    }
+
+    private func completeChunkJob(coordinate: ChunkCoordinate, jobID: EngineJobID) -> Bool {
+        guard chunkJobHandles[coordinate]?.id == jobID else {
+            return false
+        }
+
+        chunkJobHandles.removeValue(forKey: coordinate)
+        return true
     }
 
     private func activateReadyChunks(
@@ -233,7 +302,7 @@ final class ChunkDataStreamer {
             return .current
         }
 
-        if generatingChunkSet.contains(coordinate) {
+        if chunkJobHandles[coordinate] != nil {
             return .generating
         }
 

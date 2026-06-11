@@ -70,23 +70,26 @@ final class AppStore: ObservableObject {
     }
 
     private func runWorldPreparation(seed: String) async {
-        for snapshot in worldPreparePipeline.snapshots(for: seed) {
+        do {
+            let session = try await worldPreparePipeline.prepareWorld(seed: seed) { [weak self] progress in
+                self?.loadingProgress = progress
+            }
+
             guard !Task.isCancelled else {
                 return
             }
 
-            try? await Task.sleep(for: .milliseconds(180))
-            loadingProgress = snapshot
-        }
+            currentWorldSession = session
+            mode = .realWorld(session.id)
+            loadingTask = nil
+        } catch {
+            guard !Task.isCancelled else {
+                return
+            }
 
-        guard !Task.isCancelled else {
-            return
+            loadingProgress = LoadingProgress(seed: seed, phase: "Cancelled", progress: 0)
+            loadingTask = nil
         }
-
-        let session = worldPreparePipeline.makeWorldSession(seed: seed)
-        currentWorldSession = session
-        mode = .realWorld(session.id)
-        loadingTask = nil
     }
 
     private func normalizedSeed() -> String {

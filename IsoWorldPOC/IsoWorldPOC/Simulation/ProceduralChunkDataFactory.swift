@@ -38,29 +38,63 @@ enum ProceduralChunkDataFactory {
     private static let assetGenerator = ProceduralAssetGenerator(seed: activeSeed)
 
     static func makeChunkData(coordinate: ChunkCoordinate) -> ProceduralChunkData {
+        do {
+            return try makeChunkData(coordinate: coordinate, cancellationToken: nil)
+        } catch {
+            preconditionFailure("Unexpected cancellation while generating a chunk without a cancellation token.")
+        }
+    }
+
+    static func makeChunkData(
+        coordinate: ChunkCoordinate,
+        cancellationToken: CancellationToken?
+    ) throws -> ProceduralChunkData {
         let dataGenerationStart = currentTimeMilliseconds()
+
+        try cancellationToken?.checkCancellation()
+
         let terrainGeometry = coordinate.makeTerrainGeometry(
             seed: activeSeed,
             horizontalScale: horizontalScale,
             verticalScale: verticalScale
         )
+
+        try cancellationToken?.checkCancellation()
+
         let biome = biomeSampler.dominantBiome(
             for: coordinate,
             samplesPerChunk: chunkResolution
         )
-        let terrainVertexMaterials = makeTerrainVertexMaterials(for: coordinate)
+
+        try cancellationToken?.checkCancellation()
+
+        let terrainVertexMaterials = try makeTerrainVertexMaterials(
+            for: coordinate,
+            cancellationToken: cancellationToken
+        )
+
+        try cancellationToken?.checkCancellation()
+
         let propPlacements = propGenerator.placements(
             for: coordinate,
             biome: biome,
             samplesPerChunk: chunkResolution
         )
-        let propVariants = propPlacements.map { placement in
-            assetGenerator.variant(
+
+        var propVariants: [PropVariant] = []
+        propVariants.reserveCapacity(propPlacements.count)
+
+        for placement in propPlacements {
+            try cancellationToken?.checkCancellation()
+            propVariants.append(assetGenerator.variant(
                 for: placement,
                 biome: biome,
                 chunk: coordinate
-            )
+            ))
         }
+
+        try cancellationToken?.checkCancellation()
+
         let halfExtent = chunkWorldSize * 0.5
         let originX = Float(coordinate.x) * chunkWorldSize - halfExtent
         let originZ = Float(coordinate.z) * chunkWorldSize - halfExtent
@@ -83,12 +117,15 @@ enum ProceduralChunkDataFactory {
     }
 
     private static func makeTerrainVertexMaterials(
-        for coordinate: ChunkCoordinate
-    ) -> [TerrainVertexMaterial] {
+        for coordinate: ChunkCoordinate,
+        cancellationToken: CancellationToken?
+    ) throws -> [TerrainVertexMaterial] {
         var materials: [TerrainVertexMaterial] = []
         materials.reserveCapacity(chunkResolution * chunkResolution)
 
         for localZ in 0..<chunkResolution {
+            try cancellationToken?.checkCancellation()
+
             for localX in 0..<chunkResolution {
                 materials.append(
                     biomeSampler.terrainVertexMaterial(

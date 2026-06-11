@@ -17,6 +17,8 @@ final class WorldRuntime {
     private let chunkStreamer = ChunkDataStreamer()
     private let snapshotBuilder = RenderSnapshotBuilder()
     private let lightingState = LightingState.defaultDay
+    private var frameIndex: UInt64 = 0
+    private var simulationTime: Float = 0
     private var lastGrounding = PlayerGroundingResult(
         position: .zero,
         groundSample: nil,
@@ -25,16 +27,27 @@ final class WorldRuntime {
     )
 
     private(set) var snapshot: RenderWorldSnapshot
+    private(set) var frameSnapshot: EngineFrameSnapshot
 
     var playerPosition: SIMD3<Float> {
         playerController.position
     }
 
     init(debugOptions: RenderSnapshotDebugOptions = .defaults) {
-        self.snapshot = Self.makeEmptySnapshot()
+        let emptySnapshot = Self.makeEmptySnapshot()
+        self.snapshot = emptySnapshot
+        self.frameSnapshot = EngineFrameSnapshot(
+            frameIndex: 0,
+            worldSeed: ProceduralChunkDataFactory.activeSeed,
+            simulationTime: 0,
+            deltaTime: 0,
+            render: emptySnapshot,
+            debug: DebugSnapshot(frameIndex: 0)
+        )
 
         chunkStreamer.update(around: .zero)
         snapshot = makeSnapshot(debugOptions: debugOptions)
+        frameSnapshot = makeFrameSnapshot(deltaTime: 0)
     }
 
     func handleKeyDown(keyCode: UInt16) {
@@ -54,7 +67,10 @@ final class WorldRuntime {
         debugOptions: RenderSnapshotDebugOptions
     ) -> RenderWorldSnapshot {
         updateSimulation(deltaTime: deltaTime)
+        frameIndex += 1
+        simulationTime += deltaTime
         snapshot = makeSnapshot(debugOptions: debugOptions)
+        frameSnapshot = makeFrameSnapshot(deltaTime: deltaTime)
 
         return snapshot
     }
@@ -75,14 +91,16 @@ final class WorldRuntime {
         debugMetrics.activeChunkCount = chunkStreamer.activeChunkCount
         debugMetrics.visibleChunkCount = chunkStreamer.visibleChunkCount
         debugMetrics.generatedChunkCount = chunkStreamer.generatedChunkCount
+        debugMetrics.cachedChunkCount = chunkStreamer.cachedChunkCount
         debugMetrics.approximateTriangleCount = chunkStreamer.approximateTriangleCount
         debugMetrics.approximatePropCount = chunkStreamer.approximatePropCount
         debugMetrics.averageChunkGenerationTimeMs = chunkStreamer.averageChunkDataGenerationMs
         debugMetrics.averageChunkDataGenerationMs = chunkStreamer.averageChunkDataGenerationMs
         debugMetrics.averageTerrainMeshBuildTimeMs = nil
         debugMetrics.chunkJobsQueued = chunkStreamer.chunkJobsQueued
-        debugMetrics.chunkJobsGenerating = chunkStreamer.chunkJobsGenerating
-        debugMetrics.chunksReadyForUpload = chunkStreamer.chunksReadyForUpload
+        debugMetrics.chunkJobsGenerating = frameSnapshot.debug.jobs.activeJobCount
+        debugMetrics.chunksReadyForUpload = frameSnapshot.debug.chunksReadyForUpload
+        debugMetrics.chunkUploadsThisFrame = frameSnapshot.debug.chunkUploadsThisFrame
         debugMetrics.cameraYaw = camera.yaw
         debugMetrics.cameraPitch = camera.pitch
         debugMetrics.cameraDistance = camera.distance
@@ -130,6 +148,20 @@ final class WorldRuntime {
             camera: cameraController.renderState(following: playerController.position),
             lighting: lightingState,
             debugOptions: debugOptions
+        )
+    }
+
+    private func makeFrameSnapshot(deltaTime: Float) -> EngineFrameSnapshot {
+        EngineFrameSnapshot(
+            frameIndex: frameIndex,
+            worldSeed: ProceduralChunkDataFactory.activeSeed,
+            simulationTime: simulationTime,
+            deltaTime: deltaTime,
+            render: snapshot,
+            debug: chunkStreamer.debugSnapshot(
+                frameIndex: frameIndex,
+                currentGroundChunk: lastGrounding.currentGroundChunk
+            )
         )
     }
 
