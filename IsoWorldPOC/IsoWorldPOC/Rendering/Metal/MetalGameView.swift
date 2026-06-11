@@ -13,9 +13,14 @@ import SwiftUI
 struct MetalGameView: NSViewRepresentable {
     let debugMetrics: DebugMetrics
     let worldSession: WorldSession?
+    let publishesDebugTelemetry: Bool
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(debugMetrics: debugMetrics, worldSession: worldSession)
+        Coordinator(
+            debugMetrics: debugMetrics,
+            worldSession: worldSession,
+            publishesDebugTelemetry: publishesDebugTelemetry
+        )
     }
 
     func makeNSView(context: Context) -> MTKView {
@@ -55,10 +60,15 @@ struct MetalGameView: NSViewRepresentable {
         private let cadenceController = DebugCadenceController()
         private var debugState: DebugViewportState?
 
-        init(debugMetrics: DebugMetrics, worldSession: WorldSession?) {
+        init(
+            debugMetrics: DebugMetrics,
+            worldSession: WorldSession?,
+            publishesDebugTelemetry: Bool
+        ) {
             self.renderer = MetalRenderer(
                 debugMetrics: debugMetrics,
-                worldSession: worldSession
+                worldSession: worldSession,
+                publishesDebugTelemetry: publishesDebugTelemetry
             )
         }
 

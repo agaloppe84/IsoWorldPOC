@@ -6,6 +6,7 @@ final class DebugCadenceController {
     private weak var view: MTKView?
     private var timer: Timer?
     private var policy: RenderCadencePolicy?
+    private var drawScheduled = false
 
     deinit {
         timer?.invalidate()
@@ -25,7 +26,7 @@ final class DebugCadenceController {
         timer = nil
 
         configureView(for: policy)
-        startTimerIfNeeded(for: policy)
+        startContinuousDriverIfNeeded(for: policy)
         requestDraw()
     }
 
@@ -34,11 +35,18 @@ final class DebugCadenceController {
             return
         }
 
-        switch policy?.mode {
-        case .displayLinked, .benchmarkFixedStep:
-            return
-        case .onDemand, .throttled, .none:
+        guard view.window != nil else {
             view.setNeedsDisplay(view.bounds)
+            return
+        }
+
+        guard !drawScheduled else {
+            return
+        }
+
+        drawScheduled = true
+        Task { @MainActor [weak self] in
+            self?.drawScheduledFrame()
         }
     }
 
@@ -48,19 +56,12 @@ final class DebugCadenceController {
         }
 
         view.preferredFramesPerSecond = policy.maxFPS
-
-        switch policy.mode {
-        case .onDemand, .throttled:
-            view.enableSetNeedsDisplay = true
-            view.isPaused = true
-        case .displayLinked, .benchmarkFixedStep:
-            view.enableSetNeedsDisplay = false
-            view.isPaused = false
-        }
+        view.enableSetNeedsDisplay = false
+        view.isPaused = true
     }
 
-    private func startTimerIfNeeded(for policy: RenderCadencePolicy) {
-        guard case let .throttled(fps) = policy.mode else {
+    private func startContinuousDriverIfNeeded(for policy: RenderCadencePolicy) {
+        guard let fps = driverFPS(for: policy) else {
             return
         }
 
@@ -71,7 +72,34 @@ final class DebugCadenceController {
             }
         }
 
+        timer.tolerance = interval * 0.1
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+    }
+
+    private func driverFPS(for policy: RenderCadencePolicy) -> Int? {
+        switch policy.mode {
+        case .onDemand:
+            nil
+        case let .throttled(fps):
+            fps
+        case .displayLinked, .benchmarkFixedStep:
+            policy.maxFPS
+        }
+    }
+
+    private func drawScheduledFrame() {
+        drawScheduled = false
+
+        guard let view else {
+            return
+        }
+
+        guard view.window != nil else {
+            view.setNeedsDisplay(view.bounds)
+            return
+        }
+
+        view.draw()
     }
 }

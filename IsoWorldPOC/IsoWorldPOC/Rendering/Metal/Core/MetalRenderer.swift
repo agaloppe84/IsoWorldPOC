@@ -26,6 +26,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private let materialBindingTable: MaterialBindingTable
     private let terrainSamplerState: MTLSamplerState?
     private let debugMetrics: DebugMetrics
+    private let publishesDebugTelemetry: Bool
     private let frameGraph = FrameGraph.worldRenderer
     private let resourceRegistry: GPUResourceRegistry
     private let payloadUploader: RenderPayloadUploader
@@ -51,7 +52,11 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private var renderedFrameCount = 0
     private var lastDebugMetricsPublishTime = 0.0
 
-    init(debugMetrics: DebugMetrics, worldSession: WorldSession? = nil) {
+    init(
+        debugMetrics: DebugMetrics,
+        worldSession: WorldSession? = nil,
+        publishesDebugTelemetry: Bool = true
+    ) {
         let device = MTLCreateSystemDefaultDevice()
         let terrainTextureCatalog = TerrainTextureCatalog.makePreview(device: device)
 
@@ -64,6 +69,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         self.materialBindingTable = MaterialBindingTable(terrainTextureCatalog: terrainTextureCatalog)
         self.terrainSamplerState = TerrainTextureCatalog.makeSamplerState(device: device)
         self.debugMetrics = debugMetrics
+        self.publishesDebugTelemetry = publishesDebugTelemetry
         self.resourceRegistry = GPUResourceRegistry(
             playerBuffers: MetalRenderer.makePlayerBuffers(device: device)
         )
@@ -303,7 +309,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     }
 
     private func updateDebugMetrics() -> Bool {
-        guard !debugMetrics.pauseDebugMetricPublishing else {
+        guard publishesDebugTelemetry, !debugMetrics.pauseDebugMetricPublishing else {
             return false
         }
 

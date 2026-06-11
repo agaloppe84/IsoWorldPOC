@@ -230,6 +230,8 @@ Le correctif Step 12-QUINQUIES pousse cette separation plus loin: `DebugMetrics`
 
 Le correctif Step 12-SNAPSHOT-CACHE traite le cout commun au Debug World et au Real World: `RenderSnapshotBuilder` garde un cache de `RenderChunk` par chunk visible, invalide par signature de rendu, et ne transporte plus les chunks invisibles dans le snapshot. Le renderer continue de consommer un snapshot V1 neutre, mais le runtime evite de resampler les props et de reconstruire les payloads terrain stables a chaque frame.
 
+Le correctif Step 12-FRAME-DRIVER separe aussi les profils d'execution: Debug World peut publier de la telemetry SwiftUI, Real World ne le fait pas. `DebugCadenceController` devient le driver explicite des frames continues et laisse `MTKView` en canvas Metal pause, ce qui evite de dependre d'un reveil implicite fragile quand SwiftUI, AppKit et le debugger se partagent le main thread.
+
 ### Donnees de chunks procedurales
 
 `ProceduralChunkDataFactory` produit les donnees de chunks neutres consommees par Metal:

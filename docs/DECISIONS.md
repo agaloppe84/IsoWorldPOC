@@ -413,3 +413,13 @@ Raison: les mesures manuelles montrent que la chute FPS existe aussi en Real Wor
 Consequence: `RenderSnapshotBuilder` devient une classe `@MainActor` avec un cache par `ChunkCoordinate`. La signature de cache inclut les donnees qui changent le payload de rendu: etat debug du chunk, visibilite, niveau LOD, rendu des props et chunk bounds. Le snapshot emis ne transporte que les chunks visibles necessaires au rendu courant, et les props invisibles ne sont plus samplees.
 
 Garantie: les tests Xcode verifient qu'une frame stable reutilise le cache, que le snapshot ne contient que des chunks visibles et que la conversion props retombe a zero sur la frame cachee.
+
+## 041 - Frame driver explicite Step 12-FRAME-DRIVER
+
+Decision: separer le profil Real World du profil Debug World et ne plus laisser la boucle interne de `MTKView` etre l'unique source de cadence continue.
+
+Raison: les mesures manuelles montrent `draw(in:)` autour de quelques millisecondes, alors que `frame raw` et `gap` montent fortement. Le renderer n'est donc pas sature; le probleme vient du scheduling main thread, de la publication SwiftUI ou de la maniere dont la `MTKView` est reveillee.
+
+Consequence: `GameRootView` desactive la publication debug quand il n'affiche pas l'overlay. `MetalRenderer` ignore completement `updateDebugMetrics()` dans ce profil. `DebugCadenceController` garde la `MTKView` pausee et planifie les frames explicitement pour les modes continus, ce qui rend le comportement identique entre redraw clavier, redraw on-demand et live gameplay.
+
+Garantie: les tests unitaires verifient que le Real World ne publie pas de telemetry debug par defaut. Les validations automatiques doivent eviter la suite UI Xcode complete tant qu'elle ne teste que les lancements de l'interface de base.

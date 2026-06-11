@@ -137,6 +137,17 @@ Step 12-SNAPSHOT-CACHE reduit le cout commun Debug World / Real World quand le s
 
 Cette passe cible le cout `snapshot chunks/props` visible dans le panel. Elle ne remplace pas un profil Instruments si la cadence Real World reste basse apres cache, mais elle retire une reconstruction CPU inutile du pipeline V1.
 
+## Step 12-FRAME-DRIVER livre
+
+Step 12-FRAME-DRIVER traite la cadence MTKView/SwiftUI observee quand `draw(in:)` reste peu couteux mais que `frame raw` et `gap` montent:
+
+- Le vrai World ne publie plus de telemetry debug. Il garde les controles de rendu internes necessaires, mais n'envoie plus d'updates `ObservableObject` haute frequence.
+- `DebugCadenceController` pilote explicitement les frames: la `MTKView` reste pausee et les modes continus planifient des draws via un driver controle.
+- Les redraws demandes par le clavier, les changements de view ou les controles debug passent par la meme file de scheduling pour eviter les dessins synchrones pendant les updates SwiftUI.
+- Le mode Debug conserve le panel et le toggle `pause metrics publish`; le mode Real World doit rester le vrai jeu, sans outil debug visible ni publication debug.
+
+Le signal attendu apres cette passe: en Real World, la cadence ne doit plus dependre du panel debug; en Debug World, `draw` doit rester bas et le `gap` doit se rapprocher de la cadence choisie quand la publication telemetry ne bloque pas SwiftUI.
+
 ## Prochaine cible
 
 Step 13 peut ouvrir le `Tools Hub` minimal. Il doit rester data-driven et consommer les systemes V1 existants sans contourner `EngineCore`.

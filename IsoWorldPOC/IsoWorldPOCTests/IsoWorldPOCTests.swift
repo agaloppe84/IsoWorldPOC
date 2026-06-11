@@ -40,7 +40,22 @@ struct IsoWorldPOCTests {
     }
 
     @MainActor
-    @Test func realWorldDebugProfileStartsCleanButRenderable() {
+    @Test func realWorldDisablesDebugTelemetryByDefault() {
+        let realWorld = GameRootView(
+            showsDebugOverlay: false,
+            initialRunMode: .liveGameplay
+        )
+        let debugWorld = GameRootView(
+            showsDebugOverlay: true,
+            initialRunMode: .slowInspection
+        )
+
+        #expect(realWorld.publishesDebugTelemetry == false)
+        #expect(debugWorld.publishesDebugTelemetry == true)
+    }
+
+    @MainActor
+    @Test func liveDebugMetricsProfileStartsCleanButRenderable() {
         let metrics = DebugMetrics(
             debugWorldRunMode: .liveGameplay,
             showChunkBounds: false
