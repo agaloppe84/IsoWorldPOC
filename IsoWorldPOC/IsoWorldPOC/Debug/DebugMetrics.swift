@@ -9,72 +9,85 @@ import Combine
 import EngineCore
 import simd
 
+struct DebugTelemetry: Equatable {
+    var framesPerSecond: Float = 0
+    var frameTimeMilliseconds: Float = 0
+    var renderedFrameCount = 0
+    var simulationUpdateMs: Float = 0
+    var snapshotBuildMs: Float = 0
+    var rawFrameIntervalMs: Float = 0
+    var drawTotalMs: Float = 0
+    var frameSchedulingGapMs: Float = 0
+    var debugMetricsPublishMs: Float = 0
+    var unaccountedDrawMs: Float = 0
+    var bufferSyncMs: Float = 0
+    var renderEncodeMs: Float = 0
+    var snapshotActiveChunkDataMs: Float = 0
+    var snapshotRenderChunksMs: Float = 0
+    var snapshotRenderPropsMs: Float = 0
+    var snapshotTerrainSamplePropsMs: Float = 0
+    var snapshotChunkCount = 0
+    var snapshotPropCount = 0
+    var inputState = PlayerInputState()
+    var controllerName = "None"
+    var playerPosition = SIMD3<Float>(0, 0, 0)
+    var terrainHeightUnderPlayer: Float?
+    var slopeUnderPlayer: Float?
+    var playerGrounded = false
+    var maxWalkableSlope: Float = 0
+    var currentChunk = ChunkCoordinate.origin
+    var currentGroundChunk: ChunkCoordinate?
+    var activeChunkCount = 0
+    var visibleChunkCount = 0
+    var lodCandidateChunkCount = 0
+    var lodCulledChunkCount = 0
+    var lod0ChunkCount = 0
+    var lod1ChunkCount = 0
+    var lod2ChunkCount = 0
+    var lod3ChunkCount = 0
+    var generatedChunkCount = 0
+    var cachedChunkCount = 0
+    var approximateTriangleCount = 0
+    var approximatePropCount = 0
+    var chunkJobsQueued = 0
+    var chunkJobsGenerating = 0
+    var chunksReadyForUpload = 0
+    var chunkUploadsThisFrame = 0
+    var averageChunkDataGenerationMs: Float?
+    var averageChunkUploadMs: Float?
+    var metalDrawCallCount = 0
+    var metalTerrainDrawCallCount = 0
+    var metalPropDrawCallCount = 0
+    var metalPlayerDrawCallCount = 0
+    var metalDebugDrawCallCount = 0
+    var metalFrameGraphPassCount = 0
+    var metalFrameGraphEnabledPassCount = 0
+    var metalBufferCount = 0
+    var metalRenderedChunkCount = 0
+    var metalRenderedPropCount = 0
+    var metalVisibleTerrainMaterialCount = 0
+    var metalVisiblePropMaterialCount = 0
+    var metalTerrainTextureLayerCount = 0
+    var metalTerrainTextureArrayCount = 0
+    var metalVisibleTerrainIndexCount = 0
+    var metalVisiblePropIndexCount = 0
+    var estimatedChunkCPUBytes = 0
+    var estimatedGPUBufferBytes = 0
+    var cameraYaw: Float = 0
+    var cameraPitch: Float = 0
+    var cameraDistance: Float = 0
+    var movementMode = "cameraRelative"
+    var sunDirection = SIMD3<Float>(0, -1, 0)
+    var sunIntensity: Float = 0
+    var ambientIntensity: Float = 0
+    var shadowsEnabled = false
+    var rendererMode = RendererMode.activeMode
+}
+
 @MainActor
 final class DebugMetrics: ObservableObject {
-    @Published var framesPerSecond: Float = 0
-    @Published var frameTimeMilliseconds: Float = 0
+    @Published private(set) var telemetry = DebugTelemetry()
     @Published var debugWorldRunMode: DebugWorldRunMode
-    @Published var renderedFrameCount = 0
-    @Published var simulationUpdateMs: Float = 0
-    @Published var snapshotBuildMs: Float = 0
-    @Published var rawFrameIntervalMs: Float = 0
-    @Published var drawTotalMs: Float = 0
-    @Published var frameSchedulingGapMs: Float = 0
-    @Published var debugMetricsPublishMs: Float = 0
-    @Published var unaccountedDrawMs: Float = 0
-    @Published var bufferSyncMs: Float = 0
-    @Published var renderEncodeMs: Float = 0
-    @Published var snapshotActiveChunkDataMs: Float = 0
-    @Published var snapshotRenderChunksMs: Float = 0
-    @Published var snapshotRenderPropsMs: Float = 0
-    @Published var snapshotTerrainSamplePropsMs: Float = 0
-    @Published var snapshotChunkCount = 0
-    @Published var snapshotPropCount = 0
-    @Published var inputState = PlayerInputState()
-    @Published var controllerName = "None"
-    @Published var playerPosition = SIMD3<Float>(0, 0, 0)
-    @Published var terrainHeightUnderPlayer: Float?
-    @Published var slopeUnderPlayer: Float?
-    @Published var playerGrounded = false
-    @Published var maxWalkableSlope: Float = 0
-    @Published var currentChunk = ChunkCoordinate.origin
-    @Published var currentGroundChunk: ChunkCoordinate?
-    @Published var activeChunkCount = 0
-    @Published var visibleChunkCount = 0
-    @Published var lodCandidateChunkCount = 0
-    @Published var lodCulledChunkCount = 0
-    @Published var lod0ChunkCount = 0
-    @Published var lod1ChunkCount = 0
-    @Published var lod2ChunkCount = 0
-    @Published var lod3ChunkCount = 0
-    @Published var generatedChunkCount = 0
-    @Published var cachedChunkCount = 0
-    @Published var approximateTriangleCount = 0
-    @Published var approximatePropCount = 0
-    @Published var chunkJobsQueued = 0
-    @Published var chunkJobsGenerating = 0
-    @Published var chunksReadyForUpload = 0
-    @Published var chunkUploadsThisFrame = 0
-    @Published var averageChunkDataGenerationMs: Float?
-    @Published var averageChunkUploadMs: Float?
-    @Published var metalDrawCallCount = 0
-    @Published var metalTerrainDrawCallCount = 0
-    @Published var metalPropDrawCallCount = 0
-    @Published var metalPlayerDrawCallCount = 0
-    @Published var metalDebugDrawCallCount = 0
-    @Published var metalFrameGraphPassCount = 0
-    @Published var metalFrameGraphEnabledPassCount = 0
-    @Published var metalBufferCount = 0
-    @Published var metalRenderedChunkCount = 0
-    @Published var metalRenderedPropCount = 0
-    @Published var metalVisibleTerrainMaterialCount = 0
-    @Published var metalVisiblePropMaterialCount = 0
-    @Published var metalTerrainTextureLayerCount = 0
-    @Published var metalTerrainTextureArrayCount = 0
-    @Published var metalVisibleTerrainIndexCount = 0
-    @Published var metalVisiblePropIndexCount = 0
-    @Published var estimatedChunkCPUBytes = 0
-    @Published var estimatedGPUBufferBytes = 0
     @Published var showChunkBounds: Bool
     @Published var renderTerrain: Bool
     @Published var renderProps: Bool
@@ -83,17 +96,81 @@ final class DebugMetrics: ObservableObject {
     @Published var freezeChunkStreaming: Bool
     @Published var forcedLODLevel: LODLevel?
     @Published var pauseDebugMetricPublishing: Bool
-    @Published var cameraYaw: Float = 0
-    @Published var cameraPitch: Float = 0
-    @Published var cameraDistance: Float = 0
-    @Published var movementMode = "cameraRelative"
-    @Published var sunDirection = SIMD3<Float>(0, -1, 0)
-    @Published var sunIntensity: Float = 0
-    @Published var ambientIntensity: Float = 0
-    @Published var shadowsEnabled = false
     @Published var terrainMaterialDebugMode: TerrainMaterialDebugMode = .normal
     @Published var terrainSplatDebugLayerIndex = 0
-    @Published var rendererMode = RendererMode.activeMode
+
+    var framesPerSecond: Float = 0
+    var frameTimeMilliseconds: Float = 0
+    var renderedFrameCount = 0
+    var simulationUpdateMs: Float = 0
+    var snapshotBuildMs: Float = 0
+    var rawFrameIntervalMs: Float = 0
+    var drawTotalMs: Float = 0
+    var frameSchedulingGapMs: Float = 0
+    var debugMetricsPublishMs: Float = 0
+    var unaccountedDrawMs: Float = 0
+    var bufferSyncMs: Float = 0
+    var renderEncodeMs: Float = 0
+    var snapshotActiveChunkDataMs: Float = 0
+    var snapshotRenderChunksMs: Float = 0
+    var snapshotRenderPropsMs: Float = 0
+    var snapshotTerrainSamplePropsMs: Float = 0
+    var snapshotChunkCount = 0
+    var snapshotPropCount = 0
+    var inputState = PlayerInputState()
+    var controllerName = "None"
+    var playerPosition = SIMD3<Float>(0, 0, 0)
+    var terrainHeightUnderPlayer: Float?
+    var slopeUnderPlayer: Float?
+    var playerGrounded = false
+    var maxWalkableSlope: Float = 0
+    var currentChunk = ChunkCoordinate.origin
+    var currentGroundChunk: ChunkCoordinate?
+    var activeChunkCount = 0
+    var visibleChunkCount = 0
+    var lodCandidateChunkCount = 0
+    var lodCulledChunkCount = 0
+    var lod0ChunkCount = 0
+    var lod1ChunkCount = 0
+    var lod2ChunkCount = 0
+    var lod3ChunkCount = 0
+    var generatedChunkCount = 0
+    var cachedChunkCount = 0
+    var approximateTriangleCount = 0
+    var approximatePropCount = 0
+    var chunkJobsQueued = 0
+    var chunkJobsGenerating = 0
+    var chunksReadyForUpload = 0
+    var chunkUploadsThisFrame = 0
+    var averageChunkDataGenerationMs: Float?
+    var averageChunkUploadMs: Float?
+    var metalDrawCallCount = 0
+    var metalTerrainDrawCallCount = 0
+    var metalPropDrawCallCount = 0
+    var metalPlayerDrawCallCount = 0
+    var metalDebugDrawCallCount = 0
+    var metalFrameGraphPassCount = 0
+    var metalFrameGraphEnabledPassCount = 0
+    var metalBufferCount = 0
+    var metalRenderedChunkCount = 0
+    var metalRenderedPropCount = 0
+    var metalVisibleTerrainMaterialCount = 0
+    var metalVisiblePropMaterialCount = 0
+    var metalTerrainTextureLayerCount = 0
+    var metalTerrainTextureArrayCount = 0
+    var metalVisibleTerrainIndexCount = 0
+    var metalVisiblePropIndexCount = 0
+    var estimatedChunkCPUBytes = 0
+    var estimatedGPUBufferBytes = 0
+    var cameraYaw: Float = 0
+    var cameraPitch: Float = 0
+    var cameraDistance: Float = 0
+    var movementMode = "cameraRelative"
+    var sunDirection = SIMD3<Float>(0, -1, 0)
+    var sunIntensity: Float = 0
+    var ambientIntensity: Float = 0
+    var shadowsEnabled = false
+    var rendererMode = RendererMode.activeMode
 
     init(
         debugWorldRunMode: DebugWorldRunMode = .slowInspection,
@@ -147,14 +224,14 @@ final class DebugMetrics: ObservableObject {
         unaccountedDrawMs: Float,
         renderedFrameCount: Int
     ) {
-        assignIfNeeded(\.framesPerSecond, framesPerSecond)
-        assignIfNeeded(\.frameTimeMilliseconds, frameTimeMilliseconds)
-        assignIfNeeded(\.rawFrameIntervalMs, rawFrameIntervalMs)
-        assignIfNeeded(\.drawTotalMs, drawTotalMs)
-        assignIfNeeded(\.frameSchedulingGapMs, frameSchedulingGapMs)
-        assignIfNeeded(\.debugMetricsPublishMs, debugMetricsPublishMs)
-        assignIfNeeded(\.unaccountedDrawMs, unaccountedDrawMs)
-        assignIfNeeded(\.renderedFrameCount, renderedFrameCount)
+        self.framesPerSecond = framesPerSecond
+        self.frameTimeMilliseconds = frameTimeMilliseconds
+        self.rawFrameIntervalMs = rawFrameIntervalMs
+        self.drawTotalMs = drawTotalMs
+        self.frameSchedulingGapMs = frameSchedulingGapMs
+        self.debugMetricsPublishMs = debugMetricsPublishMs
+        self.unaccountedDrawMs = unaccountedDrawMs
+        self.renderedFrameCount = renderedFrameCount
     }
 
     func applyPipelineTiming(
@@ -163,19 +240,100 @@ final class DebugMetrics: ObservableObject {
         bufferSyncMs: Float,
         renderEncodeMs: Float
     ) {
-        assignIfNeeded(\.simulationUpdateMs, simulationUpdateMs)
-        assignIfNeeded(\.snapshotBuildMs, snapshotBuildMs)
-        assignIfNeeded(\.bufferSyncMs, bufferSyncMs)
-        assignIfNeeded(\.renderEncodeMs, renderEncodeMs)
+        self.simulationUpdateMs = simulationUpdateMs
+        self.snapshotBuildMs = snapshotBuildMs
+        self.bufferSyncMs = bufferSyncMs
+        self.renderEncodeMs = renderEncodeMs
     }
 
     func applySnapshotTiming(_ timing: RenderSnapshotBuildTiming) {
-        assignIfNeeded(\.snapshotActiveChunkDataMs, timing.activeChunkDataMs)
-        assignIfNeeded(\.snapshotRenderChunksMs, timing.renderChunksMs)
-        assignIfNeeded(\.snapshotRenderPropsMs, timing.renderPropsMs)
-        assignIfNeeded(\.snapshotTerrainSamplePropsMs, timing.terrainSamplePropsMs)
-        assignIfNeeded(\.snapshotChunkCount, timing.chunkCount)
-        assignIfNeeded(\.snapshotPropCount, timing.propCount)
+        snapshotActiveChunkDataMs = timing.activeChunkDataMs
+        snapshotRenderChunksMs = timing.renderChunksMs
+        snapshotRenderPropsMs = timing.renderPropsMs
+        snapshotTerrainSamplePropsMs = timing.terrainSamplePropsMs
+        snapshotChunkCount = timing.chunkCount
+        snapshotPropCount = timing.propCount
+    }
+
+    func publishTelemetry() {
+        assignIfNeeded(\.telemetry, makeTelemetry())
+    }
+
+    private func makeTelemetry() -> DebugTelemetry {
+        DebugTelemetry(
+            framesPerSecond: framesPerSecond,
+            frameTimeMilliseconds: frameTimeMilliseconds,
+            renderedFrameCount: renderedFrameCount,
+            simulationUpdateMs: simulationUpdateMs,
+            snapshotBuildMs: snapshotBuildMs,
+            rawFrameIntervalMs: rawFrameIntervalMs,
+            drawTotalMs: drawTotalMs,
+            frameSchedulingGapMs: frameSchedulingGapMs,
+            debugMetricsPublishMs: debugMetricsPublishMs,
+            unaccountedDrawMs: unaccountedDrawMs,
+            bufferSyncMs: bufferSyncMs,
+            renderEncodeMs: renderEncodeMs,
+            snapshotActiveChunkDataMs: snapshotActiveChunkDataMs,
+            snapshotRenderChunksMs: snapshotRenderChunksMs,
+            snapshotRenderPropsMs: snapshotRenderPropsMs,
+            snapshotTerrainSamplePropsMs: snapshotTerrainSamplePropsMs,
+            snapshotChunkCount: snapshotChunkCount,
+            snapshotPropCount: snapshotPropCount,
+            inputState: inputState,
+            controllerName: controllerName,
+            playerPosition: playerPosition,
+            terrainHeightUnderPlayer: terrainHeightUnderPlayer,
+            slopeUnderPlayer: slopeUnderPlayer,
+            playerGrounded: playerGrounded,
+            maxWalkableSlope: maxWalkableSlope,
+            currentChunk: currentChunk,
+            currentGroundChunk: currentGroundChunk,
+            activeChunkCount: activeChunkCount,
+            visibleChunkCount: visibleChunkCount,
+            lodCandidateChunkCount: lodCandidateChunkCount,
+            lodCulledChunkCount: lodCulledChunkCount,
+            lod0ChunkCount: lod0ChunkCount,
+            lod1ChunkCount: lod1ChunkCount,
+            lod2ChunkCount: lod2ChunkCount,
+            lod3ChunkCount: lod3ChunkCount,
+            generatedChunkCount: generatedChunkCount,
+            cachedChunkCount: cachedChunkCount,
+            approximateTriangleCount: approximateTriangleCount,
+            approximatePropCount: approximatePropCount,
+            chunkJobsQueued: chunkJobsQueued,
+            chunkJobsGenerating: chunkJobsGenerating,
+            chunksReadyForUpload: chunksReadyForUpload,
+            chunkUploadsThisFrame: chunkUploadsThisFrame,
+            averageChunkDataGenerationMs: averageChunkDataGenerationMs,
+            averageChunkUploadMs: averageChunkUploadMs,
+            metalDrawCallCount: metalDrawCallCount,
+            metalTerrainDrawCallCount: metalTerrainDrawCallCount,
+            metalPropDrawCallCount: metalPropDrawCallCount,
+            metalPlayerDrawCallCount: metalPlayerDrawCallCount,
+            metalDebugDrawCallCount: metalDebugDrawCallCount,
+            metalFrameGraphPassCount: metalFrameGraphPassCount,
+            metalFrameGraphEnabledPassCount: metalFrameGraphEnabledPassCount,
+            metalBufferCount: metalBufferCount,
+            metalRenderedChunkCount: metalRenderedChunkCount,
+            metalRenderedPropCount: metalRenderedPropCount,
+            metalVisibleTerrainMaterialCount: metalVisibleTerrainMaterialCount,
+            metalVisiblePropMaterialCount: metalVisiblePropMaterialCount,
+            metalTerrainTextureLayerCount: metalTerrainTextureLayerCount,
+            metalTerrainTextureArrayCount: metalTerrainTextureArrayCount,
+            metalVisibleTerrainIndexCount: metalVisibleTerrainIndexCount,
+            metalVisiblePropIndexCount: metalVisiblePropIndexCount,
+            estimatedChunkCPUBytes: estimatedChunkCPUBytes,
+            estimatedGPUBufferBytes: estimatedGPUBufferBytes,
+            cameraYaw: cameraYaw,
+            cameraPitch: cameraPitch,
+            cameraDistance: cameraDistance,
+            movementMode: movementMode,
+            sunDirection: sunDirection,
+            sunIntensity: sunIntensity,
+            ambientIntensity: ambientIntensity,
+            shadowsEnabled: shadowsEnabled,
+            rendererMode: rendererMode
+        )
     }
 
     private func assignIfNeeded<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<DebugMetrics, Value>, _ value: Value) {

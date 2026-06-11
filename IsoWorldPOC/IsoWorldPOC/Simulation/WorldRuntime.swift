@@ -155,8 +155,6 @@ final class WorldRuntime {
         debugMetrics.sunIntensity = snapshot.lighting.sunIntensity
         debugMetrics.ambientIntensity = snapshot.lighting.ambientIntensity
         debugMetrics.shadowsEnabled = snapshot.lighting.shadowsEnabled
-        debugMetrics.terrainMaterialDebugMode = snapshot.debugOptions.terrainMaterialDebugMode
-        debugMetrics.terrainSplatDebugLayerIndex = snapshot.debugOptions.terrainSplatDebugLayerIndex
         debugMetrics.applySnapshotTiming(lastSnapshotBuildTiming)
     }
 

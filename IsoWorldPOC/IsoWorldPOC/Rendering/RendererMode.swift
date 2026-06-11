@@ -5,7 +5,7 @@
 //  Created by Work on 10/06/2026.
 //
 
-enum RendererMode: String {
+enum RendererMode: String, Equatable {
     case metal
 
     static let activeMode: RendererMode = .metal

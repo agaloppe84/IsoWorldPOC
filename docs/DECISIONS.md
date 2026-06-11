@@ -379,3 +379,15 @@ Consequence: l'overlay affiche `frame raw`, `draw`, `gap`, `publish`, `unaccount
 Garantie: les tests Xcode couvrent le stockage des metriques de boucle et l'absence de props dans le snapshot quand `renderProps` est desactive.
 
 Limite actuelle: les mesures restent faites sur le main thread de l'app. Elles isolent la zone du probleme, mais ne remplacent pas encore un profil Instruments/Metal System Trace.
+
+## 038 - Telemetry SwiftUI decouplee Step 12-QUATER
+
+Decision: publier une seule structure `DebugTelemetry` par tick debug au lieu de publier chaque metrique haute frequence individuellement.
+
+Raison: les tests manuels ont montre que `pause metrics publish` rendait le monde nettement plus fluide, avec un cout `publish` autour de 70 ms alors que le rendu Metal restait faible. Le renderer ne doit pas etre ralenti par une rafale de mutations `@Published` SwiftUI pendant la frame.
+
+Consequence: `DebugMetrics` separe les controles utilisateur, qui restent `@Published`, des champs de telemetry de frame, qui deviennent des valeurs de staging. `MetalRenderer` appelle `publishTelemetry()` une seule fois apres avoir renseigne les timings et compteurs. `DebugOverlayView` lit `metrics.telemetry` pour l'affichage.
+
+Garantie: les tests Xcode verifient que les timings de boucle sont exposes via `DebugTelemetry` apres publication explicite.
+
+Limite actuelle: la telemetry reste publiee depuis le main thread car le renderer macOS vit encore dans la boucle MTKView/SwiftUI. Un profil Instruments reste utile si la cadence reste basse apres ce decouplage.

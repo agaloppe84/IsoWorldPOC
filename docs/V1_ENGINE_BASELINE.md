@@ -103,6 +103,18 @@ Step 12-TER affine le diagnostic performance quand le FPS chute sans que les dra
 
 Les mesures doivent etre lues ainsi: si `frame raw` reste haut mais `draw` reste bas, le probleme est hors travail renderer direct. Si `publish` fait chuter le FPS, la priorite devient decoupler les metriques de SwiftUI. Si `snapshot props/sample` est haut, la priorite devient cache/eviter la reconstruction des props par frame.
 
+## Step 12-QUATER livre
+
+Step 12-QUATER decouple la telemetry SwiftUI du renderer:
+
+- `DebugMetrics` garde les controles debug en `@Published`, mais les valeurs haute frequence deviennent des champs de staging non publies.
+- `DebugTelemetry` capture un snapshot equatable des valeurs affichees par l'overlay.
+- `MetalRenderer` met a jour les champs de staging pendant la frame, puis publie une seule telemetry a la fin de `updateDebugMetrics()`.
+- `DebugOverlayView` lit `metrics.telemetry` pour l'affichage et conserve les bindings uniquement pour les controles utilisateur.
+- `WorldRuntime` ne republie plus les controles de materiaux debug depuis le snapshot.
+
+Le toggle `pause metrics publish` reste disponible comme coupe-circuit de diagnostic, mais il ne doit plus etre necessaire pour retrouver une cadence fluide en usage debug normal.
+
 ## Prochaine cible
 
 Step 13 peut ouvrir le `Tools Hub` minimal. Il doit rester data-driven et consommer les systemes V1 existants sans contourner `EngineCore`.

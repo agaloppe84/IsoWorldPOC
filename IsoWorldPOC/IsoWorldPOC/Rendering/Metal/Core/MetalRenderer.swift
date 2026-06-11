@@ -352,6 +352,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         debugMetrics.metalTerrainTextureArrayCount = materialBindingTable.terrainTextureArrayCount
         debugMetrics.metalVisibleTerrainMaterialCount = visibleTerrainMaterialCount
         debugMetrics.metalVisiblePropMaterialCount = visiblePropMaterialCount
+        debugMetrics.publishTelemetry()
         return true
     }
 

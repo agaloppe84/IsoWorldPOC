@@ -224,6 +224,8 @@ Le diagnostic Step 12-TER separe aussi:
 
 Si le gap reste eleve pendant que `draw(in:)` reste bas, le probleme est dans la cadence/scheduling plutot que dans les passes Metal. Si `pause metrics publish` remonte la cadence, la publication `ObservableObject` doit etre decouplee du rendu.
 
+Le decouplage Step 12-QUATER applique cette regle: `DebugMetrics` publie les controles utilisateur separement de `DebugTelemetry`. Le renderer mutate des champs de staging non publies pendant la frame, puis appelle `publishTelemetry()` une seule fois pour rafraichir l'overlay. L'overlay lit ce snapshot unique et garde les bindings uniquement pour les toggles, pickers et modes debug.
+
 ### Donnees de chunks procedurales
 
 `ProceduralChunkDataFactory` produit les donnees de chunks neutres consommees par Metal:

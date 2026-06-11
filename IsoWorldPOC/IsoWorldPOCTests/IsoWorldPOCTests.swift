@@ -70,14 +70,15 @@ struct IsoWorldPOCTests {
             unaccountedDrawMs: 1,
             renderedFrameCount: 7
         )
+        metrics.publishTelemetry()
 
-        #expect(metrics.framesPerSecond == 30)
-        #expect(metrics.rawFrameIntervalMs == 45)
-        #expect(metrics.drawTotalMs == 12)
-        #expect(metrics.frameSchedulingGapMs == 33)
-        #expect(metrics.debugMetricsPublishMs == 2)
-        #expect(metrics.unaccountedDrawMs == 1)
-        #expect(metrics.renderedFrameCount == 7)
+        #expect(metrics.telemetry.framesPerSecond == 30)
+        #expect(metrics.telemetry.rawFrameIntervalMs == 45)
+        #expect(metrics.telemetry.drawTotalMs == 12)
+        #expect(metrics.telemetry.frameSchedulingGapMs == 33)
+        #expect(metrics.telemetry.debugMetricsPublishMs == 2)
+        #expect(metrics.telemetry.unaccountedDrawMs == 1)
+        #expect(metrics.telemetry.renderedFrameCount == 7)
     }
 
     @Test func renderSnapshotDebugOptionsDefaultToDebugInspection() {

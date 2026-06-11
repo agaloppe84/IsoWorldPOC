@@ -13,28 +13,30 @@ struct DebugOverlayView: View {
     @ObservedObject var metrics: DebugMetrics
 
     var body: some View {
+        let telemetry = metrics.telemetry
+
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("PERF")
-            Text("renderer: \(metrics.rendererMode.displayName)")
+            Text("renderer: \(telemetry.rendererMode.displayName)")
             Picker("run mode", selection: $metrics.debugWorldRunMode) {
                 ForEach(DebugWorldRunMode.allCases) { mode in
                     Text(mode.displayName).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
-            Text("fps / frame: \(format(metrics.framesPerSecond)) / \(format(metrics.frameTimeMilliseconds)) ms")
-            Text("frame raw / draw / gap: \(format(metrics.rawFrameIntervalMs)) / \(format(metrics.drawTotalMs)) / \(format(metrics.frameSchedulingGapMs)) ms")
-            Text("cpu sim / snapshot: \(format(metrics.simulationUpdateMs)) / \(format(metrics.snapshotBuildMs)) ms")
-            Text("buffer sync / encode: \(format(metrics.bufferSyncMs)) / \(format(metrics.renderEncodeMs)) ms")
-            Text("publish / unaccounted: \(format(metrics.debugMetricsPublishMs)) / \(format(metrics.unaccountedDrawMs)) ms")
-            Text("snapshot active/chunks/props/sample: \(format(metrics.snapshotActiveChunkDataMs)) / \(format(metrics.snapshotRenderChunksMs)) / \(format(metrics.snapshotRenderPropsMs)) / \(format(metrics.snapshotTerrainSamplePropsMs)) ms")
-            Text("snapshot chunks / props: \(metrics.snapshotChunkCount) / \(metrics.snapshotPropCount)")
-            Text("chunk data avg: \(format(metrics.averageChunkDataGenerationMs)) ms")
-            Text("chunk upload avg: \(format(metrics.averageChunkUploadMs)) ms")
-            Text("draw calls total: \(metrics.metalDrawCallCount)")
-            Text("indices terrain / props: \(metrics.metalVisibleTerrainIndexCount) / \(metrics.metalVisiblePropIndexCount)")
-            Text("memory cpu/gpu: \(formatBytes(metrics.estimatedChunkCPUBytes)) / \(formatBytes(metrics.estimatedGPUBufferBytes))")
-            Text("terrain textures arrays/layers: \(metrics.metalTerrainTextureArrayCount) / \(metrics.metalTerrainTextureLayerCount)")
+            Text("fps / frame: \(format(telemetry.framesPerSecond)) / \(format(telemetry.frameTimeMilliseconds)) ms")
+            Text("frame raw / draw / gap: \(format(telemetry.rawFrameIntervalMs)) / \(format(telemetry.drawTotalMs)) / \(format(telemetry.frameSchedulingGapMs)) ms")
+            Text("cpu sim / snapshot: \(format(telemetry.simulationUpdateMs)) / \(format(telemetry.snapshotBuildMs)) ms")
+            Text("buffer sync / encode: \(format(telemetry.bufferSyncMs)) / \(format(telemetry.renderEncodeMs)) ms")
+            Text("publish / unaccounted: \(format(telemetry.debugMetricsPublishMs)) / \(format(telemetry.unaccountedDrawMs)) ms")
+            Text("snapshot active/chunks/props/sample: \(format(telemetry.snapshotActiveChunkDataMs)) / \(format(telemetry.snapshotRenderChunksMs)) / \(format(telemetry.snapshotRenderPropsMs)) / \(format(telemetry.snapshotTerrainSamplePropsMs)) ms")
+            Text("snapshot chunks / props: \(telemetry.snapshotChunkCount) / \(telemetry.snapshotPropCount)")
+            Text("chunk data avg: \(format(telemetry.averageChunkDataGenerationMs)) ms")
+            Text("chunk upload avg: \(format(telemetry.averageChunkUploadMs)) ms")
+            Text("draw calls total: \(telemetry.metalDrawCallCount)")
+            Text("indices terrain / props: \(telemetry.metalVisibleTerrainIndexCount) / \(telemetry.metalVisiblePropIndexCount)")
+            Text("memory cpu/gpu: \(formatBytes(telemetry.estimatedChunkCPUBytes)) / \(formatBytes(telemetry.estimatedGPUBufferBytes))")
+            Text("terrain textures arrays/layers: \(telemetry.metalTerrainTextureArrayCount) / \(telemetry.metalTerrainTextureLayerCount)")
 
             Divider().overlay(.white.opacity(0.35))
 
@@ -72,20 +74,20 @@ struct DebugOverlayView: View {
             Divider().overlay(.white.opacity(0.35))
 
             sectionTitle("PLAYER")
-            Text("position x/y/z: \(format(metrics.playerPosition.x)) / \(format(metrics.playerPosition.y)) / \(format(metrics.playerPosition.z))")
-            Text("currentChunk x/y/z: \(metrics.currentChunk.x) / \(metrics.currentChunk.y) / \(metrics.currentChunk.z)")
-            Text("ground y / slope: \(format(metrics.terrainHeightUnderPlayer)) / \(format(metrics.slopeUnderPlayer))")
+            Text("position x/y/z: \(format(telemetry.playerPosition.x)) / \(format(telemetry.playerPosition.y)) / \(format(telemetry.playerPosition.z))")
+            Text("currentChunk x/y/z: \(telemetry.currentChunk.x) / \(telemetry.currentChunk.y) / \(telemetry.currentChunk.z)")
+            Text("ground y / slope: \(format(telemetry.terrainHeightUnderPlayer)) / \(format(telemetry.slopeUnderPlayer))")
 
             Divider().overlay(.white.opacity(0.35))
 
             sectionTitle("CHUNKS")
-            Text("active / visible / cached: \(metrics.activeChunkCount) / \(metrics.visibleChunkCount) / \(metrics.cachedChunkCount)")
-            Text("lod candidates / culled: \(metrics.lodCandidateChunkCount) / \(metrics.lodCulledChunkCount)")
-            Text("lod 0/1/2/3: \(metrics.lod0ChunkCount) / \(metrics.lod1ChunkCount) / \(metrics.lod2ChunkCount) / \(metrics.lod3ChunkCount)")
-            Text("triangles / props: \(metrics.approximateTriangleCount) / \(metrics.approximatePropCount)")
-            Text("drawn chunks / props: \(metrics.metalRenderedChunkCount) / \(metrics.metalRenderedPropCount)")
-            Text("jobs queued / gen / ready: \(metrics.chunkJobsQueued) / \(metrics.chunkJobsGenerating) / \(metrics.chunksReadyForUpload)")
-            Text("uploads this frame: \(metrics.chunkUploadsThisFrame)")
+            Text("active / visible / cached: \(telemetry.activeChunkCount) / \(telemetry.visibleChunkCount) / \(telemetry.cachedChunkCount)")
+            Text("lod candidates / culled: \(telemetry.lodCandidateChunkCount) / \(telemetry.lodCulledChunkCount)")
+            Text("lod 0/1/2/3: \(telemetry.lod0ChunkCount) / \(telemetry.lod1ChunkCount) / \(telemetry.lod2ChunkCount) / \(telemetry.lod3ChunkCount)")
+            Text("triangles / props: \(telemetry.approximateTriangleCount) / \(telemetry.approximatePropCount)")
+            Text("drawn chunks / props: \(telemetry.metalRenderedChunkCount) / \(telemetry.metalRenderedPropCount)")
+            Text("jobs queued / gen / ready: \(telemetry.chunkJobsQueued) / \(telemetry.chunkJobsGenerating) / \(telemetry.chunksReadyForUpload)")
+            Text("uploads this frame: \(telemetry.chunkUploadsThisFrame)")
         }
         .font(.system(size: 12, weight: .medium, design: .monospaced))
         .foregroundStyle(.white)
