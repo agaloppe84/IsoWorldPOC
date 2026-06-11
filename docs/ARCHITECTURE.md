@@ -228,6 +228,8 @@ Le decouplage Step 12-QUATER applique cette regle: `DebugMetrics` publie les con
 
 Le correctif Step 12-QUINQUIES pousse cette separation plus loin: `DebugMetrics` ne publie plus directement la telemetry. Il possede un `DebugTelemetryStore` dedie, observe seulement par les blocs texte de l'overlay. Les controles restent observes depuis `DebugMetrics`, ce qui evite qu'une update FPS invalide `GameRootView`, `MetalGameView` ou les controles SwiftUI.
 
+Le correctif Step 12-SNAPSHOT-CACHE traite le cout commun au Debug World et au Real World: `RenderSnapshotBuilder` garde un cache de `RenderChunk` par chunk visible, invalide par signature de rendu, et ne transporte plus les chunks invisibles dans le snapshot. Le renderer continue de consommer un snapshot V1 neutre, mais le runtime evite de resampler les props et de reconstruire les payloads terrain stables a chaque frame.
+
 ### Donnees de chunks procedurales
 
 `ProceduralChunkDataFactory` produit les donnees de chunks neutres consommees par Metal:

@@ -126,6 +126,17 @@ Step 12-QUINQUIES corrige le cout restant de publication observe dans Xcode:
 
 Le but est que `pause metrics publish` redevienne un outil de diagnostic, pas une condition necessaire pour obtenir une cadence correcte.
 
+## Step 12-SNAPSHOT-CACHE livre
+
+Step 12-SNAPSHOT-CACHE reduit le cout commun Debug World / Real World quand le snapshot runtime est reconstruit a chaque frame:
+
+- `RenderSnapshotBuilder` conserve un cache de `RenderChunk` par coordonnee tant que la signature de rendu reste stable.
+- Le snapshot ne transporte plus les chunks invisibles; le renderer travaille deja sur les chunks visibles.
+- Les props ne sont plus converties pour les chunks invisibles ou quand `render props` est desactive.
+- Le cache est invalide par les changements qui affectent le payload: etat debug chunk, visibilite, niveau LOD, props rendues et chunk bounds.
+
+Cette passe cible le cout `snapshot chunks/props` visible dans le panel. Elle ne remplace pas un profil Instruments si la cadence Real World reste basse apres cache, mais elle retire une reconstruction CPU inutile du pipeline V1.
+
 ## Prochaine cible
 
 Step 13 peut ouvrir le `Tools Hub` minimal. Il doit rester data-driven et consommer les systemes V1 existants sans contourner `EngineCore`.

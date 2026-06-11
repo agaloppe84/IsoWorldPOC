@@ -403,3 +403,13 @@ Consequence: `DebugMetrics` reste l'objet observable des controles utilisateur, 
 Garantie: le build Xcode valide le split SwiftUI et les tests continuent de verifier que la telemetry publiee expose les timings de frame.
 
 Limite actuelle: si le cout `publish` reste eleve, le prochain niveau sera de rendre le debug HUD hors SwiftUI, par exemple via AppKit leger ou via une passe Metal/HUD dediee.
+
+## 040 - Cache snapshot chunks Step 12-SNAPSHOT-CACHE
+
+Decision: rendre `RenderSnapshotBuilder` stateful et cacher les `RenderChunk` stables entre deux frames.
+
+Raison: les mesures manuelles montrent que la chute FPS existe aussi en Real World sans overlay debug. Le cout suspect est donc partage par le runtime monde et le debug. Le snapshot reconstruisait les chunks actifs et leurs props a chaque frame, y compris des chunks non visibles, alors que la plupart des payloads terrain/props restent identiques entre deux frames.
+
+Consequence: `RenderSnapshotBuilder` devient une classe `@MainActor` avec un cache par `ChunkCoordinate`. La signature de cache inclut les donnees qui changent le payload de rendu: etat debug du chunk, visibilite, niveau LOD, rendu des props et chunk bounds. Le snapshot emis ne transporte que les chunks visibles necessaires au rendu courant, et les props invisibles ne sont plus samplees.
+
+Garantie: les tests Xcode verifient qu'une frame stable reutilise le cache, que le snapshot ne contient que des chunks visibles et que la conversion props retombe a zero sur la frame cachee.

@@ -49,7 +49,9 @@ struct RenderSnapshotDebugOptions {
 }
 
 @MainActor
-struct RenderSnapshotBuilder {
+final class RenderSnapshotBuilder {
+    private var cachedChunks: [ChunkCoordinate: CachedRenderChunk] = [:]
+
     func makeSnapshot(
         chunkStreamer: ChunkDataStreamer,
         camera: CameraRenderState,
@@ -76,15 +78,22 @@ struct RenderSnapshotBuilder {
 
         var renderPropsMs: Float = 0
         var terrainSamplePropsMs: Float = 0
+        var includedCoordinates = Set<ChunkCoordinate>()
         let renderChunksStart = currentTimeMilliseconds()
-        let chunks = activeChunkData.map { renderData in
-            renderChunk(
+        let chunks = activeChunkData.compactMap { renderData -> RenderChunk? in
+            guard shouldIncludeChunk(renderData, debugOptions: debugOptions) else {
+                return nil
+            }
+
+            includedCoordinates.insert(renderData.data.coordinate)
+            return renderChunk(
                 from: renderData,
                 debugOptions: debugOptions,
                 renderPropsMs: &renderPropsMs,
                 terrainSamplePropsMs: &terrainSamplePropsMs
             )
         }
+        cachedChunks = cachedChunks.filter { includedCoordinates.contains($0.key) }
         let renderChunksMs = Float(currentTimeMilliseconds() - renderChunksStart)
 
         let snapshot = RenderWorldSnapshot(
@@ -120,6 +129,20 @@ struct RenderSnapshotBuilder {
         terrainSamplePropsMs: inout Float
     ) -> RenderChunk {
         let data = renderData.data
+        let signature = RenderChunkCacheSignature(
+            coordinate: data.coordinate,
+            debugState: renderData.debugState,
+            isVisible: renderData.isVisible,
+            lodLevel: renderData.lodSelection.level,
+            rendersProps: renderData.lodSelection.rendersProps,
+            showChunkBounds: debugOptions.showChunkBounds,
+            renderProps: debugOptions.renderProps
+        )
+
+        if let cached = cachedChunks[data.coordinate], cached.signature == signature {
+            return cached.chunk
+        }
+
         let origin = WorldPosition(x: data.originX, y: 0, z: data.originZ)
         let propsStart = currentTimeMilliseconds()
         let props = renderProps(
@@ -130,7 +153,7 @@ struct RenderSnapshotBuilder {
         )
         renderPropsMs += Float(currentTimeMilliseconds() - propsStart)
 
-        return RenderChunk(
+        let chunk = RenderChunk(
             coordinate: data.coordinate,
             origin: origin,
             terrainGeometry: data.terrainGeometry,
@@ -148,6 +171,8 @@ struct RenderSnapshotBuilder {
             lodSelection: renderData.lodSelection,
             approximateTriangleCount: data.terrainGeometry.triangleCount(for: renderData.lodSelection.level)
         )
+        cachedChunks[data.coordinate] = CachedRenderChunk(signature: signature, chunk: chunk)
+        return chunk
     }
 
     private func renderProps(
@@ -156,7 +181,7 @@ struct RenderSnapshotBuilder {
         isEnabled: Bool,
         terrainSamplePropsMs: inout Float
     ) -> [RenderProp] {
-        guard isEnabled else {
+        guard isEnabled, isVisible else {
             return []
         }
 
@@ -188,6 +213,19 @@ struct RenderSnapshotBuilder {
         }
     }
 
+    private func shouldIncludeChunk(
+        _ renderData: ChunkStreamerRenderData,
+        debugOptions: RenderSnapshotDebugOptions
+    ) -> Bool {
+        guard renderData.isVisible else {
+            return false
+        }
+
+        return debugOptions.renderTerrain ||
+            debugOptions.showChunkBounds ||
+            (debugOptions.renderProps && renderData.lodSelection.rendersProps)
+    }
+
     private func debugBounds(
         coordinate: ChunkCoordinate,
         origin: WorldPosition,
@@ -213,4 +251,19 @@ struct RenderSnapshotBuilder {
     private func currentTimeMilliseconds() -> Double {
         ProcessInfo.processInfo.systemUptime * 1_000
     }
+}
+
+private struct CachedRenderChunk {
+    let signature: RenderChunkCacheSignature
+    let chunk: RenderChunk
+}
+
+private struct RenderChunkCacheSignature: Equatable {
+    let coordinate: ChunkCoordinate
+    let debugState: RenderChunkDebugState
+    let isVisible: Bool
+    let lodLevel: LODLevel
+    let rendersProps: Bool
+    let showChunkBounds: Bool
+    let renderProps: Bool
 }

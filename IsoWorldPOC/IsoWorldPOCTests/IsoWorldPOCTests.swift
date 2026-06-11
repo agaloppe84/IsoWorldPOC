@@ -290,6 +290,30 @@ struct IsoWorldPOCTests {
         #expect(runtime.snapshotBuildTiming.propCount == 0)
     }
 
+    @MainActor
+    @Test func worldRuntimeCachesStableRenderChunksBetweenFrames() {
+        let runtime = WorldRuntime()
+        let debugOptions = RenderSnapshotDebugOptions(
+            showChunkBounds: false,
+            renderTerrain: true,
+            renderProps: true,
+            renderPlayer: true,
+            terrainMaterialDebugMode: .normal,
+            terrainSplatDebugLayerIndex: 0,
+            freezeSimulation: true,
+            freezeChunkStreaming: true,
+            forcedLODLevel: nil
+        )
+
+        _ = runtime.update(deltaTime: 0, debugOptions: debugOptions)
+        let cachedSnapshot = runtime.update(deltaTime: 0, debugOptions: debugOptions)
+
+        #expect(cachedSnapshot.chunks.allSatisfy { $0.isVisible })
+        #expect(cachedSnapshot.chunks.count == cachedSnapshot.visibleChunkCount)
+        #expect(runtime.snapshotBuildTiming.renderPropsMs == 0)
+        #expect(runtime.snapshotBuildTiming.propCount == cachedSnapshot.visiblePropCount)
+    }
+
     @Test func materialBindingTableKeepsTerrainPBRTextureSlotsStable() {
         let descriptors = TerrainTextureSlot.allTerrainPBRSlots.map { slot in
             TerrainTextureDescriptor(slot: slot, debugColor: SIMD4<Float>.zero)
