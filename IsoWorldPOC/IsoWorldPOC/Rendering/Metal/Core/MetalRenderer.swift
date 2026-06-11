@@ -23,6 +23,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private let depthStencilState: MTLDepthStencilState?
     private let debugBoundsDepthStencilState: MTLDepthStencilState?
     private let terrainTextureCatalog: TerrainTextureCatalog?
+    private let materialBindingTable: MaterialBindingTable
     private let terrainSamplerState: MTLSamplerState?
     private let debugMetrics: DebugMetrics
     private let frameGraph = FrameGraph.worldRenderer
@@ -45,13 +46,15 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
 
     init(debugMetrics: DebugMetrics) {
         let device = MTLCreateSystemDefaultDevice()
+        let terrainTextureCatalog = TerrainTextureCatalog.makePlaceholder(device: device)
 
         self.device = device
         self.commandQueue = device?.makeCommandQueue()
         self.pipelineState = MetalRenderer.makePipelineState(device: device)
         self.depthStencilState = MetalRenderer.makeDepthStencilState(device: device)
         self.debugBoundsDepthStencilState = MetalRenderer.makeDebugBoundsDepthStencilState(device: device)
-        self.terrainTextureCatalog = TerrainTextureCatalog.makePlaceholder(device: device)
+        self.terrainTextureCatalog = terrainTextureCatalog
+        self.materialBindingTable = MaterialBindingTable(terrainTextureCatalog: terrainTextureCatalog)
         self.terrainSamplerState = TerrainTextureCatalog.makeSamplerState(device: device)
         self.debugMetrics = debugMetrics
         self.resourceRegistry = GPUResourceRegistry(
@@ -151,14 +154,11 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             length: MemoryLayout<MetalRenderDebugUniforms>.stride,
             index: 3
         )
-        renderEncoder.setFragmentTexture(terrainTextureCatalog.albedoTexture, index: 0)
-        renderEncoder.setFragmentTexture(terrainTextureCatalog.normalTexture, index: 1)
-        renderEncoder.setFragmentTexture(terrainTextureCatalog.roughnessTexture, index: 2)
-        renderEncoder.setFragmentTexture(
-            terrainTextureCatalog.metallicAmbientOcclusionTexture,
-            index: 3
+        materialBindingTable.bindTerrainTextures(
+            catalog: terrainTextureCatalog,
+            samplerState: terrainSamplerState,
+            renderEncoder: renderEncoder
         )
-        renderEncoder.setFragmentSamplerState(terrainSamplerState, index: 0)
 
         var drawMetrics = MetalFrameDrawMetrics.empty
         for pass in framePlan.enabledPasses {
@@ -300,8 +300,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         debugMetrics.metalBufferCount = resourceRegistry.bufferCount
         debugMetrics.metalFrameGraphPassCount = lastFramePlan.passCount
         debugMetrics.metalFrameGraphEnabledPassCount = lastFramePlan.enabledPassCount
-        debugMetrics.metalTerrainTextureLayerCount = terrainTextureCatalog?.layerCount ?? 0
-        debugMetrics.metalTerrainTextureArrayCount = terrainTextureCatalog?.textureArrayCount ?? 0
+        debugMetrics.metalTerrainTextureLayerCount = materialBindingTable.terrainLayerCount
+        debugMetrics.metalTerrainTextureArrayCount = materialBindingTable.terrainTextureArrayCount
         debugMetrics.metalVisibleTerrainMaterialCount = visibleTerrainMaterialCount
         debugMetrics.metalVisiblePropMaterialCount = visiblePropMaterialCount
     }

@@ -297,3 +297,15 @@ Raison: les biomes doivent piloter terrain, materiaux, props et futurs ecotones 
 Consequence: `BiomeSystem` produit `ClimateSample`, `BiomeWeights`, `BiomeChunkData` et des valeurs de debug. Les 8 biomes V1 sont explicites: foret temperee, prairie, desert, montagne, marais, taiga, cote et eau douce. Les anciens noms restent alias source-compatible pendant la transition.
 
 Garantie: les tests verifient les 8 biomes, la normalisation top-2, le chunk data branche sur terrain, les ecotones et les debug layers.
+
+## 031 - Materials/PBR terrain V1
+
+Decision: introduire un contrat `EngineCore/Materials` et isoler les shaders/bindings terrain PBR cote Metal.
+
+Raison: les materiaux doivent devenir des donnees moteur testables avant l'arrivee de textures artistiques, de variants d'etat de surface et d'un lighting plus avance.
+
+Consequence: `SurfaceDescriptor`, `MaterialParameterBlock`, `SurfaceState` et `IsoMaterialRuntime` decrivent un `OpaquePBR` minimal. Le renderer Metal utilise une `MaterialBindingTable`, quatre texture arrays PBR placeholders, un shader terrain layeré avec triplanar sur pentes fortes, une lumiere directionnelle, un IBL sky simple, du tone mapping et des vues debug roughness/normal.
+
+Garantie: les tests couvrent les bindings PBR terrain, l'application d'etats de surface, les nouveaux modes debug et la stabilite des indices Metal.
+
+Limite actuelle: la normal map est encore une lecture placeholder et n'altere pas la normale monde. Les textures restent generees en memoire; les assets PBR reels, le streaming texture et une BRDF plus complete viendront dans une etape ulterieure.

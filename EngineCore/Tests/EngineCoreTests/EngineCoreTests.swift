@@ -491,6 +491,54 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(pbrSlots.metallicAmbientOcclusion.map, .metallicAmbientOcclusion)
     }
 
+    func testTerrainSurfaceDescriptorUsesOpaquePBRAndTextureBindings() {
+        let material = TerrainMaterialDescriptor.definition(for: .rock)
+        let descriptor = SurfaceDescriptor.terrain(material)
+
+        XCTAssertEqual(descriptor.materialID.rawValue, material.identifier)
+        XCTAssertEqual(descriptor.shadingModel, .opaquePBR)
+        XCTAssertEqual(descriptor.terrainMaterialKind, .rock)
+        XCTAssertTrue(descriptor.supportsTriplanar)
+        XCTAssertEqual(descriptor.triplanarSlopeThreshold, 0.55, accuracy: 0.0001)
+        XCTAssertEqual(
+            descriptor.textureBindings.map(\.role),
+            [.baseColor, .normal, .orm]
+        )
+        XCTAssertEqual(
+            descriptor.textureBindings.compactMap(\.terrainTextureSlot?.map),
+            [.albedo, .normal, .metallicAmbientOcclusion]
+        )
+    }
+
+    func testIsoMaterialRuntimeAppliesSurfaceState() {
+        let material = TerrainMaterialDescriptor.definition(for: .rock)
+        let runtime = IsoMaterialRuntime.terrain(
+            material,
+            surfaceState: SurfaceState(wetness: 1)
+        )
+        let dryParameters = MaterialParameterBlock.terrain(material)
+        let wetParameters = runtime.resolvedParameters
+
+        XCTAssertEqual(runtime.materialID.rawValue, material.identifier)
+        XCTAssertEqual(runtime.shadingModel, .opaquePBR)
+        XCTAssertLessThan(wetParameters.baseColor.red, dryParameters.baseColor.red)
+        XCTAssertLessThan(wetParameters.baseColor.green, dryParameters.baseColor.green)
+        XCTAssertLessThan(wetParameters.baseColor.blue, dryParameters.baseColor.blue)
+        XCTAssertLessThan(wetParameters.roughness, dryParameters.roughness)
+    }
+
+    func testRenderMaterialExposesRuntimeMaterial() {
+        let descriptor = TerrainMaterialDescriptor.definition(for: .wetValley)
+        let material = RenderMaterial.terrain(descriptor)
+        let runtime = material.runtimeMaterial
+
+        XCTAssertEqual(material.materialID.rawValue, descriptor.identifier)
+        XCTAssertEqual(runtime.descriptor.materialID.rawValue, descriptor.identifier)
+        XCTAssertEqual(runtime.descriptor.terrainMaterialKind, descriptor.kind)
+        XCTAssertEqual(runtime.resolvedParameters.baseColor, descriptor.baseColor)
+        XCTAssertEqual(runtime.resolvedParameters.roughness, descriptor.roughness, accuracy: 0.0001)
+    }
+
     func testBiomeDefinitionsMapToExpectedTerrainMaterials() {
         XCTAssertEqual(Biome.definition(for: .grassland).terrainMaterial.kind, .grass)
         XCTAssertEqual(Biome.definition(for: .forest).terrainMaterial.kind, .dirt)
@@ -1509,7 +1557,15 @@ final class EngineCoreTests: XCTestCase {
         XCTAssertEqual(options.terrainSplatDebugLayerIndex, 0)
         XCTAssertEqual(
             TerrainMaterialDebugMode.allCases.map(\.rawValue),
-            ["normal", "primaryBiome", "secondaryBiome", "blendWeight", "splatLayerWeight"]
+            [
+                "normal",
+                "primaryBiome",
+                "secondaryBiome",
+                "blendWeight",
+                "splatLayerWeight",
+                "roughness",
+                "normalVector",
+            ]
         )
     }
 

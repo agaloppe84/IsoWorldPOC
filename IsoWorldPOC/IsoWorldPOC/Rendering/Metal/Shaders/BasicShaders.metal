@@ -1,6 +1,9 @@
 #include <metal_stdlib>
 using namespace metal;
 
+#include "../Materials/PBRShader.metal"
+#include "../Materials/TerrainLayeredShader.metal"
+
 struct TerrainVertex {
     float3 position;
     float3 normal;
@@ -36,6 +39,8 @@ struct TerrainVertexOut {
     float4 splatTextureLayerIndices;
     float4 splatUVScales;
     float2 textureCoordinate;
+    float3 worldPosition;
+    float3 worldNormal;
     float shade;
     float2 debugModeAndSplatLayer;
 };
@@ -177,6 +182,7 @@ vertex TerrainVertexOut terrain_vertex(
     uint vertexID [[vertex_id]]
 ) {
     TerrainVertex inputVertex = vertices[vertexID];
+    float3 worldPosition = (uniforms.modelMatrix * float4(inputVertex.position, 1.0)).xyz;
     float3 worldNormal = normalize((uniforms.modelMatrix * float4(inputVertex.normal, 0.0)).xyz);
     float3 sunlightTravelDirection = normalize(lightingUniforms.sunDirectionAndIntensity.xyz);
     float3 directionToSun = -sunlightTravelDirection;
@@ -200,6 +206,8 @@ vertex TerrainVertexOut terrain_vertex(
     out.splatTextureLayerIndices = inputVertex.splatTextureLayerIndices;
     out.splatUVScales = inputVertex.splatUVScales;
     out.textureCoordinate = inputVertex.textureCoordinate;
+    out.worldPosition = worldPosition;
+    out.worldNormal = worldNormal;
     out.shade = shade;
     out.debugModeAndSplatLayer = debugUniforms.terrainMaterialModeAndFlags.xy;
     return out;
@@ -217,49 +225,34 @@ fragment float4 terrain_fragment(
     int terrainSplatDebugLayerIndex = int(round(in.debugModeAndSplatLayer.y));
     float materialKind = in.material.y;
     bool isTerrainMaterial = materialKind >= 1.0 && materialKind <= 6.0;
+    float3 worldNormal = normalize(in.worldNormal);
     float3 outputColor = in.color.rgb;
+    float sampledRoughness = clamp(in.material.x, 0.0, 1.0);
 
     if (isTerrainMaterial) {
-        float4 albedo = terrainSplatTextureColor(
+        IsoTerrainLayeredSample terrainSample = isoTerrainLayeredSample(
             terrainAlbedoTextures,
+            terrainNormalTextures,
+            terrainRoughnessTextures,
+            terrainMetallicAmbientOcclusionTextures,
             terrainSampler,
             in.textureCoordinate,
+            in.worldPosition,
+            worldNormal,
             in.splatWeights,
             in.splatTextureLayerIndices,
             in.splatUVScales
         );
-        float sampledRoughness = terrainSplatTextureChannel(
-            terrainRoughnessTextures,
-            terrainSampler,
-            in.textureCoordinate,
-            in.splatWeights,
-            in.splatTextureLayerIndices,
-            in.splatUVScales,
-            0
-        );
-        float ambientOcclusion = terrainSplatTextureChannel(
-            terrainMetallicAmbientOcclusionTextures,
-            terrainSampler,
-            in.textureCoordinate,
-            in.splatWeights,
-            in.splatTextureLayerIndices,
-            in.splatUVScales,
-            1
-        );
-        float flatNormalZ = terrainSplatTextureChannel(
-            terrainNormalTextures,
-            terrainSampler,
-            in.textureCoordinate,
-            in.splatWeights,
-            in.splatTextureLayerIndices,
-            in.splatUVScales,
-            2
-        );
-        float pbrPlaceholderResponse = mix(0.99, 1.0, sampledRoughness) *
-            mix(0.96, 1.0, ambientOcclusion) *
-            mix(0.99, 1.0, flatNormalZ);
+        IsoPBRInput pbrInput;
+        pbrInput.baseColor = terrainSample.albedo;
+        pbrInput.normal = worldNormal;
+        pbrInput.roughness = terrainSample.roughness;
+        pbrInput.metallic = 0.0;
+        pbrInput.ambientOcclusion = terrainSample.ambientOcclusion;
+        pbrInput.shade = in.shade;
 
-        outputColor = albedo.rgb * in.shade * pbrPlaceholderResponse;
+        sampledRoughness = terrainSample.roughness;
+        outputColor = isoOpaquePBR(pbrInput);
     } else {
         outputColor *= in.shade;
     }
@@ -270,11 +263,15 @@ fragment float4 terrain_fragment(
         outputColor = in.secondaryColor.rgb;
     } else if (isTerrainMaterial && terrainMaterialDebugMode >= 2.5 && terrainMaterialDebugMode < 3.5) {
         outputColor = terrainBlendHeatColor(clamp(1.0 - in.splatWeights.x, 0.0, 1.0));
-    } else if (isTerrainMaterial && terrainMaterialDebugMode >= 3.5) {
+    } else if (isTerrainMaterial && terrainMaterialDebugMode >= 3.5 && terrainMaterialDebugMode < 4.5) {
         outputColor = terrainWeightHeatColor(splatWeightAt(
             in.splatWeights,
             terrainSplatDebugLayerIndex
         ));
+    } else if (isTerrainMaterial && terrainMaterialDebugMode >= 4.5 && terrainMaterialDebugMode < 5.5) {
+        outputColor = isoRoughnessDebugColor(sampledRoughness);
+    } else if (isTerrainMaterial && terrainMaterialDebugMode >= 5.5 && terrainMaterialDebugMode < 6.5) {
+        outputColor = isoNormalDebugColor(worldNormal);
     }
 
     return float4(outputColor, in.color.a);

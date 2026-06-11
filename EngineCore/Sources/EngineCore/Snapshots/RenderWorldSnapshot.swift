@@ -4,6 +4,8 @@ public enum TerrainMaterialDebugMode: String, CaseIterable, Codable, Sendable {
     case secondaryBiome
     case blendWeight
     case splatLayerWeight
+    case roughness
+    case normalVector
 
     public var displayName: String {
         switch self {
@@ -17,6 +19,10 @@ public enum TerrainMaterialDebugMode: String, CaseIterable, Codable, Sendable {
             "Blend weight"
         case .splatLayerWeight:
             "Splat layer"
+        case .roughness:
+            "Roughness"
+        case .normalVector:
+            "Normal vector"
         }
     }
 }

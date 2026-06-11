@@ -80,6 +80,10 @@ struct MetalRenderDebugUniforms {
             3
         case .splatLayerWeight:
             4
+        case .roughness:
+            5
+        case .normalVector:
+            6
         }
     }
 }

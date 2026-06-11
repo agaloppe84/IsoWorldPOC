@@ -5,6 +5,8 @@
 //  Created by Work on 09/06/2026.
 //
 
+import EngineCore
+import simd
 import Testing
 @testable import IsoWorldPOC
 
@@ -102,6 +104,25 @@ struct IsoWorldPOCTests {
 
         #expect(store.loadingProgress?.seed == "isoworld-seed-001")
         #expect(store.currentWorldSession == nil)
+    }
+
+    @Test func materialBindingTableKeepsTerrainPBRTextureSlotsStable() {
+        let descriptors = TerrainTextureSlot.allTerrainPBRSlots.map { slot in
+            TerrainTextureDescriptor(slot: slot, debugColor: SIMD4<Float>.zero)
+        }
+        let table = MaterialBindingTable(descriptors: descriptors)
+
+        #expect(table.terrainLayerCount == TerrainMaterialKind.allCases.count)
+        #expect(table.terrainTextureArrayCount == TerrainTextureMap.allCases.count)
+        #expect(
+            table.binding(for: .rock)?.textureLayerIndex ==
+                TerrainTextureSlot.textureLayerIndex(for: .rock)
+        )
+        #expect(MaterialBindingTable.terrainAlbedoTextureIndex == 0)
+        #expect(MaterialBindingTable.terrainNormalTextureIndex == 1)
+        #expect(MaterialBindingTable.terrainRoughnessTextureIndex == 2)
+        #expect(MaterialBindingTable.terrainMetallicAmbientOcclusionTextureIndex == 3)
+        #expect(MaterialBindingTable.terrainSamplerIndex == 0)
     }
 
 }

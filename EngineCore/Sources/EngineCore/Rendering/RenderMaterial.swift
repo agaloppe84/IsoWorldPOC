@@ -207,6 +207,34 @@ public struct RenderMaterial: Equatable, Hashable, Codable, Sendable {
         self.terrainPBRTextureSlots = terrainPBRTextureSlots
     }
 
+    public var materialID: MaterialID {
+        MaterialID(identifier)
+    }
+
+    public var surfaceDescriptor: SurfaceDescriptor {
+        if let terrainTextureSlot {
+            return SurfaceDescriptor.terrain(TerrainMaterialDescriptor(
+                kind: terrainTextureSlot.materialKind,
+                identifier: identifier,
+                baseColor: baseColor,
+                roughness: roughness
+            ))
+        }
+
+        return SurfaceDescriptor(
+            materialID: materialID,
+            debugName: debugName,
+            parameters: MaterialParameterBlock(
+                baseColor: baseColor,
+                roughness: roughness
+            )
+        )
+    }
+
+    public var runtimeMaterial: IsoMaterialRuntime {
+        IsoMaterialRuntime(descriptor: surfaceDescriptor)
+    }
+
     public static func terrain(_ material: TerrainMaterialDescriptor) -> RenderMaterial {
         terrain(
             kind: material.kind,
