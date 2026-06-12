@@ -280,6 +280,18 @@ struct ToolRegistry {
             fixHint: "Keep previews snapshot/report based unless an explicit runtime bridge is added."
         ))
 
+        if document.toolID == "seed.gallery" {
+            let goldenSeedReport = ToolGoldenSeedValidationRunner().validate()
+            issues.append(ToolValidationIssue(
+                id: "golden-seed-runner",
+                severity: goldenSeedReport.isValid ? .info : .warning,
+                message: "Golden seed runner checked \(goldenSeedReport.checkedSeedCount) seeds across \(goldenSeedReport.checkedDomainCount) domains.",
+                fixHint: goldenSeedReport.isValid
+                    ? "Keep the corpus green before adding heavier tool previews."
+                    : "Inspect golden seed runner issues before exporting seed packages."
+            ))
+        }
+
         return ToolValidationReport(toolID: document.toolID, issues: issues)
     }
 

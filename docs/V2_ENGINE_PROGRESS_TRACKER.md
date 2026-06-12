@@ -13,10 +13,10 @@ Legende :
 
 | Element | Etat |
 |---|---|
-| Dernier step livre | Step 24-B - Editeurs specialises priority reports |
+| Dernier step livre | Step 24-C - Editeurs specialises restants et golden runner |
 | Branche cible | `main` |
 | Docs reference | lecture seule |
-| Prochaine cible officielle | Step 24-C - Editeurs specialises restants et golden runner |
+| Prochaine cible officielle | Step 24-BIS - Persistence production spine |
 | Plan V2 | `[x]` document cree |
 | Tracker V2 | `[x]` document cree |
 
@@ -56,14 +56,14 @@ Legende :
 
 ### Tooling
 
-- [~] Chaque systeme majeur a un inspector ou viewer.
-- [ ] Chaque systeme majeur a un validator.
-- [ ] Seed gallery couvre les cas extremes.
+- [x] Chaque systeme majeur a un inspector ou viewer.
+- [~] Chaque systeme majeur a un validator.
+- [x] Seed gallery couvre les cas extremes.
 - [x] Diagnostic bundle exportable.
 
 ### Validation
 
-- [ ] Tests determinisme par domaine.
+- [~] Tests determinisme par domaine.
 - [ ] Tests seams terrain/biome/material.
 - [ ] Tests save/load/migration.
 - [ ] Tests budgets perf quand possible.
@@ -97,7 +97,7 @@ Objectif : outils production pour modifier, valider et persister les systems.
 - [x] Validation report UI.
 - [x] Fix hints.
 - [x] Package dependency validation.
-- [ ] Golden seed validation runner hook.
+- [x] Golden seed validation runner hook.
 
 ### Production tools
 
@@ -106,22 +106,24 @@ Objectif : outils production pour modifier, valider et persister les systems.
 - [x] Prop Gallery.
 - [x] Material Viewer.
 - [x] LOD Debugger.
-- [~] Character Customization Lab.
-- [~] Animation Contact Lab.
-- [~] FX Preview Editor.
-- [~] Audio Graph Preview.
-- [~] RPG World DNA Browser.
-- [~] Settlement Viewer.
+- [x] Character Customization Lab.
+- [x] Animation Contact Lab.
+- [x] FX Preview Editor.
+- [x] Audio Graph Preview.
+- [x] RPG World DNA Browser.
+- [x] Settlement Viewer.
 - [x] Save Inspector.
-- [~] Performance HUD.
+- [x] Performance HUD.
 - [x] Seed Gallery.
-- [~] Snapshot Diff.
+- [x] Snapshot Diff.
 
 ### Step 24 validation
 
 - [x] Tools open without Real World.
 - [x] Tool previews do not mutate `WorldRuntime`.
 - [x] Priority specialized reports consume EngineCore/Persistence contracts.
+- [x] Remaining specialized reports consume EngineCore/App contracts.
+- [x] Golden seed runner validates reference corpus.
 - [x] Package roundtrip tests.
 - [ ] Validation UI tests where possible.
 - [x] Build Xcode safe OK.
@@ -484,3 +486,4 @@ Objectif : rendre la V2 testable et maintenable.
 | 2026-06-12 | V2 plan docs | Ajout du plan V2 et du tracker V2 apres Step 23 | pending |
 | 2026-06-12 | Step 24-A | Tools Hub V2 avec workspace, registry production, document store packages, validation hints et diagnostics | pending |
 | 2026-06-12 | Step 24-B | Rapports specialises pour terrain, biomes, props, materiaux, LOD, save inspector et seed gallery | pending |
+| 2026-06-12 | Step 24-C | Rapports specialises pour les outils restants et runner golden seeds branche dans la validation | pending |

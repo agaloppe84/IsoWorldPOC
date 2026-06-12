@@ -350,6 +350,24 @@ Step 24-B remplace une partie des previews generiques du Tools Hub V2 par des ra
 
 Cette passe ne livre pas encore des editeurs interactifs complets. Elle etablit la base metier fiable pour les inspectors/editors de Step 24-C et garde les autres outils en fallback generique explicite.
 
+## Step 24-C livre
+
+Step 24-C complete la couverture specialisee du Tools Hub V2:
+
+- Character Customization Lab expose `CharacterDNA`, body parameters, skeleton/sockets, equipment, mesh descriptor et save regenerable.
+- Animation Contact Lab expose clips idle/walk, root motion, contact windows, Foot IK et profils de surface.
+- FX Preview Editor expose definitions V1, types billboard/decal, blend modes et budgets temps reel.
+- Audio Graph Preview expose recipes, renderers, bus et mix state par defaut.
+- RPG World DNA Browser expose archetype, era, magie, menace, systems actifs, factions, quests et validation jouable.
+- Settlement Viewer expose une recette de settlement derivee de `WorldRuleset` et biome preview, sans generer de chunk terrain.
+- Performance HUD expose cadence debug/live, throttling telemetry, budgets LOD/FX et defaults de debug visuel.
+- Snapshot Diff expose preview ID, revision, references et policy de retention snapshots.
+- `ToolGoldenSeedValidationRunner` valide le corpus `GoldenWorldSeeds` sur terrain, personnages, animation, FX, audio, RPG, settlements et LOD.
+- La validation du document Seed Gallery branche ce runner et remonte un `ToolValidationIssue` dedie.
+- Les tests app couvrent tous les rapports Step 24, les contrats restants et le runner golden seeds.
+
+Cette passe reste une couche inspector/rapport. Les vrais controles d'edition profonde, les graph editors et les previews visuelles dediees devront s'appuyer sur ces contrats au lieu de contourner le workspace.
+
 ## Prochaine cible
 
-Step 24-C doit produire les editeurs specialises restants et le premier golden seed validation runner: Character Customization Lab, Animation Contact Lab, FX Preview Editor, Audio Graph Preview, RPG World DNA Browser, Settlement Viewer, Performance HUD et Snapshot Diff.
+Step 24-BIS doit brancher la persistence production spine: `SaveCoordinator`, registry de domaines, writer/reader region `.isoregion`, autosave incremental, transaction path, puis preparation SQLite/WAL et recovery tests.

@@ -487,15 +487,16 @@ struct IsoWorldPOCTests {
         #expect(runtimeExport.contentHash == asset.contentHash)
     }
 
-    @Test func toolSpecializedReportsCoverStep24PriorityEditors() {
+    @Test func toolSpecializedReportsCoverAllStep24Editors() {
         let registry = ToolRegistry.v2
         let builder = ToolSpecializedPreviewBuilder()
 
-        for toolID in ToolSpecializedPreviewBuilder.specializedToolIDs.sorted() {
-            let descriptor = registry.descriptor(for: toolID)!
+        #expect(ToolSpecializedPreviewBuilder.specializedToolIDs == Set(registry.descriptors.map(\.id)))
+
+        for descriptor in registry.descriptors {
             let document = registry.makeDefaultDocument(
                 for: descriptor,
-                seedText: "v2-specialized-\(toolID)"
+                seedText: "v2-specialized-\(descriptor.id)"
             )
             let report = builder.makeReport(
                 for: descriptor,
@@ -503,14 +504,26 @@ struct IsoWorldPOCTests {
                 registry: registry
             )
 
-            #expect(report.toolID == toolID)
+            #expect(report.toolID == descriptor.id)
             #expect(report.isSpecialized)
             #expect(!report.sections.isEmpty)
             #expect(report.sections.allSatisfy { !$0.metrics.isEmpty })
         }
 
-        let genericDescriptor = registry.descriptor(for: "performance.hud")!
-        let genericDocument = registry.makeDefaultDocument(for: genericDescriptor)
+        let genericDescriptor = ToolDescriptor(
+            id: "future.tool",
+            name: "Future Tool",
+            category: .world,
+            summary: "Future generic fallback.",
+            systemImage: "wrench.and.screwdriver",
+            capabilities: [.preview, .validation]
+        )
+        let genericDocument = ToolDocument(
+            toolID: genericDescriptor.id,
+            seedText: "future-tool-seed",
+            presetName: "Future",
+            sampleCount: 4
+        )
         let genericReport = builder.makeReport(
             for: genericDescriptor,
             document: genericDocument,
@@ -518,7 +531,7 @@ struct IsoWorldPOCTests {
         )
 
         #expect(genericReport.isSpecialized == false)
-        #expect(genericReport.metricValue(for: "generic.category") == "Performance")
+        #expect(genericReport.metricValue(for: "generic.category") == "World")
     }
 
     @Test func terrainSpecializedReportUsesFeatureGraphContracts() {
@@ -593,6 +606,55 @@ struct IsoWorldPOCTests {
         #expect(report.metricValue(for: "seed.current.name") == "custom")
         #expect(report.metricValue(for: "seed.sample.budget") == "32")
         #expect(report.metricValue(for: "seed.normalized-text") == "v2-seed-report")
+        #expect(report.metricValue(for: "seed.validation.checked") == "\(GoldenWorldSeeds.named.count)")
+        #expect(report.metricValue(for: "seed.validation.valid") == "yes")
+    }
+
+    @Test func remainingStep24SpecializedReportsUseEngineContracts() {
+        let registry = ToolRegistry.v2
+        let builder = ToolSpecializedPreviewBuilder()
+
+        func report(for toolID: String) -> ToolSpecializedPreviewReport {
+            let descriptor = registry.descriptor(for: toolID)!
+            let document = registry.makeDefaultDocument(
+                for: descriptor,
+                seedText: "v2-remaining-\(toolID)"
+            )
+            return builder.makeReport(
+                for: descriptor,
+                document: document,
+                registry: registry
+            )
+        }
+
+        #expect(report(for: "character.customization.lab").metricValue(for: "character.save.regenerable") == "yes")
+        #expect(report(for: "animation.contact.lab").metricValue(for: "animation.clip.count") == "2")
+        #expect(report(for: "fx.preview.editor").metricValue(for: "fx.definition.count") == "\(FXRecipe().definitions.count)")
+        #expect(report(for: "audio.graph.preview").metricValue(for: "audio.recipe.count") == "\(AudioRecipeResolver().recipes.count)")
+        #expect(report(for: "rpg.world.dna.browser").metricValue(for: "rpg.playable") == "yes")
+        #expect(report(for: "settlement.viewer").metricValue(for: "settlement.buildings") != nil)
+        #expect(report(for: "performance.hud").metricValue(for: "performance.live.max-fps") == "60")
+        #expect(report(for: "snapshot.diff").metricValue(for: "snapshot.reason.count") == "\(SnapshotReason.allCases.count)")
+    }
+
+    @Test func goldenSeedValidationRunnerCoversReferenceCorpus() {
+        let validation = ToolGoldenSeedValidationRunner().validate()
+
+        #expect(validation.isValid)
+        #expect(validation.checkedSeedCount == GoldenWorldSeeds.named.count)
+        #expect(validation.checkedDomainCount == ToolGoldenSeedValidationRunner.checkedDomains.count)
+        #expect(validation.issueCount == 0)
+    }
+
+    @Test func seedGalleryValidationHooksGoldenSeedRunner() {
+        let registry = ToolRegistry.v2
+        let descriptor = registry.descriptor(for: "seed.gallery")!
+        let document = registry.makeDefaultDocument(for: descriptor)
+        let validation = registry.validate(document: document)
+        let goldenSeedIssue = validation.issues.first { $0.id == "golden-seed-runner" }
+
+        #expect(goldenSeedIssue?.severity == .info)
+        #expect(goldenSeedIssue?.message.contains("\(GoldenWorldSeeds.named.count) seeds") == true)
     }
 
     @Test func toolRegistryCreatesDeterministicPreviewWithoutWorldPayload() {

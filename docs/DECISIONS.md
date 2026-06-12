@@ -583,3 +583,15 @@ Consequence: Terrain Recipe Editor, Biome Graph Viewer, Prop Gallery, Material V
 Garantie: les tests app verifient la couverture des outils prioritaires, les metriques terrain issues du `TerrainFeatureGraph`, les chemins/validations `.isoproj` / `.isograph` / `.isoasset` du Save Inspector et le corpus `GoldenWorldSeeds`.
 
 Limite actuelle: les rapports sont consultatifs. Ils ne modifient pas encore les graphs, recettes ou packages; les vrais controls d'edition, validators metier profonds et runners golden seeds arrivent ensuite.
+
+## 056 - Couverture specialisee complete Step 24-C
+
+Decision: couvrir les 15 outils Step 24 avec des rapports specialises et brancher un premier runner golden seeds.
+
+Raison: avant d'ouvrir des graph editors plus lourds, le Tools Hub doit prouver que chaque domaine majeur sait lire ses vrais contrats V2 sans ouvrir de `WorldRuntime`. Les outils restants avaient encore un fallback generique; cela masquait les dependances reelles et retardait la validation cross-domain.
+
+Consequence: Character Customization Lab, Animation Contact Lab, FX Preview Editor, Audio Graph Preview, RPG World DNA Browser, Settlement Viewer, Performance HUD et Snapshot Diff consomment maintenant leurs contrats metier. `ToolGoldenSeedValidationRunner` verifie le corpus `GoldenWorldSeeds` sur terrain, personnages, animation, FX, audio, RPG, settlements et LOD. `ToolRegistry.validate` branche ce runner pour Seed Gallery.
+
+Garantie: les tests app verifient que tous les descriptors `ToolRegistry.v2` ont un rapport specialise, que les outils restants exposent des metriques issues des vrais contrats, que le runner golden seeds est vert et que Seed Gallery remonte le hook de validation.
+
+Limite actuelle: les rapports restent consultatifs et legers. Ils ne remplacent pas encore des editeurs interactifs de graph, des previews Metal dediees ni des validators profonds par domaine. La prochaine couche doit brancher la persistence production avant d'alourdir les outils.

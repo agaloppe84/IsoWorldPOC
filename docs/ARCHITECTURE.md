@@ -432,10 +432,11 @@ Responsabilites:
 - suivre documents ouverts, dirty state, recents, snapshots de revision et diagnostic export;
 - convertir les documents outils en packages via `ToolDocumentStore`;
 - sauvegarder/lire `.isoproj`, `.isoasset` et `.isograph` avec `AtomicFileWriter`;
-- produire des previews par `ToolPreviewSnapshot` sans muter `WorldRuntime`.
-- produire des rapports specialises via `ToolSpecializedPreviewReport` pour les outils prioritaires, en lisant les contrats `EngineCore` reels: terrain features, biomes/ecotones, props, materiaux, LOD, persistence et golden seeds.
+- produire des previews par `ToolPreviewSnapshot` sans muter `WorldRuntime`;
+- produire des rapports specialises via `ToolSpecializedPreviewReport` pour les 15 outils Step 24, en lisant les contrats `EngineCore`/app reels: terrain features, biomes/ecotones, props, materiaux, LOD, characters, animation, FX, audio, RPG, settlements, persistence, performance, snapshots et golden seeds;
+- valider le corpus `GoldenWorldSeeds` via `ToolGoldenSeedValidationRunner` sans ouvrir de monde reel.
 
-Cette couche ne doit pas pousser SwiftUI dans `EngineCore`. Les editeurs specialises V2 doivent brancher leurs inspectors/validators sur ce workspace et sur les packages Step 23 au lieu de creer des formats paralleles. Les rapports Step 24-B sont une base de lecture fiable; les modifications interactives et runners de validation restent des couches suivantes.
+Cette couche ne doit pas pousser SwiftUI dans `EngineCore`. Les editeurs specialises V2 doivent brancher leurs inspectors/validators sur ce workspace et sur les packages Step 23 au lieu de creer des formats paralleles. Les rapports Step 24-B/24-C sont une base de lecture fiable; les modifications interactives et previews visuelles dediees restent des couches suivantes.
 
 ## Input
 
