@@ -19,12 +19,15 @@ final class WorldRuntime {
     private let snapshotBuilder = RenderSnapshotBuilder()
     private let fxRecipe = FXRecipe()
     private let fxBudget = FXBudget.v1Realtime
+    private let audioRecipeResolver = AudioRecipeResolver()
+    private let audioEngine = IsoAudioEngine()
     private let lightingState = LightingState.defaultDay
     private let worldSeed: WorldSeed
     private var frameIndex: UInt64 = 0
     private var simulationTime: Float = 0
     private var fxFrameState = FXFrameState()
     private var latestFXSnapshot = FXFrameSnapshot.empty
+    private var latestAudioSnapshot = AudioRuntimeSnapshot.empty
     private var lastSimulationUpdateMs: Float = 0
     private var lastSnapshotBuildMs: Float = 0
     private var lastSnapshotBuildTiming = RenderSnapshotBuildTiming.empty
@@ -60,6 +63,10 @@ final class WorldRuntime {
 
     var fxSnapshot: FXFrameSnapshot {
         latestFXSnapshot
+    }
+
+    var audioSnapshot: AudioRuntimeSnapshot {
+        latestAudioSnapshot
     }
 
     init(
@@ -128,6 +135,7 @@ final class WorldRuntime {
             simulationTime += deltaTime
         }
         updateFX(deltaTime: deltaTime, debugOptions: debugOptions)
+        updateAudio(debugOptions: debugOptions)
 
         let snapshotStart = currentTimeMilliseconds()
         let snapshotResult = makeSnapshot(debugOptions: debugOptions)
@@ -313,6 +321,26 @@ final class WorldRuntime {
             budget: fxBudget
         )
         latestFXSnapshot = fxFrameState.merge(emittedFX, budget: fxBudget)
+    }
+
+    private func updateAudio(debugOptions: RenderSnapshotDebugOptions) {
+        guard !debugOptions.freezeSimulation else {
+            latestAudioSnapshot = audioEngine.update(maxEventsPerFrame: 0)
+            return
+        }
+
+        let camera = cameraController.renderState(following: playerController.position)
+        let events = audioRecipeResolver.makeFootstepEvents(
+            from: playerController.recentFootstepEvents,
+            context: AudioContext(
+                worldSeed: worldSeed,
+                simulationTime: simulationTime,
+                listenerPosition: camera.position
+            )
+        )
+
+        audioEngine.post(contentsOf: events)
+        latestAudioSnapshot = audioEngine.update()
     }
 
     private func makeFrameSnapshot(deltaTime: Float) -> EngineFrameSnapshot {

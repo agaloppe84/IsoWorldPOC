@@ -76,5 +76,6 @@ public extension GeneratorVersionTable {
         GeneratorVersionEntry(domain: .characters, version: .v1),
         GeneratorVersionEntry(domain: .animation, version: .v1),
         GeneratorVersionEntry(domain: .fx, version: .v1),
+        GeneratorVersionEntry(domain: .audio, version: .v1),
     ])
 }

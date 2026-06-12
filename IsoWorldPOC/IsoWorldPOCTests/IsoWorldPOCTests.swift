@@ -189,6 +189,67 @@ struct IsoWorldPOCTests {
         #expect(fxPlan.passes.first { $0.descriptor.kind == .billboardParticles }?.isEnabled == true)
     }
 
+    @Test func audioEventQueuePrioritizesAndDropsOverCapacity() {
+        let queue = AudioEventQueue(capacity: 2)
+
+        queue.enqueue(sampleAudioEvent(id: 1, priority: .ambience))
+        queue.enqueue(sampleAudioEvent(id: 2, priority: .critical))
+        queue.enqueue(sampleAudioEvent(id: 3, priority: .gameplay))
+
+        let drained = queue.drain()
+
+        #expect(queue.droppedEventCount == 1)
+        #expect(drained.map(\.id.rawValue) == [2, 3])
+    }
+
+    @Test func noiseSynthIsDeterministicForSameSeededEvent() {
+        let recipe = AudioRecipe.footstep(for: .sand)
+        let event = sampleAudioEvent(
+            id: 10,
+            recipeID: recipe.id,
+            bus: recipe.bus,
+            parameters: recipe.defaultParameters
+                .setting(.gain, to: 0.7)
+                .setting(.durationSeconds, to: 0.08)
+        )
+        let synth = NoiseSynth(sampleRate: 8_000)
+
+        let first = synth.render(event: event, recipe: recipe)
+        let second = synth.render(event: event, recipe: recipe)
+
+        #expect(first == second)
+        #expect(first.peak > 0)
+        #expect(abs(first.durationSeconds - 0.08) < 0.0001)
+    }
+
+    @Test func isoAudioEngineProcessesFootstepEventIntoFoleyMeter() {
+        let recipe = AudioRecipe.footstep(for: .rock)
+        let engine = IsoAudioEngine(
+            recipes: [recipe],
+            eventQueue: AudioEventQueue(capacity: 4),
+            samplePlayer: SamplePlayer(sampleRate: 8_000),
+            noiseSynth: NoiseSynth(sampleRate: 8_000)
+        )
+        let event = sampleAudioEvent(
+            recipeID: recipe.id,
+            bus: recipe.bus,
+            parameters: recipe.defaultParameters
+                .setting(.gain, to: 0.8)
+                .setting(.durationSeconds, to: 0.05)
+        )
+
+        engine.post(event)
+        let snapshot = engine.update()
+        let foleyMeter = snapshot.busMeters.first { $0.bus == .foley }
+
+        #expect(snapshot.processedEventCount == 1)
+        #expect(snapshot.totalProcessedEventCount == 1)
+        #expect(snapshot.activeVoiceCount == 1)
+        #expect(snapshot.peak > 0)
+        #expect(foleyMeter?.processedEventCount == 1)
+        #expect(foleyMeter?.activeVoiceCount == 1)
+    }
+
     @MainActor
     @Test func appStoreStartsInMainMenu() {
         let store = AppStore()
@@ -566,6 +627,37 @@ struct IsoWorldPOCTests {
             identifier: identifier,
             color: BiomeColor(red: 0.4, green: 0.5, blue: 0.3),
             roughness: 0.8
+        )
+    }
+
+    private func sampleAudioEvent(
+        id: UInt64 = 1,
+        recipeID: AudioRecipeID = .footstep(for: .rock),
+        bus: AudioBusID = .foley,
+        priority: AudioPriority = .gameplay,
+        parameters: AudioParameterSet = AudioRecipe.footstep(for: .rock).defaultParameters
+            .setting(.gain, to: 0.6)
+            .setting(.durationSeconds, to: 0.08)
+    ) -> IsoAudioEvent {
+        IsoAudioEvent(
+            id: StableID(id),
+            sourceID: StableID(id + 1_000),
+            kind: .footstep,
+            recipeID: recipeID,
+            bus: bus,
+            time: 0.1,
+            priority: priority,
+            position: WorldPosition(x: 1, y: 0, z: 2),
+            surface: AudioSurfaceResponse.response(
+                for: .rock,
+                wetness: 0,
+                friction: 0.7
+            ).surfaceInfo(wetness: 0, friction: 0.7),
+            seedContext: AudioSeedContext(
+                worldSeed: WorldSeed(42),
+                eventSeed: 10_000 + id
+            ),
+            parameters: parameters
         )
     }
 

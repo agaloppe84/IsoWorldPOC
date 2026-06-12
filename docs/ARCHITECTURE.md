@@ -222,6 +222,23 @@ Le rendu actuel garde deux passes separees:
 
 Elles sont inserees dans `FrameGraph` apres opaque et avant debug overlay. L'implementation GPU reste volontairement minimale et reutilise le shader opaque avec alpha blending; l'architecture permet de remplacer plus tard ces passes par instancing, atlas sprites ou decal projection sans changer le contrat EngineCore.
 
+### Audio V1
+
+`EngineCore/Audio` est la couche audio procedurale pure, reliee aux contacts et materiaux du moteur.
+
+Responsabilites:
+
+- transporter des `IsoAudioEvent` deterministes avec recipe, source, position, bus, priorite, seed et parametres;
+- decrire les bus `master`, `music`, `ambience`, `foley`, `world` et `ui`;
+- resoudre des `AudioSurfaceResponse` depuis `TerrainMaterialKind`, wetness et friction;
+- fournir des `AudioRecipe` pour ambience et footsteps materiau-aware;
+- convertir les `FootstepEvent` en events audio via `AudioRecipeResolver`;
+- exposer des meters `AudioBusMeter` exploitables par debug/profiling sans imposer SwiftUI au moteur.
+
+`AudioRuntime` vit cote app pour la V1. Il contient une queue priorisee, un sample player avec fallback procedural, un noise synth deterministe et `IsoAudioEngine` qui produit un `AudioRuntimeSnapshot`.
+
+Cette V1 ne sort pas encore sur le systeme audio macOS. Le pipeline est d'abord data-driven et testable; une couche de sortie bas niveau pourra consommer les buffers/voices ensuite, sans changer les recipes ni les evenements moteur.
+
 ### Tools Hub V1
 
 Le Tools Hub est une surface app separee du monde runtime.
@@ -382,6 +399,8 @@ WorldRuntime
 Simulation joueur / camera / streaming
         ↓
 FXFrameState / FXRecipe
+        ↓
+IsoAudioEngine / AudioRecipeResolver
         ↓
 RenderSnapshotBuilder
         ↓

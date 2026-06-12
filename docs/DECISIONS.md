@@ -499,3 +499,15 @@ Consequence: `FXRecipe` convertit les `FootstepEvent` et impacts en `FXEvent`, `
 Garantie: les tests EngineCore couvrent determinisme, dust/splash, sparks, budget et expiration. Les tests app verrouillent l'ordre du frame graph et l'activation des passes FX depuis le snapshot.
 
 Limite actuelle: le rendu FX est une V1 legere avec quads alpha sur le shader opaque. Les prochaines passes pourront ajouter instancing, atlas sprites, decals projetes et compute particles sans changer le contrat EngineCore.
+
+## 049 - Audio procedural V1
+
+Decision: ajouter `EngineCore/Audio` comme contrat pur et garder la sortie audio systeme hors scope du Step 19.
+
+Raison: l'audio doit consommer les memes contacts, materiaux et seeds que l'animation et les FX, sans recalculer de surface dans le renderer ou dans SwiftUI. Brancher trop tot une sortie bas niveau melangerait scheduling audio, AVAudioEngine/CoreAudio et contrats moteur avant que les recipes soient stabilisees.
+
+Consequence: `AudioRecipeResolver` transforme les `FootstepEvent` en `IsoAudioEvent` materiau-aware. `AudioRuntime` fournit queue priorisee, sample player procedural, noise synth deterministe, bus meters et `IsoAudioEngine`. `WorldRuntime` poste les events audio apres la simulation/FX et conserve un `AudioRuntimeSnapshot` interne.
+
+Garantie: les tests EngineCore couvrent determinisme, switching materiau, surfaces wet/squish, parametres et mix bus. Les tests app couvrent queue, synthese deterministe et meters par bus.
+
+Limite actuelle: aucun son n'est encore joue par macOS. La prochaine passe audio pourra ajouter une sortie temps reel en gardant les contrats Step 19 intacts.

@@ -241,6 +241,22 @@ Step 18 ajoute les FX V1 data-driven:
 
 Cette passe reste volontairement simple cote GPU: pas encore de compute particles, atlas sprite dedie, instancing ou decal projection avancee. La base est propre, budgetee et testee pour pouvoir evoluer.
 
+## Step 19 livre
+
+Step 19 ajoute l'audio V1 procedural et parametrable:
+
+- `EngineCore/Audio` contient les contrats purs `IsoAudioEvent`, `AudioContext`, `AudioRecipe`, `AudioBus`, `AudioParameterSet` et `AudioSurfaceResponse`.
+- Les bus V1 couvrent `master`, `music`, `ambience`, `foley`, `world` et `ui`, avec calcul de gain effectif via le parent master.
+- `AudioRecipeResolver` consomme les vrais `FootstepEvent` Step 17 et choisit une recette de pas par `TerrainMaterialKind`.
+- Les surfaces audio derivent gain, pitch, durete, rugosite, porosite, crunch, splash et squish depuis materiau, wetness et friction.
+- `AudioRuntime` contient `IsoAudioEngine`, `AudioEventQueue`, `SamplePlayer` et `NoiseSynth`.
+- Le runtime audio est deterministe: queue priorisee, RNG stable par seed contexte, sample player procedural de fallback et noise synth simple.
+- `WorldRuntime` poste les footsteps recents vers l'audio apres les FX, sans recalculer les contacts terrain.
+- Les debug meters existent sous forme de `AudioRuntimeSnapshot` et `AudioBusMeter`, mais ne sont pas ajoutes au panel compact pour ne pas recharger l'overlay debug.
+- `SeedDomain.audio` et `GeneratorVersionTable.current` versionnent le domaine audio.
+
+Cette passe ne branche pas encore de sortie audio systeme. Le but est d'abord de verrouiller le pipeline data-driven, testable et non bloquant; la lecture bas niveau pourra etre ajoutee ensuite sans changer les contrats EngineCore.
+
 ## Prochaine cible
 
-Step 19 peut brancher l'audio V1 de surface et les premiers retours sensoriels sur les memes evenements `FootstepEvent` / `FXEvent`, sans recalculer les contacts terrain.
+Step 20 peut introduire le HUD procedural minimal: `UIFrameSnapshot`, themes, draw commands Metal simples et etat HUD derive du monde sans remettre le renderer sous dependance SwiftUI.
