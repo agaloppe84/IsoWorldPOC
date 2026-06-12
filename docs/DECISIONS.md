@@ -571,3 +571,15 @@ Consequence: `ToolRegistry.v2` expose les 15 outils du Step 24. `ToolWorkspace` 
 Garantie: les tests app couvrent le registry V2, le workspace dirty/recent/diagnostic, l'ouverture du hub sans session monde, l'isolation preview et le roundtrip `.isoproj` / `.isoasset` / `.isograph`.
 
 Limite actuelle: les 15 outils sont branches comme surfaces production generiques avec preview/validation/packages. Les vrais editeurs specialises (terrain graph authoring, material editing, save inspector connecte, seed lab complet, etc.) restent a livrer dans Step 24-B et suivants.
+
+## 055 - Rapports specialises prioritaires Step 24-B
+
+Decision: introduire `ToolSpecializedPreviewReport` comme couche app-side pour les premiers inspectors metier du Tools Hub V2.
+
+Raison: les outils prioritaires doivent afficher des donnees utiles sans ouvrir de `WorldRuntime` et sans inventer un format parallele. Le hub peut consommer les contrats purs existants et les presenter comme sections/metriques codables avant de livrer les editeurs interactifs complets.
+
+Consequence: Terrain Recipe Editor, Biome Graph Viewer, Prop Gallery, Material Viewer, LOD Debugger, Save Inspector et Seed Gallery ont des rapports specialises. Ces rapports lisent `TerrainFeatureGraph`, biomes/ecotones/sub-biomes, `PropCatalog`, materiaux/surfaces PBR, `LODPolicy`, packages Step 23 et `GoldenWorldSeeds`. Les autres outils restent en fallback generique explicite jusqu'au Step 24-C.
+
+Garantie: les tests app verifient la couverture des outils prioritaires, les metriques terrain issues du `TerrainFeatureGraph`, les chemins/validations `.isoproj` / `.isograph` / `.isoasset` du Save Inspector et le corpus `GoldenWorldSeeds`.
+
+Limite actuelle: les rapports sont consultatifs. Ils ne modifient pas encore les graphs, recettes ou packages; les vrais controls d'edition, validators metier profonds et runners golden seeds arrivent ensuite.

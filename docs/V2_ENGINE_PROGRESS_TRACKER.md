@@ -13,10 +13,10 @@ Legende :
 
 | Element | Etat |
 |---|---|
-| Dernier step livre | Step 24-A - Tools Hub production spine |
+| Dernier step livre | Step 24-B - Editeurs specialises priority reports |
 | Branche cible | `main` |
 | Docs reference | lecture seule |
-| Prochaine cible officielle | Step 24-B - Editeurs specialises production |
+| Prochaine cible officielle | Step 24-C - Editeurs specialises restants et golden runner |
 | Plan V2 | `[x]` document cree |
 | Tracker V2 | `[x]` document cree |
 
@@ -36,7 +36,7 @@ Legende :
 - [x] `EngineCore` reste sans Metal sauf contrats renderer neutres existants.
 - [ ] Les systems V2 consomment seed + versions + recipes + deltas.
 - [ ] Les caches sont declares rebuildables.
-- [ ] Les docs actives indiquent les decisions structurantes.
+- [x] Les docs actives indiquent les decisions structurantes.
 
 ### Performance
 
@@ -56,7 +56,7 @@ Legende :
 
 ### Tooling
 
-- [ ] Chaque systeme majeur a un inspector ou viewer.
+- [~] Chaque systeme majeur a un inspector ou viewer.
 - [ ] Chaque systeme majeur a un validator.
 - [ ] Seed gallery couvre les cas extremes.
 - [x] Diagnostic bundle exportable.
@@ -101,26 +101,27 @@ Objectif : outils production pour modifier, valider et persister les systems.
 
 ### Production tools
 
-- [~] Terrain Recipe Editor.
-- [~] Biome Graph Viewer.
-- [~] Prop Gallery.
-- [~] Material Viewer.
-- [~] LOD Debugger.
+- [x] Terrain Recipe Editor.
+- [x] Biome Graph Viewer.
+- [x] Prop Gallery.
+- [x] Material Viewer.
+- [x] LOD Debugger.
 - [~] Character Customization Lab.
 - [~] Animation Contact Lab.
 - [~] FX Preview Editor.
 - [~] Audio Graph Preview.
 - [~] RPG World DNA Browser.
 - [~] Settlement Viewer.
-- [~] Save Inspector.
+- [x] Save Inspector.
 - [~] Performance HUD.
-- [~] Seed Gallery.
+- [x] Seed Gallery.
 - [~] Snapshot Diff.
 
 ### Step 24 validation
 
 - [x] Tools open without Real World.
 - [x] Tool previews do not mutate `WorldRuntime`.
+- [x] Priority specialized reports consume EngineCore/Persistence contracts.
 - [x] Package roundtrip tests.
 - [ ] Validation UI tests where possible.
 - [x] Build Xcode safe OK.
@@ -482,3 +483,4 @@ Objectif : rendre la V2 testable et maintenable.
 |---|---|---|---|
 | 2026-06-12 | V2 plan docs | Ajout du plan V2 et du tracker V2 apres Step 23 | pending |
 | 2026-06-12 | Step 24-A | Tools Hub V2 avec workspace, registry production, document store packages, validation hints et diagnostics | pending |
+| 2026-06-12 | Step 24-B | Rapports specialises pour terrain, biomes, props, materiaux, LOD, save inspector et seed gallery | pending |

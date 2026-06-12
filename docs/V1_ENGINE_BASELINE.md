@@ -333,6 +333,23 @@ Step 24-A ouvre la V2 avec un Tools Hub production spine au-dessus des packages 
 
 Cette passe ne livre pas encore les vrais editeurs specialises. Les 15 outils disposent d'une surface, d'un document, d'une preview generique, d'une validation et d'une policy package-backed; Step 24-B doit maintenant remplacer les surfaces generiques par les inspectors/editors metier.
 
+## Step 24-B livre
+
+Step 24-B remplace une partie des previews generiques du Tools Hub V2 par des rapports specialises branches sur les contrats reels du moteur:
+
+- `ToolSpecializedPreviewReport` decrit des sections/metriques stables, codables et testables.
+- Terrain Recipe Editor expose le `TerrainFeatureGraph`, les compteurs hydrologie/relief et la query du chunk origine.
+- Biome Graph Viewer expose biomes, sub-biomes, ecotones, materiaux lies et densite props.
+- Prop Gallery expose le catalogue naturel, les types supportes, regles de placement et budgets d'echantillonnage.
+- Material Viewer expose les slots materiaux terrain, roles PBR, surfaces triplanar et hooks `SurfaceState`.
+- LOD Debugger expose thresholds, budgets draw calls et marge d'hysteresis.
+- Save Inspector expose les chemins `.isoproj`, `.isograph`, `.isoasset`, validation package et export runtime.
+- Seed Gallery expose le corpus `GoldenWorldSeeds`, le seed courant et la derivation preview.
+- `ToolsHubView` affiche ces rapports sous la preview isolee, avec un workspace central scrollable.
+- Les tests app couvrent la couverture des outils prioritaires, le terrain feature graph, les packages Step 23 et le corpus de seeds.
+
+Cette passe ne livre pas encore des editeurs interactifs complets. Elle etablit la base metier fiable pour les inspectors/editors de Step 24-C et garde les autres outils en fallback generique explicite.
+
 ## Prochaine cible
 
-Step 24-B doit produire les editeurs specialises du Tools Hub production V2: Terrain Recipe Editor, Biome Graph Viewer, Prop Gallery, Material Viewer, Save Inspector et Seed Gallery en priorite.
+Step 24-C doit produire les editeurs specialises restants et le premier golden seed validation runner: Character Customization Lab, Animation Contact Lab, FX Preview Editor, Audio Graph Preview, RPG World DNA Browser, Settlement Viewer, Performance HUD et Snapshot Diff.

@@ -72,47 +72,55 @@ struct ToolsHubView: View {
         let descriptor = toolWorkspace.selectedDescriptor(in: registry)
         let document = toolWorkspace.selectedDocument
         let preview = registry.makePreviewSnapshot(for: descriptor, document: document)
+        let report = ToolSpecializedPreviewBuilder(documentStore: documentStore).makeReport(
+            for: descriptor,
+            document: document,
+            registry: registry
+        )
 
-        return VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(descriptor.category.displayName)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        Text(descriptor.name)
-                            .font(.title2.weight(.semibold))
-                        if toolWorkspace.isDirty(toolID: descriptor.id) {
-                            Text("Unsaved")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.orange)
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(descriptor.category.displayName)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Text(descriptor.name)
+                                .font(.title2.weight(.semibold))
+                            if toolWorkspace.isDirty(toolID: descriptor.id) {
+                                Text("Unsaved")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.orange)
+                            }
                         }
                     }
+
+                    Spacer()
+
+                    commandBar
                 }
 
-                Spacer()
+                if let lastCommandMessage {
+                    Label(lastCommandMessage, systemImage: "checkmark.circle")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
 
-                commandBar
+                ToolPreviewView(
+                    descriptor: descriptor,
+                    document: document,
+                    preview: preview
+                )
+
+                ToolSpecializedPreviewReportView(report: report)
+
+                documentEditor
             }
-
-            if let lastCommandMessage {
-                Label(lastCommandMessage, systemImage: "checkmark.circle")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-
-            ToolPreviewView(
-                descriptor: descriptor,
-                document: document,
-                preview: preview
-            )
-
-            documentEditor
-
-            Spacer()
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var inspector: some View {

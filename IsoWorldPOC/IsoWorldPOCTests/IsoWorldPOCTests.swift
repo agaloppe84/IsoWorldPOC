@@ -487,6 +487,114 @@ struct IsoWorldPOCTests {
         #expect(runtimeExport.contentHash == asset.contentHash)
     }
 
+    @Test func toolSpecializedReportsCoverStep24PriorityEditors() {
+        let registry = ToolRegistry.v2
+        let builder = ToolSpecializedPreviewBuilder()
+
+        for toolID in ToolSpecializedPreviewBuilder.specializedToolIDs.sorted() {
+            let descriptor = registry.descriptor(for: toolID)!
+            let document = registry.makeDefaultDocument(
+                for: descriptor,
+                seedText: "v2-specialized-\(toolID)"
+            )
+            let report = builder.makeReport(
+                for: descriptor,
+                document: document,
+                registry: registry
+            )
+
+            #expect(report.toolID == toolID)
+            #expect(report.isSpecialized)
+            #expect(!report.sections.isEmpty)
+            #expect(report.sections.allSatisfy { !$0.metrics.isEmpty })
+        }
+
+        let genericDescriptor = registry.descriptor(for: "performance.hud")!
+        let genericDocument = registry.makeDefaultDocument(for: genericDescriptor)
+        let genericReport = builder.makeReport(
+            for: genericDescriptor,
+            document: genericDocument,
+            registry: registry
+        )
+
+        #expect(genericReport.isSpecialized == false)
+        #expect(genericReport.metricValue(for: "generic.category") == "Performance")
+    }
+
+    @Test func terrainSpecializedReportUsesFeatureGraphContracts() {
+        let registry = ToolRegistry.v2
+        let descriptor = registry.descriptor(for: "terrain.recipe.editor")!
+        let document = ToolDocument(
+            toolID: descriptor.id,
+            seedText: "v2-terrain-report",
+            presetName: "Terrain recipe V2",
+            sampleCount: 64
+        )
+        let report = ToolSpecializedPreviewBuilder().makeReport(
+            for: descriptor,
+            document: document,
+            registry: registry
+        )
+        let graph = TerrainFeatureGraph.make(seed: registry.worldSeed(from: document.seedText))
+        let originQuery = graph.features(intersecting: .origin)
+
+        #expect(report.metricValue(for: "terrain.feature.count") == "\(graph.featureCount)")
+        #expect(report.metricValue(for: "terrain.river.count") == "\(graph.rivers.count)")
+        #expect(report.metricValue(for: "terrain.lake.count") == "\(graph.lakes.count)")
+        #expect(report.metricValue(for: "terrain.origin.feature.count") == "\(originQuery.featureCount)")
+        #expect(report.metricValue(for: "terrain.sample.budget") == "64")
+    }
+
+    @Test func saveInspectorSpecializedReportUsesStep23Packages() {
+        let registry = ToolRegistry.v2
+        let descriptor = registry.descriptor(for: "save.inspector")!
+        let document = ToolDocument(
+            toolID: descriptor.id,
+            seedText: "v2-save-report",
+            presetName: "Save package V2",
+            sampleCount: 24,
+            revisionID: "save-r1",
+            packageReferences: [
+                "projects/example.isoproj",
+                "assets/materials/example.isoasset",
+            ]
+        )
+        let report = ToolSpecializedPreviewBuilder().makeReport(
+            for: descriptor,
+            document: document,
+            registry: registry
+        )
+
+        #expect(report.metricValue(for: "save.project.path")?.hasSuffix(".isoproj") == true)
+        #expect(report.metricValue(for: "save.graph.path")?.hasSuffix(".isograph") == true)
+        #expect(report.metricValue(for: "save.asset.path")?.hasSuffix(".isoasset") == true)
+        #expect(report.metricValue(for: "save.references.count") == "2")
+        #expect(report.metricValue(for: "save.project.valid") == "yes")
+        #expect(report.metricValue(for: "save.graph.valid") == "yes")
+        #expect(report.metricValue(for: "save.asset.valid") == "yes")
+    }
+
+    @Test func seedGallerySpecializedReportUsesGoldenSeedCorpus() {
+        let registry = ToolRegistry.v2
+        let descriptor = registry.descriptor(for: "seed.gallery")!
+        let document = ToolDocument(
+            toolID: descriptor.id,
+            seedText: "v2-seed-report",
+            presetName: "Golden seeds V2",
+            sampleCount: 32
+        )
+        let report = ToolSpecializedPreviewBuilder().makeReport(
+            for: descriptor,
+            document: document,
+            registry: registry
+        )
+
+        #expect(report.metricValue(for: "seed.golden.count") == "\(GoldenWorldSeeds.named.count)")
+        #expect(report.metricValue(for: "seed.current.name") == "custom")
+        #expect(report.metricValue(for: "seed.sample.budget") == "32")
+        #expect(report.metricValue(for: "seed.normalized-text") == "v2-seed-report")
+    }
+
     @Test func toolRegistryCreatesDeterministicPreviewWithoutWorldPayload() {
         let registry = ToolRegistry.v1
         let descriptor = registry.descriptor(for: "terrain.viewer")!
