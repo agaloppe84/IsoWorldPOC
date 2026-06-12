@@ -285,6 +285,23 @@ Step 21 remplace l'ancien RPG DNA minimal par une vraie constitution RPG determi
 
 Cette passe ne genere pas encore villages, settlements, NPCs, storylets runtime ou directeur narratif actif. Elle pose les contrats purs pour que les prochains systemes consomment la constitution RPG au lieu d'inventer leurs propres regles.
 
+## Step 22 livre
+
+Step 22 ajoute les buildings/settlements V1 comme pipeline EngineCore pur et deterministe:
+
+- `EngineCore/Settlements` contient `StructureRecipe`, `SettlementRecipe`, `BuildingIntent`, `FootprintGenerator`, `MassingGenerator`, `TerrainSupportMap`, `SettlementSiteSelector` et `SettlementSystem`.
+- Les domaines `settlements`, `settlements.recipes`, `settlements.sites`, `settlements.building-intents`, `settlements.footprints` et `settlements.massing` sont versionnes dans `GeneratorVersionTable.current`.
+- `SettlementRecipe` consomme le `WorldRuleset` et le biome dominant pour choisir camp, hamlet, trade post, shrine cluster, frontier outpost, farmstead ou ruin cluster.
+- `TerrainSupportMap` derive pente, rugosite, eau, walkability, biome dominant, ratio buildable et solutions de support depuis `TerrainSampleGrid`.
+- `SettlementSiteSelector` score les sites depuis support terrain, eau, biome, trade/defense needs et tags RPG.
+- `BuildingIntent` separe l'intention gameplay de la generation visuelle: fonction, recette, importance, storeys, tags et ancre locale.
+- `FootprintGenerator` produit footprints orientes avec ajustements de fondation sans modifier ni aplatir le terrain.
+- `MassingGenerator` produit des volumes simples, supports V1, materiaux biome et `StructureRenderInstance` instanciables via les primitives de geometry existantes.
+- `SettlementSystem` assemble site, buildings, chemins simples, massings et instances render dans un `SettlementPlan` validable.
+- Les tests EngineCore ajoutent 8 cas couvrant determinisme/Codable, support terrain, selection de site, footprints, massing/render, influence RPG, versioning et seeds de reference.
+
+Cette passe ne branche pas encore les settlements dans le runtime monde visible ni dans le renderer Metal app. Elle pose le contrat complet et testable que Step 33 pourra enrichir avec districts, routes avancees, interiors, NPCs et streaming monde.
+
 ## Prochaine cible
 
-Step 22 doit introduire `EngineCore/Settlements`: recettes de structures/settlements, intents de batiments, footprints, massing, support terrain et selection de sites adaptes a la pente, en consommant le RPG DNA V1.
+Step 23 doit ajouter la sauvegarde avancee: region deltas, dirty tracking, entity persistence, event journal, snapshot store, migrations et packages outils/assets/graphs.

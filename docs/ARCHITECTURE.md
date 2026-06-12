@@ -253,6 +253,23 @@ Responsabilites:
 
 `WorldDNA.rpg` est le point d'entree du reste du moteur. Les prochains systemes ne doivent pas hardcoder leur propre genre de monde: ils lisent les tags, objectifs et regles RPG. Le debug print du monde est porte par `debugSummary`, afin que tools, tests et futurs panels puissent afficher la constitution generee sans dependance SwiftUI.
 
+### Settlements V1
+
+`EngineCore/Settlements` transforme terrain, biome et ruleset RPG en plan de settlement pur.
+
+Responsabilites:
+
+- definir un catalogue V1 de `StructureRecipe` pour maisons simples, cabanes, stockage, workshops, markets, shrines, watchtowers, halls et farm houses;
+- choisir une `SettlementRecipe` depuis `WorldRuleset`, `WorldRPGDNA` et biome dominant;
+- analyser un `TerrainSampleGrid` via `TerrainSupportMap` pour classer pente, eau, roughness, walkability, support solution et buildable score;
+- selectionner un site deterministe avec `SettlementSiteSelector`;
+- produire des `BuildingIntent` gameplay avant toute geometrie;
+- generer des footprints orientes et des ajustements de fondation sans aplatir le terrain;
+- produire un massing simple et une `StructureRenderInstance` instanciable avec primitives/materials deja connus du moteur;
+- assembler le tout dans un `SettlementPlan` validable avec chemins simples.
+
+La V1 reste volontairement hors runtime app: elle ne force pas encore l'affichage de villages dans le monde. Les prochains steps pourront brancher ces instances au renderer, au streaming et a la sauvegarde sans changer le contrat terrain/RPG.
+
 ### UI/HUD V1
 
 `EngineCore/UIModel` porte les contrats purs du HUD in-game, sans SwiftUI ni Metal.

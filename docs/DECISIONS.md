@@ -535,3 +535,15 @@ Consequence: `WorldDNA.rpg` consomme le nouveau `WorldRPGDNA`. `WorldRuleset` de
 Garantie: les tests EngineCore couvrent determinisme, roundtrip Codable, versioning RPG, ruleset executable, mondes sans ennemis, ledger compact et 20 seeds de reference RPG jouables.
 
 Limite actuelle: pas encore de runtime story director, NPCs, settlements reels, storylets ou sauvegarde gameplay complete. Ces systemes devront consommer le ruleset et le ledger au lieu de dupliquer les decisions de monde.
+
+## 052 - Settlements V1 terrain-aware
+
+Decision: ajouter `EngineCore/Settlements` comme pipeline pur pour generer des plans de settlements et buildings adaptes au terrain.
+
+Raison: les structures ne doivent pas etre posees sur un carre plat ni contourner le RPG DNA. Le moteur a besoin d'un contrat intermediaire entre terrain/biome/RPG et rendu: site, recipe, intent, footprint, support terrain, massing et instance render.
+
+Consequence: `SettlementSystem` consomme `TerrainSampleGrid` et `WorldRuleset`, derive une `TerrainSupportMap`, choisit une `SettlementRecipe`, selectionne un site, genere `BuildingIntent`, `BuildingFootprint`, `BuildingMassing`, chemins simples et `StructureRenderInstance`. Les sous-domaines settlements ont leur propre versioning.
+
+Garantie: les tests EngineCore couvrent determinisme, roundtrip Codable, classification support terrain, selection de site, footprints bornes au chunk, massing renderable, influence RPG, versioning et seeds de reference.
+
+Limite actuelle: les plans de settlements ne sont pas encore injectes dans le runtime monde ni rendus par Metal. Ce branchement doit consommer les instances V1, pas recalculer une logique de placement cote app.
