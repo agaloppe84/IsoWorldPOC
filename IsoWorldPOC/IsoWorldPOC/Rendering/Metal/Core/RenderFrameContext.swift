@@ -14,6 +14,7 @@ struct MetalFrameContext {
     let playerBuffers: MetalIndexedMeshBuffers?
     let playerPosition: SIMD3<Float>
     let viewProjectionMatrix: matrix_float4x4
+    let drawableSize: SIMD2<Float>
 
     var visibleChunks: [RenderChunk] {
         snapshot.chunks.filter(\.isVisible)
@@ -112,6 +113,8 @@ struct MetalFrameDrawMetrics {
     var fxDrawCalls = 0
     var fxParticlesDrawn = 0
     var fxDecalsDrawn = 0
+    var hudDrawCalls = 0
+    var hudQuadsDrawn = 0
     var terrainIndicesDrawn = 0
     var propIndicesDrawn = 0
 
@@ -119,6 +122,7 @@ struct MetalFrameDrawMetrics {
 
     var totalDrawCalls: Int {
         terrainDrawCalls + propDrawCalls + playerDrawCalls + debugDrawCalls + fxDrawCalls
+            + hudDrawCalls
     }
 
     mutating func add(_ other: MetalFrameDrawMetrics) {
@@ -133,6 +137,8 @@ struct MetalFrameDrawMetrics {
         fxDrawCalls += other.fxDrawCalls
         fxParticlesDrawn += other.fxParticlesDrawn
         fxDecalsDrawn += other.fxDecalsDrawn
+        hudDrawCalls += other.hudDrawCalls
+        hudQuadsDrawn += other.hudQuadsDrawn
         terrainIndicesDrawn += other.terrainIndicesDrawn
         propIndicesDrawn += other.propIndicesDrawn
     }

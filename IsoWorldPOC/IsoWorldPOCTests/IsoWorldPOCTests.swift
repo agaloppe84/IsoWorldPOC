@@ -189,6 +189,32 @@ struct IsoWorldPOCTests {
         #expect(fxPlan.passes.first { $0.descriptor.kind == .billboardParticles }?.isEnabled == true)
     }
 
+    @Test func worldFrameGraphEnablesHUDPassOnlyFromVisibleUISnapshot() {
+        let hiddenPlan = FrameGraph.worldRenderer.makePlan(
+            for: frameContext(fx: .empty, ui: .empty)
+        )
+        let visiblePlan = FrameGraph.worldRenderer.makePlan(
+            for: frameContext(fx: .empty, ui: sampleUIFrameSnapshot())
+        )
+
+        #expect(hiddenPlan.passes.first { $0.descriptor.kind == .hudOverlay }?.isEnabled == false)
+        #expect(visiblePlan.passes.first { $0.descriptor.kind == .hudOverlay }?.isEnabled == true)
+    }
+
+    @Test func uiMetalRendererBuildsBatchedHUDCommands() {
+        let renderer = UIMetalRenderer(device: nil)
+        let commands = renderer.makeDrawCommands(
+            snapshot: sampleUIFrameSnapshot(),
+            drawableSize: SIMD2<Float>(1_280, 720)
+        )
+
+        #expect(commands.contains { $0.kind == .panel })
+        #expect(commands.contains { $0.kind == .fill })
+        #expect(commands.contains { $0.kind == .icon })
+        #expect(commands.contains { $0.kind == .glyph })
+        #expect(commands == UIDrawCommandBatcher.sorted(commands))
+    }
+
     @Test func audioEventQueuePrioritizesAndDropsOverCapacity() {
         let queue = AudioEventQueue(capacity: 2)
 
@@ -386,6 +412,24 @@ struct IsoWorldPOCTests {
         #expect(runtime.playerPosition.x == session.spawnPosition.x)
         #expect(runtime.playerPosition.z == session.spawnPosition.z)
         #expect(runtime.frameSnapshot.debug.cachedChunkCount >= session.initialChunkCount)
+    }
+
+    @MainActor
+    @Test func worldRuntimePublishesUIFrameSnapshotFromPreparedSession() async throws {
+        let pipeline = WorldPreparePipeline()
+        let session = try await pipeline.prepareWorld(
+            request: WorldPrepareRequest(seedText: "runtime-ui-session", initialChunkRadius: 0)
+        ) { _ in }
+
+        let runtime = WorldRuntime(worldSession: session)
+        let snapshot = runtime.uiFrameSnapshot
+
+        #expect(snapshot.worldSeed == session.worldSeed)
+        #expect(snapshot.hasVisibleHUD)
+        #expect(UIThemeID.allCases.contains(snapshot.theme.id))
+        #expect(snapshot.hud.player.health == 1)
+        #expect(snapshot.hud.player.stamina == 1)
+        #expect(snapshot.hud.biome.displayName.isEmpty == false)
     }
 
     @MainActor
@@ -661,7 +705,10 @@ struct IsoWorldPOCTests {
         )
     }
 
-    private func frameContext(fx: FXFrameSnapshot) -> MetalFrameContext {
+    private func frameContext(
+        fx: FXFrameSnapshot,
+        ui: UIFrameSnapshot = .empty
+    ) -> MetalFrameContext {
         MetalFrameContext(
             snapshot: RenderWorldSnapshot(
                 camera: CameraRenderState(
@@ -674,12 +721,46 @@ struct IsoWorldPOCTests {
                 ),
                 chunks: [],
                 debugOptions: RenderDebugOptions(showChunkBounds: false),
-                fx: fx
+                fx: fx,
+                ui: ui
             ),
             chunkBuffersByCoordinate: [:],
             playerBuffers: nil,
             playerPosition: .zero,
-            viewProjectionMatrix: matrix_identity_float4x4
+            viewProjectionMatrix: matrix_identity_float4x4,
+            drawableSize: SIMD2<Float>(1_280, 720)
+        )
+    }
+
+    private func sampleUIFrameSnapshot() -> UIFrameSnapshot {
+        let worldSeed = WorldSeed(42)
+        let biome = Biome.definition(for: .temperateForest)
+        let dna = UIWorldDNA(
+            seed: 42,
+            themeID: .neutral,
+            informationDensity: .standard,
+            diegeticLevel: .nonDiegetic,
+            materialLanguage: .neutralGlass,
+            shapeLanguage: .softRect,
+            biomeReactivity: 0.4,
+            motionIntensity: 0.2,
+            legibilityBias: 0.9
+        )
+
+        return UIFrameSnapshot.make(
+            worldSeed: worldSeed,
+            simulationTime: 1,
+            dna: dna,
+            player: PlayerHUDState(
+                health: 0.75,
+                stamina: 0.5,
+                fatigue: 0.1,
+                wetness: 0,
+                movementStance: .standing
+            ),
+            biome: biome,
+            weather: WeatherHUDState(kind: .clear, severity: 0, label: "Clear"),
+            terrainPrompt: "SLOPE"
         )
     }
 

@@ -34,6 +34,7 @@ public extension SeedDomain {
     static let animation = SeedDomain("animation")
     static let fx = SeedDomain("fx")
     static let audio = SeedDomain("audio")
+    static let ui = SeedDomain("ui")
     static let climate = SeedDomain("climate")
     static let heightmap = SeedDomain("heightmap")
     static let terrainFeatures = SeedDomain("terrain-features")

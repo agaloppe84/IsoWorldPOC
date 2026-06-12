@@ -62,6 +62,7 @@ public struct RenderWorldSnapshot: Equatable, Codable, Sendable {
     public let chunks: [RenderChunk]
     public let debugOptions: RenderDebugOptions
     public let fx: FXFrameSnapshot
+    public let ui: UIFrameSnapshot
 
     public var visibleChunkCount: Int {
         chunks.filter(\.isVisible).count
@@ -91,17 +92,23 @@ public struct RenderWorldSnapshot: Equatable, Codable, Sendable {
         fx.particles.count + fx.decals.count
     }
 
+    public var hasVisibleHUD: Bool {
+        ui.hasVisibleHUD
+    }
+
     public init(
         camera: CameraRenderState,
         lighting: LightingState = .defaultDay,
         chunks: [RenderChunk],
         debugOptions: RenderDebugOptions = RenderDebugOptions(),
-        fx: FXFrameSnapshot = .empty
+        fx: FXFrameSnapshot = .empty,
+        ui: UIFrameSnapshot = .empty
     ) {
         self.camera = camera
         self.lighting = lighting
         self.chunks = chunks
         self.debugOptions = debugOptions
         self.fx = fx
+        self.ui = ui
     }
 }

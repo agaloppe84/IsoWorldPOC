@@ -64,8 +64,6 @@ Step 11 ajoute les props naturels simples au-dessus du budget LOD:
 
 La V1 ne cree pas encore de GPU instancing dedie, d'imposteurs, de prop LOD par instance ou de debug placement interactif.
 
-## Prochaine cible
-
 ## Step 12 livre
 
 Step 12 remplace le loading cosmetique par un `WorldPreparePipeline` reel:
@@ -257,6 +255,23 @@ Step 19 ajoute l'audio V1 procedural et parametrable:
 
 Cette passe ne branche pas encore de sortie audio systeme. Le but est d'abord de verrouiller le pipeline data-driven, testable et non bloquant; la lecture bas niveau pourra etre ajoutee ensuite sans changer les contrats EngineCore.
 
+## Step 20 livre
+
+Step 20 ajoute le HUD/UI procedural minimal V1 en gardant SwiftUI hors de la boucle de rendu in-game:
+
+- `EngineCore/UIModel` contient `UIFrameSnapshot`, `UIWorldDNA`, `UIToken`, `UITheme` et `HUDState`.
+- Le domaine `.ui` est versionne dans `GeneratorVersionTable.current` et le theme UI est deterministe par seed monde.
+- Trois themes V1 existent: `neutral`, `parchment` et `sci-fi`.
+- `WorldRuntime` fabrique un `UIFrameSnapshot` depuis le joueur, le biome, la meteo simple et les affordances terrain.
+- `RenderWorldSnapshot` transporte le snapshot UI sans importer SwiftUI ni Metal.
+- `FrameGraph` active `HUDOverlayPass` seulement quand le HUD est visible et que le drawable a une taille valide.
+- `MetalRenderer/UI` contient les draw commands, un atlas icone 5x5, un label renderer bitmap et `UIMetalRenderer`.
+- Le HUD Metal minimal dessine panel, label, icone et progress bar en batch quads.
+
+Cette passe garde SwiftUI pour les menus, tools et overlay debug. Le HUD du vrai monde passe par Metal pour eviter de recharger le rendu in-game avec des publications SwiftUI haute frequence.
+
 ## Prochaine cible
+
+Step 21 doit introduire `EngineCore/RPG`: `WorldRPGDNA`, ruleset, tags gameplay, archetypes, objectifs, factions, quest seeds et ledger d'etat monde. Le seed doit commencer a definir une constitution RPG du monde, pas seulement terrain/props/audio/UI.
 
 Step 20 peut introduire le HUD procedural minimal: `UIFrameSnapshot`, themes, draw commands Metal simples et etat HUD derive du monde sans remettre le renderer sous dependance SwiftUI.

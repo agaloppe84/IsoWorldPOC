@@ -21,6 +21,8 @@ final class WorldRuntime {
     private let fxBudget = FXBudget.v1Realtime
     private let audioRecipeResolver = AudioRecipeResolver()
     private let audioEngine = IsoAudioEngine()
+    private let biomeSampler: BiomeSampler
+    private let uiWorldDNA: UIWorldDNA
     private let lightingState = LightingState.defaultDay
     private let worldSeed: WorldSeed
     private var frameIndex: UInt64 = 0
@@ -28,6 +30,7 @@ final class WorldRuntime {
     private var fxFrameState = FXFrameState()
     private var latestFXSnapshot = FXFrameSnapshot.empty
     private var latestAudioSnapshot = AudioRuntimeSnapshot.empty
+    private var latestUIFrameSnapshot = UIFrameSnapshot.empty
     private var lastSimulationUpdateMs: Float = 0
     private var lastSnapshotBuildMs: Float = 0
     private var lastSnapshotBuildTiming = RenderSnapshotBuildTiming.empty
@@ -69,6 +72,10 @@ final class WorldRuntime {
         latestAudioSnapshot
     }
 
+    var uiFrameSnapshot: UIFrameSnapshot {
+        latestUIFrameSnapshot
+    }
+
     init(
         worldSession: WorldSession? = nil,
         debugOptions: RenderSnapshotDebugOptions = .defaults
@@ -82,6 +89,8 @@ final class WorldRuntime {
             spawnPosition?.y ?? 0,
             spawnPosition?.z ?? 0
         ), characterDNA: characterDNA)
+        self.biomeSampler = BiomeSampler(seed: resolvedWorldSeed)
+        self.uiWorldDNA = UIWorldDNA.make(worldSeed: resolvedWorldSeed)
         self.chunkStreamer = ChunkDataStreamer(
             worldSeed: resolvedWorldSeed,
             initialChunks: worldSession?.initialChunks ?? []
@@ -102,6 +111,7 @@ final class WorldRuntime {
             around: playerController.position,
             forcedLODLevel: debugOptions.forcedLODLevel
         )
+        latestUIFrameSnapshot = makeUIFrameSnapshot()
         lastSimulationUpdateMs = 0
         let snapshotStart = currentTimeMilliseconds()
         let snapshotResult = makeSnapshot(debugOptions: debugOptions)
@@ -136,6 +146,7 @@ final class WorldRuntime {
         }
         updateFX(deltaTime: deltaTime, debugOptions: debugOptions)
         updateAudio(debugOptions: debugOptions)
+        updateUI()
 
         let snapshotStart = currentTimeMilliseconds()
         let snapshotResult = makeSnapshot(debugOptions: debugOptions)
@@ -295,7 +306,8 @@ final class WorldRuntime {
             camera: cameraController.renderState(following: playerController.position),
             lighting: lightingState,
             debugOptions: debugOptions,
-            fx: latestFXSnapshot
+            fx: latestFXSnapshot,
+            ui: latestUIFrameSnapshot
         )
     }
 
@@ -341,6 +353,86 @@ final class WorldRuntime {
 
         audioEngine.post(contentsOf: events)
         latestAudioSnapshot = audioEngine.update()
+    }
+
+    private func updateUI() {
+        latestUIFrameSnapshot = makeUIFrameSnapshot()
+    }
+
+    private func makeUIFrameSnapshot() -> UIFrameSnapshot {
+        let terrainSample = lastGrounding.groundSample?.terrainSample
+        let biome = terrainSample?.materialWeights.primaryBiome ??
+            biomeSampler.biome(at: WorldPosition(
+                x: playerController.position.x,
+                y: playerController.position.y,
+                z: playerController.position.z
+            ))
+
+        return UIFrameSnapshot.make(
+            worldSeed: worldSeed,
+            simulationTime: simulationTime,
+            dna: uiWorldDNA,
+            player: PlayerHUDState(runtimeState: playerController.characterRuntimeState),
+            biome: biome,
+            weather: makeWeatherHUDState(from: terrainSample),
+            terrainPrompt: makeTerrainPrompt(),
+            isVisible: true
+        )
+    }
+
+    private func makeWeatherHUDState(from sample: TerrainSample?) -> WeatherHUDState {
+        guard let sample else {
+            return WeatherHUDState(kind: .clear, severity: 0, label: "Clear")
+        }
+
+        if sample.waterDepth > 0.12 || sample.moisture > 0.72 {
+            return WeatherHUDState(
+                kind: .wet,
+                severity: min(max(sample.waterDepth + sample.moisture * 0.55, 0), 1),
+                label: "Wet"
+            )
+        }
+
+        if sample.temperature < 0.18 {
+            return WeatherHUDState(
+                kind: .cold,
+                severity: min(max(0.18 - sample.temperature, 0), 1),
+                label: "Cold"
+            )
+        }
+
+        if sample.temperature > 0.78 && sample.moisture < 0.28 {
+            return WeatherHUDState(
+                kind: .dry,
+                severity: min(max(sample.temperature - sample.moisture, 0), 1),
+                label: "Dry"
+            )
+        }
+
+        return WeatherHUDState(kind: .clear, severity: 0, label: "Clear")
+    }
+
+    private func makeTerrainPrompt() -> String? {
+        if lastGrounding.movementBlockedBySlope {
+            return "STEEP"
+        }
+
+        guard let surfaceClass = lastGrounding.groundSample?.surfaceClass else {
+            return nil
+        }
+
+        switch surfaceClass {
+        case .climbable:
+            return "CLIMB"
+        case .steep:
+            return "SLOPE"
+        case .dangerous:
+            return "DANGER"
+        case .blocked:
+            return "BLOCKED"
+        case .walkable:
+            return nil
+        }
     }
 
     private func makeFrameSnapshot(deltaTime: Float) -> EngineFrameSnapshot {

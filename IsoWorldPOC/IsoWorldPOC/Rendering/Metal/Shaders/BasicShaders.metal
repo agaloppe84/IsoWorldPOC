@@ -30,6 +30,21 @@ struct DebugUniforms {
     float4 terrainMaterialModeAndFlags;
 };
 
+struct UIVertex {
+    float2 position;
+    float4 color;
+};
+
+struct UIViewportUniforms {
+    float2 viewportSize;
+    float2 padding;
+};
+
+struct UIVertexOut {
+    float4 position [[position]];
+    float4 color;
+};
+
 struct TerrainVertexOut {
     float4 position [[position]];
     float4 color;
@@ -176,4 +191,26 @@ fragment float4 terrain_fragment(
     }
 
     return float4(outputColor, in.color.a);
+}
+
+vertex UIVertexOut ui_vertex(
+    const device UIVertex *vertices [[buffer(0)]],
+    constant UIViewportUniforms &uniforms [[buffer(1)]],
+    uint vertexID [[vertex_id]]
+) {
+    UIVertex inputVertex = vertices[vertexID];
+    float2 viewport = max(uniforms.viewportSize, float2(1.0, 1.0));
+    float2 normalized = float2(
+        inputVertex.position.x / viewport.x * 2.0 - 1.0,
+        1.0 - inputVertex.position.y / viewport.y * 2.0
+    );
+
+    UIVertexOut out;
+    out.position = float4(normalized, 0.0, 1.0);
+    out.color = inputVertex.color;
+    return out;
+}
+
+fragment float4 ui_fragment(UIVertexOut in [[stage_in]]) {
+    return in.color;
 }

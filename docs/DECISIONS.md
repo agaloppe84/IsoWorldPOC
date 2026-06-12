@@ -511,3 +511,15 @@ Consequence: `AudioRecipeResolver` transforme les `FootstepEvent` en `IsoAudioEv
 Garantie: les tests EngineCore couvrent determinisme, switching materiau, surfaces wet/squish, parametres et mix bus. Les tests app couvrent queue, synthese deterministe et meters par bus.
 
 Limite actuelle: aucun son n'est encore joue par macOS. La prochaine passe audio pourra ajouter une sortie temps reel en gardant les contrats Step 19 intacts.
+
+## 050 - UI/HUD procedural minimal V1
+
+Decision: ajouter un modele UI pur dans `EngineCore` et rendre le HUD in-game via une passe Metal dediee.
+
+Raison: SwiftUI reste excellent pour menus, tools et debug, mais les tests perf precedents ont montre que les publications et layouts SwiftUI peuvent perturber la cadence du monde. Le HUD gameplay doit consommer le meme pipeline V1 que le renderer: snapshot stable, draw commands batchables, aucune requete directe aux systemes runtime.
+
+Consequence: `UIFrameSnapshot` transporte player health/stamina, biome, meteo et prompt terrain. `UIWorldDNA` choisit un theme deterministe parmi neutral, parchment et sci-fi. `RenderWorldSnapshot` expose cette data au `FrameGraph`, puis `HUDOverlayPass` encode panels, labels, icones et progress bars via `UIMetalRenderer`.
+
+Garantie: les tests EngineCore couvrent determinisme UI, themes et snapshot HUD. Les tests app couvrent l'activation du pass HUD, le batching de commandes et la production du snapshot UI depuis une session monde preparee.
+
+Limite actuelle: le HUD est volontairement minimal: quads, atlas icones 5x5 et labels bitmap. Pas encore de retained UI, input routing in-game, layout editor, atlas texture ou typographie avancee.

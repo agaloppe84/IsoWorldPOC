@@ -57,7 +57,9 @@ struct FrameGraph {
                     return buffers.debugBoundsLineVertexCount > 0
                 }
         case .hudOverlay:
-            return false
+            return context.snapshot.hasVisibleHUD &&
+                context.drawableSize.x > 0 &&
+                context.drawableSize.y > 0
         }
     }
 }

@@ -239,6 +239,21 @@ Responsabilites:
 
 Cette V1 ne sort pas encore sur le systeme audio macOS. Le pipeline est d'abord data-driven et testable; une couche de sortie bas niveau pourra consommer les buffers/voices ensuite, sans changer les recipes ni les evenements moteur.
 
+### UI/HUD V1
+
+`EngineCore/UIModel` porte les contrats purs du HUD in-game, sans SwiftUI ni Metal.
+
+Responsabilites:
+
+- generer un `UIWorldDNA` deterministe depuis `WorldSeed`, `SeedDomain.ui` et `GeneratorVersionTable`;
+- definir les tokens, palettes et themes V1 `neutral`, `parchment` et `sci-fi`;
+- transporter un `UIFrameSnapshot` stable par frame avec health, stamina, biome, meteo et prompt terrain;
+- garder les donnees HUD dans `RenderWorldSnapshot` pour que le renderer consomme un snapshot, sans interroger les systemes moteur directement.
+
+Le rendu HUD in-game vit cote app dans `Rendering/Metal/UI`. `UIMetalRenderer` convertit le snapshot UI en `UIDrawCommand` puis batch des quads screen-space dans `HUDOverlayPass`, apres les passes monde et FX. Les labels utilisent une fonte bitmap minimale et les icones viennent d'un atlas procedural 5x5.
+
+SwiftUI reste le bon outil pour les menus, tools et panneaux debug, mais le vrai HUD du monde ne doit pas dependre de publications `ObservableObject` haute frequence.
+
 ### Tools Hub V1
 
 Le Tools Hub est une surface app separee du monde runtime.

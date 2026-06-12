@@ -35,7 +35,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private let decalPass = DecalPass()
     private let billboardParticlePass = BillboardParticlePass()
     private let debugOverlayPass = DebugOverlayPass()
-    private let hudOverlayPass = HUDOverlayPass()
+    private let hudOverlayPass: HUDOverlayPass
     private var snapshot: RenderWorldSnapshot
     private var lastDrawMetrics = MetalFrameDrawMetrics.empty
     private var lastFramePlan = RenderFramePlan.empty
@@ -76,6 +76,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             playerBuffers: MetalRenderer.makePlayerBuffers(device: device)
         )
         self.payloadUploader = RenderPayloadUploader(device: device)
+        self.hudOverlayPass = HUDOverlayPass(device: device)
         self.runtime = WorldRuntime(
             worldSession: worldSession,
             debugOptions: Self.makeDebugOptions(from: debugMetrics)
@@ -150,7 +151,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             chunkBuffersByCoordinate: resourceRegistry.chunkBuffersByCoordinate,
             playerBuffers: resourceRegistry.playerBuffers,
             playerPosition: runtime.playerPosition,
-            viewProjectionMatrix: makeViewProjectionMatrix(from: snapshot.camera)
+            viewProjectionMatrix: makeViewProjectionMatrix(from: snapshot.camera),
+            drawableSize: drawableSize
         )
         let framePlan = frameGraph.makePlan(for: frameContext)
         var lightingUniforms = frameContext.lightingUniforms

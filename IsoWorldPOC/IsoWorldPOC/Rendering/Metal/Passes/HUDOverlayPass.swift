@@ -17,11 +17,20 @@ struct HUDOverlayPass: RenderPass {
     )
 
     let descriptor = Self.passDescriptor
+    private let renderer: UIMetalRenderer?
+
+    init(device: MTLDevice? = nil) {
+        self.renderer = UIMetalRenderer(device: device)
+    }
 
     func encode(
         context: MetalFrameContext,
         renderEncoder: MTLRenderCommandEncoder
     ) -> MetalFrameDrawMetrics {
-        .empty
+        renderer?.encode(
+            snapshot: context.snapshot.ui,
+            drawableSize: context.drawableSize,
+            renderEncoder: renderEncoder
+        ) ?? .empty
     }
 }
