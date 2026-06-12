@@ -56,13 +56,15 @@ final class RenderSnapshotBuilder {
         chunkStreamer: ChunkDataStreamer,
         camera: CameraRenderState,
         lighting: LightingState,
-        debugOptions: RenderSnapshotDebugOptions
+        debugOptions: RenderSnapshotDebugOptions,
+        fx: FXFrameSnapshot = .empty
     ) -> RenderWorldSnapshot {
         makeInstrumentedSnapshot(
             chunkStreamer: chunkStreamer,
             camera: camera,
             lighting: lighting,
-            debugOptions: debugOptions
+            debugOptions: debugOptions,
+            fx: fx
         ).snapshot
     }
 
@@ -70,7 +72,8 @@ final class RenderSnapshotBuilder {
         chunkStreamer: ChunkDataStreamer,
         camera: CameraRenderState,
         lighting: LightingState,
-        debugOptions: RenderSnapshotDebugOptions
+        debugOptions: RenderSnapshotDebugOptions,
+        fx: FXFrameSnapshot = .empty
     ) -> RenderSnapshotBuildResult {
         let activeChunkDataStart = currentTimeMilliseconds()
         let activeChunkData = chunkStreamer.activeChunkData()
@@ -107,7 +110,8 @@ final class RenderSnapshotBuilder {
                 renderPlayer: debugOptions.renderPlayer,
                 terrainMaterialDebugMode: debugOptions.terrainMaterialDebugMode,
                 terrainSplatDebugLayerIndex: debugOptions.terrainSplatDebugLayerIndex
-            )
+            ),
+            fx: fx
         )
 
         let timing = RenderSnapshotBuildTiming(

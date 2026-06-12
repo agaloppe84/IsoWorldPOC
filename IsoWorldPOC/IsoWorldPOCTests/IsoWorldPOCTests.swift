@@ -172,9 +172,21 @@ struct IsoWorldPOCTests {
         #expect(passKinds == [
             .depthPrepass,
             .opaque,
+            .decals,
+            .billboardParticles,
             .debugOverlay,
             .hudOverlay,
         ])
+    }
+
+    @Test func worldFrameGraphEnablesFXPassesOnlyFromSnapshotFX() {
+        let emptyPlan = FrameGraph.worldRenderer.makePlan(for: frameContext(fx: .empty))
+        let fxPlan = FrameGraph.worldRenderer.makePlan(for: frameContext(fx: sampleFXSnapshot()))
+
+        #expect(emptyPlan.passes.first { $0.descriptor.kind == .decals }?.isEnabled == false)
+        #expect(emptyPlan.passes.first { $0.descriptor.kind == .billboardParticles }?.isEnabled == false)
+        #expect(fxPlan.passes.first { $0.descriptor.kind == .decals }?.isEnabled == true)
+        #expect(fxPlan.passes.first { $0.descriptor.kind == .billboardParticles }?.isEnabled == true)
     }
 
     @MainActor
@@ -554,6 +566,71 @@ struct IsoWorldPOCTests {
             identifier: identifier,
             color: BiomeColor(red: 0.4, green: 0.5, blue: 0.3),
             roughness: 0.8
+        )
+    }
+
+    private func frameContext(fx: FXFrameSnapshot) -> MetalFrameContext {
+        MetalFrameContext(
+            snapshot: RenderWorldSnapshot(
+                camera: CameraRenderState(
+                    position: WorldPosition(x: 0, y: 2, z: 4),
+                    target: WorldPosition(x: 0, y: 0, z: 0),
+                    fieldOfViewDegrees: 35,
+                    yaw: 0,
+                    pitch: -0.3,
+                    distance: 4
+                ),
+                chunks: [],
+                debugOptions: RenderDebugOptions(showChunkBounds: false),
+                fx: fx
+            ),
+            chunkBuffersByCoordinate: [:],
+            playerBuffers: nil,
+            playerPosition: .zero,
+            viewProjectionMatrix: matrix_identity_float4x4
+        )
+    }
+
+    private func sampleFXSnapshot() -> FXFrameSnapshot {
+        let particle = FXBillboardParticle(
+            id: StableID(1),
+            definitionID: .footstepDust,
+            materialKind: .dirt,
+            position: SIMD3<Float>(0, 0.1, 0),
+            velocity: .zero,
+            startColor: FXColor(red: 1, green: 1, blue: 1, alpha: 0.5),
+            endColor: FXColor(red: 1, green: 1, blue: 1, alpha: 0),
+            startSize: 0.1,
+            endSize: 0.2,
+            lifetime: 0.5,
+            gravity: 0,
+            seed: 1
+        )
+        let decal = FXDecal(
+            id: StableID(2),
+            definitionID: .footprintDecal,
+            materialKind: .dirt,
+            position: .zero,
+            color: FXColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 0.3),
+            radius: 0.2,
+            opacity: 0.5,
+            rotationRadians: 0,
+            lifetime: 2,
+            seed: 2
+        )
+
+        return FXFrameSnapshot(
+            events: [],
+            particles: [particle],
+            decals: [decal],
+            budget: FXBudgetResult(
+                eventCount: 0,
+                particleCount: 1,
+                decalCount: 1,
+                droppedEvents: 0,
+                droppedParticles: 0,
+                droppedDecals: 0
+            )
         )
     }
 

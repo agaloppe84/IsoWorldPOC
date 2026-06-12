@@ -10,6 +10,8 @@ import Foundation
 enum RenderPassKind: String, CaseIterable, Hashable {
     case depthPrepass
     case opaque
+    case decals
+    case billboardParticles
     case debugOverlay
     case hudOverlay
 }
@@ -30,6 +32,8 @@ extension RenderResourceID {
     static let backbuffer: RenderResourceID = "backbuffer"
     static let depth: RenderResourceID = "depth"
     static let worldGeometry: RenderResourceID = "worldGeometry"
+    static let fxDecals: RenderResourceID = "fxDecals"
+    static let fxParticles: RenderResourceID = "fxParticles"
     static let debugGeometry: RenderResourceID = "debugGeometry"
     static let hudGeometry: RenderResourceID = "hudGeometry"
 }

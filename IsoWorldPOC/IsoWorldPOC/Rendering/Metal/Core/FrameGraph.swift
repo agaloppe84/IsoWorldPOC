@@ -11,6 +11,8 @@ struct FrameGraph {
     static let worldRenderer = FrameGraph(passDescriptors: [
         DepthPrepass.passDescriptor,
         OpaquePass.passDescriptor,
+        DecalPass.passDescriptor,
+        BillboardParticlePass.passDescriptor,
         DebugOverlayPass.passDescriptor,
         HUDOverlayPass.passDescriptor,
     ])
@@ -41,6 +43,10 @@ struct FrameGraph {
                 }
 
             return hasPlayer || hasChunks
+        case .decals:
+            return !context.snapshot.fx.decals.isEmpty
+        case .billboardParticles:
+            return !context.snapshot.fx.particles.isEmpty
         case .debugOverlay:
             return context.snapshot.debugOptions.showChunkBounds &&
                 context.visibleChunks.contains { chunk in

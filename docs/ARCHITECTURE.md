@@ -200,6 +200,28 @@ Responsabilites:
 
 Le runtime app garde un `TerrainSampleGrid` par chunk charge afin que les contacts animation lisent les memes donnees V1 que le terrain, les props et traversal. `PlayerController` met a jour une pose/contact joueur depuis le grounding courant, mais le renderer Metal affiche encore le preview joueur simple. Aucun etat animation n'entre dans SwiftUI.
 
+### FX V1
+
+`EngineCore/FX` est la couche data-driven qui relie contacts, materiaux et rendu d'effets.
+
+Responsabilites:
+
+- decrire des `FXDefinition` pures: kind billboard/decal, blend mode, burst, lifetime, size, velocity, gravity, courbes couleur et taille;
+- transporter des `FXEvent`, `FXBillboardParticle`, `FXDecal` et `FXFrameSnapshot` codables;
+- resoudre des `FXSurfaceResponse` depuis `TerrainMaterialKind`, wetness et friction;
+- convertir les `FootstepEvent` et impacts en poussiere, splash, sparks et footprint decals via `FXRecipe`;
+- appliquer un `FXBudget` deterministe avant exposition au renderer;
+- garder les FX actifs dans `FXFrameState` pendant leur lifetime.
+
+Le runtime monde avance `FXFrameState` apres la simulation joueur, puis injecte le `FXFrameSnapshot` dans `RenderWorldSnapshot`. Le renderer Metal ne recalcule pas les contacts et ne connait pas les regles materiau: il lit seulement les particules/decals budgetes.
+
+Le rendu actuel garde deux passes separees:
+
+- `DecalPass`;
+- `BillboardParticlePass`.
+
+Elles sont inserees dans `FrameGraph` apres opaque et avant debug overlay. L'implementation GPU reste volontairement minimale et reutilise le shader opaque avec alpha blending; l'architecture permet de remplacer plus tard ces passes par instancing, atlas sprites ou decal projection sans changer le contrat EngineCore.
+
 ### Tools Hub V1
 
 Le Tools Hub est une surface app separee du monde runtime.
@@ -358,6 +380,8 @@ Intentions d'input
 WorldRuntime
         ↓
 Simulation joueur / camera / streaming
+        ↓
+FXFrameState / FXRecipe
         ↓
 RenderSnapshotBuilder
         ↓

@@ -487,3 +487,15 @@ Consequence: `TerrainSampleGrid` est conserve dans le chunk runtime. `SurfaceCon
 Garantie: les tests EngineCore couvrent sampler, contacts materiaux, foot IK, motor et footstep events. Un test app verifie que `WorldRuntime` produit des contacts animation joueur depuis un terrain prepare.
 
 Limite actuelle: pas encore de mesh skinned anime, de debug draw animation, de footstep planner avance, d'audio ou de FX. Ces couches doivent consommer les contracts Step 17 au lieu de recalculer les surfaces.
+
+## 048 - FX data-driven V1
+
+Decision: ajouter `EngineCore/FX` comme contrat pur pour les effets de contact et faire transiter les FX par `RenderWorldSnapshot`.
+
+Raison: la poussiere, les splashs, les sparks et les decals doivent venir des memes donnees que locomotion, terrain et materiaux. Le renderer ne doit pas inventer les surfaces ni adapter des patterns legacy; il doit consommer des events/particules/decals budgetes par le pipeline V1.
+
+Consequence: `FXRecipe` convertit les `FootstepEvent` et impacts en `FXEvent`, `FXBillboardParticle` et `FXDecal` depuis `TerrainMaterialKind`, wetness, friction et `WorldSeed`. `FXBudget` plafonne events, particules et decals. `WorldRuntime` garde un `FXFrameState`, avance les lifetimes, puis injecte un `FXFrameSnapshot` dans `RenderWorldSnapshot`. `FrameGraph` contient maintenant `DecalPass` et `BillboardParticlePass` entre opaque et debug overlay.
+
+Garantie: les tests EngineCore couvrent determinisme, dust/splash, sparks, budget et expiration. Les tests app verrouillent l'ordre du frame graph et l'activation des passes FX depuis le snapshot.
+
+Limite actuelle: le rendu FX est une V1 legere avec quads alpha sur le shader opaque. Les prochaines passes pourront ajouter instancing, atlas sprites, decals projetes et compute particles sans changer le contrat EngineCore.

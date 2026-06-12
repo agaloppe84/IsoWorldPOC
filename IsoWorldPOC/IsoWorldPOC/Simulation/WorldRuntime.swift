@@ -17,10 +17,14 @@ final class WorldRuntime {
     private let cameraController = OrbitCameraController()
     private let chunkStreamer: ChunkDataStreamer
     private let snapshotBuilder = RenderSnapshotBuilder()
+    private let fxRecipe = FXRecipe()
+    private let fxBudget = FXBudget.v1Realtime
     private let lightingState = LightingState.defaultDay
     private let worldSeed: WorldSeed
     private var frameIndex: UInt64 = 0
     private var simulationTime: Float = 0
+    private var fxFrameState = FXFrameState()
+    private var latestFXSnapshot = FXFrameSnapshot.empty
     private var lastSimulationUpdateMs: Float = 0
     private var lastSnapshotBuildMs: Float = 0
     private var lastSnapshotBuildTiming = RenderSnapshotBuildTiming.empty
@@ -52,6 +56,10 @@ final class WorldRuntime {
 
     var playerRecentFootstepEvents: [FootstepEvent] {
         playerController.recentFootstepEvents
+    }
+
+    var fxSnapshot: FXFrameSnapshot {
+        latestFXSnapshot
     }
 
     init(
@@ -119,6 +127,7 @@ final class WorldRuntime {
         if !debugOptions.freezeSimulation {
             simulationTime += deltaTime
         }
+        updateFX(deltaTime: deltaTime, debugOptions: debugOptions)
 
         let snapshotStart = currentTimeMilliseconds()
         let snapshotResult = makeSnapshot(debugOptions: debugOptions)
@@ -277,8 +286,33 @@ final class WorldRuntime {
             chunkStreamer: chunkStreamer,
             camera: cameraController.renderState(following: playerController.position),
             lighting: lightingState,
-            debugOptions: debugOptions
+            debugOptions: debugOptions,
+            fx: latestFXSnapshot
         )
+    }
+
+    private func updateFX(
+        deltaTime: Float,
+        debugOptions: RenderSnapshotDebugOptions
+    ) {
+        guard !debugOptions.freezeSimulation else {
+            latestFXSnapshot = fxFrameState.snapshot(budget: fxBudget)
+            return
+        }
+
+        fxFrameState.advance(deltaTime: deltaTime)
+
+        let camera = cameraController.renderState(following: playerController.position)
+        let emittedFX = fxRecipe.makeFootstepFX(
+            from: playerController.recentFootstepEvents,
+            context: FXContext(
+                worldSeed: worldSeed,
+                simulationTime: simulationTime,
+                cameraPosition: camera.position
+            ),
+            budget: fxBudget
+        )
+        latestFXSnapshot = fxFrameState.merge(emittedFX, budget: fxBudget)
     }
 
     private func makeFrameSnapshot(deltaTime: Float) -> EngineFrameSnapshot {

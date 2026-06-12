@@ -32,6 +32,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     private let payloadUploader: RenderPayloadUploader
     private let depthPrepass = DepthPrepass()
     private let opaquePass = OpaquePass()
+    private let decalPass = DecalPass()
+    private let billboardParticlePass = BillboardParticlePass()
     private let debugOverlayPass = DebugOverlayPass()
     private let hudOverlayPass = HUDOverlayPass()
     private var snapshot: RenderWorldSnapshot
@@ -212,6 +214,13 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
         descriptor.vertexFunction = vertexFunction
         descriptor.fragmentFunction = fragmentFunction
         descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+        descriptor.colorAttachments[0].isBlendingEnabled = true
+        descriptor.colorAttachments[0].rgbBlendOperation = .add
+        descriptor.colorAttachments[0].alphaBlendOperation = .add
+        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
+        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
         descriptor.depthAttachmentPixelFormat = .depth32Float
 
         do {
@@ -280,6 +289,10 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             return depthPrepass.encode(context: context, renderEncoder: renderEncoder)
         case .opaque:
             return opaquePass.encode(context: context, renderEncoder: renderEncoder)
+        case .decals:
+            return decalPass.encode(context: context, renderEncoder: renderEncoder)
+        case .billboardParticles:
+            return billboardParticlePass.encode(context: context, renderEncoder: renderEncoder)
         case .debugOverlay:
             return debugOverlayPass.encode(
                 context: context,

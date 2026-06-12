@@ -226,6 +226,21 @@ Step 17 ajoute la base animation/contact terrain V1:
 
 Cette passe ne rend pas encore un mesh skinned anime. Elle pose les sorties moteur necessaires pour brancher rendu personnage, audio de pas, FX de contact et debug animation.
 
+## Step 18 livre
+
+Step 18 ajoute les FX V1 data-driven:
+
+- `EngineCore/FX` contient `FXDefinition`, `FXEvent`, `FXContext`, `FXRecipe` et `FXBudget`.
+- Les definitions V1 couvrent sprites billboards, bursts simples, courbes couleur/taille/lifetime, poussiere de pas, splash de pas, sparks d'impact et decals de footprint.
+- `FXRecipe` consomme les vrais `FootstepEvent`, `TerrainMaterialKind`, wetness, friction et seed monde pour produire des events deterministes.
+- `FXFrameState` garde les particules/decals actifs sur leur duree de vie au lieu de les afficher une seule frame.
+- `RenderWorldSnapshot` transporte un `FXFrameSnapshot`, donc le renderer consomme le pipeline V1 sans recalculer les contacts.
+- `FrameGraph` ajoute `DecalPass` et `BillboardParticlePass` entre opaque et debug overlay.
+- Le pipeline Metal active l'alpha blending et dessine une premiere version legere des billboards/decals avec les shaders existants.
+- `SeedDomain.fx` et `GeneratorVersionTable.current` versionnent le domaine FX.
+
+Cette passe reste volontairement simple cote GPU: pas encore de compute particles, atlas sprite dedie, instancing ou decal projection avancee. La base est propre, budgetee et testee pour pouvoir evoluer.
+
 ## Prochaine cible
 
-Step 18 peut ajouter les FX V1 data-driven: evenements de contact, poussiere/eau/boue, decals simples et hooks depuis `FootstepEvent`.
+Step 19 peut brancher l'audio V1 de surface et les premiers retours sensoriels sur les memes evenements `FootstepEvent` / `FXEvent`, sans recalculer les contacts terrain.

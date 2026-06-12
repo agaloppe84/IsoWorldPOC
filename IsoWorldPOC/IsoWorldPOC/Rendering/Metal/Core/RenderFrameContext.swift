@@ -109,13 +109,16 @@ struct MetalFrameDrawMetrics {
     var propChunksDrawn = 0
     var propsDrawn = 0
     var debugBoundsDrawn = 0
+    var fxDrawCalls = 0
+    var fxParticlesDrawn = 0
+    var fxDecalsDrawn = 0
     var terrainIndicesDrawn = 0
     var propIndicesDrawn = 0
 
     static let empty = MetalFrameDrawMetrics()
 
     var totalDrawCalls: Int {
-        terrainDrawCalls + propDrawCalls + playerDrawCalls + debugDrawCalls
+        terrainDrawCalls + propDrawCalls + playerDrawCalls + debugDrawCalls + fxDrawCalls
     }
 
     mutating func add(_ other: MetalFrameDrawMetrics) {
@@ -127,6 +130,9 @@ struct MetalFrameDrawMetrics {
         propChunksDrawn += other.propChunksDrawn
         propsDrawn += other.propsDrawn
         debugBoundsDrawn += other.debugBoundsDrawn
+        fxDrawCalls += other.fxDrawCalls
+        fxParticlesDrawn += other.fxParticlesDrawn
+        fxDecalsDrawn += other.fxDecalsDrawn
         terrainIndicesDrawn += other.terrainIndicesDrawn
         propIndicesDrawn += other.propIndicesDrawn
     }
