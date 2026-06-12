@@ -368,6 +368,21 @@ Step 24-C complete la couverture specialisee du Tools Hub V2:
 
 Cette passe reste une couche inspector/rapport. Les vrais controles d'edition profonde, les graph editors et les previews visuelles dediees devront s'appuyer sur ces contrats au lieu de contourner le workspace.
 
+## Step 24-BIS livre
+
+Step 24-BIS branche une premiere tranche du spine persistence production au-dessus des contrats Step 23:
+
+- `PersistenceRegistry.productionV2` declare les domaines de sauvegarde: manifest, regions, event journal, snapshots, entites, packages outils/assets/graphs, blobs, index SQLite rebuildable et caches generes.
+- `RegionDeltaFileStore` lit/ecrit les fichiers `regions/r.x.y.z.isoregion` via `AtomicFileWriter`, avec validation format, region et seed.
+- `SaveCoordinator` devient l'acteur d'orchestration: regions d'abord, journal/snapshots ensuite, puis `manifest.json` comme point de commit.
+- Le save manuel avance la generation, persiste les regions sales disponibles, journalise les regions ecrites et cree un snapshot.
+- L'autosave incremental applique un debounce et un budget de regions par passe, sans masquer les deltas encore non ecrits.
+- `DirtyTracker.markSaved(_:)` sait marquer uniquement un scope ecrit, ce qui evite qu'un autosave partiel efface virtuellement des regions en attente.
+- `SaveFilesManifest` reference maintenant les chemins production V2 (`regions`, `events/journal.json`, `snapshots`).
+- Les tests EngineCore couvrent registry, roundtrip `.isoregion`, transaction manuelle, autosave debounce/budget et dirty scope partiel.
+
+Cette passe ne branche pas encore le runtime World reel sur `SaveCoordinator`. Elle ne livre pas non plus `state.sqlite`, WAL, CAS blob store, crash injection/recovery ni le Save Inspector connecte aux donnees de save reelles. Ces sujets restent le prochain bloc persistence avant les gros pipelines V2 suivants.
+
 ## Prochaine cible
 
-Step 24-BIS doit brancher la persistence production spine: `SaveCoordinator`, registry de domaines, writer/reader region `.isoregion`, autosave incremental, transaction path, puis preparation SQLite/WAL et recovery tests.
+Step 24-BIS-B doit durcir la persistence production: `state.sqlite` experimental, WAL/recovery, CAS blob store, migration lab, crash injection tests, branchement Save Inspector aux vraies donnees et integration save/load du World runtime.

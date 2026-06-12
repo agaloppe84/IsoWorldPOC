@@ -416,10 +416,13 @@ Responsabilites:
 - creer des manifests de snapshots incrementaux avec `SnapshotStore`;
 - planifier les migrations de schema via `MigrationManager`;
 - serialiser les projets outils, assets et graphs avec `ToolProjectPackage`, `AssetPackage` et `GraphPackage`.
+- declarer les domaines autoritatifs/rebuildables avec `PersistenceRegistry`;
+- lire/ecrire les fichiers regionaux `.isoregion` via `RegionDeltaFileStore`;
+- orchestrer les saves avec `SaveCoordinator`, un acteur qui ecrit deltas, journal et snapshots avant le manifest commit point.
 
-Les fichiers cibles sont declaratifs: `regions/*.isoregion`, `snapshots/*.isosnapshot`, `projects/*.isoproj`, `assets/*.isoasset` et `graphs/*.isograph`. `SaveVersion.current` est `format-1.schema-2` pour signaler ce contrat.
+Les fichiers cibles sont declaratifs: `manifest.json`, `regions/*.isoregion`, `events/journal.json`, `snapshots/index.json`, `snapshots/*.isosnapshot`, `projects/*.isoproj`, `assets/*.isoasset` et `graphs/*.isograph`. `SaveVersion.current` est `format-1.schema-2` pour signaler ce contrat.
 
-La V1 ne doit pas sauvegarder les caches de rendu Metal ni les meshes regenerables. Les deltas regionaux et les entites persistantes representent les modifications du monde vivant; les assets, graphs et projets outils representent les donnees editees par les outils. SQLite, WAL et autosave incremental disque sont reserves a une couche d'orchestration ulterieure au-dessus de ces contrats.
+La V1 ne doit pas sauvegarder les caches de rendu Metal ni les meshes regenerables. Les deltas regionaux et les entites persistantes representent les modifications du monde vivant; les assets, graphs et projets outils representent les donnees editees par les outils. Le spine Step 24-BIS livre le writer/reader regional, l'autosave incremental budgete et le chemin de save manuel atomique par fichier. SQLite, WAL, CAS blob store, recovery tests et branchement runtime complet restent des couches suivantes au-dessus de cette base.
 
 ### Tools Hub production V2
 

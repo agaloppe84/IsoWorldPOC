@@ -13,10 +13,10 @@ Legende :
 
 | Element | Etat |
 |---|---|
-| Dernier step livre | Step 24-C - Editeurs specialises restants et golden runner |
+| Dernier step livre | Step 24-BIS - Persistence production spine core |
 | Branche cible | `main` |
 | Docs reference | lecture seule |
-| Prochaine cible officielle | Step 24-BIS - Persistence production spine |
+| Prochaine cible officielle | Step 24-BIS-B - SQLite/WAL/CAS/recovery + Save Inspector real data |
 | Plan V2 | `[x]` document cree |
 | Tracker V2 | `[x]` document cree |
 
@@ -48,9 +48,9 @@ Legende :
 
 ### Persistence
 
-- [ ] Save/cache policy par nouveau systeme.
+- [~] Save/cache policy par nouveau systeme.
 - [x] Packages outils versionnes.
-- [ ] Region deltas lisibles/ecrivables.
+- [x] Region deltas lisibles/ecrivables.
 - [ ] SQLite/WAL introduit avec tests recovery.
 - [ ] Migration corpus maintenu.
 
@@ -132,20 +132,29 @@ Objectif : outils production pour modifier, valider et persister les systems.
 
 Objectif : brancher les contrats Step 23 dans une persistence robuste.
 
-- [ ] `SaveCoordinator` actor.
-- [ ] `PersistenceRegistry`.
-- [ ] Region file writer/reader.
-- [ ] Autosave incremental.
-- [ ] Manual save transaction path.
+- [x] `SaveCoordinator` actor.
+- [x] `PersistenceRegistry`.
+- [x] Region file writer/reader.
+- [x] Autosave incremental.
+- [x] Manual save transaction path.
 - [ ] `state.sqlite` experimental.
 - [ ] WAL enabled.
-- [ ] Event journal persisted.
-- [ ] Snapshot compaction.
+- [x] Event journal persisted.
+- [~] Snapshot compaction.
 - [ ] CAS blob store.
 - [ ] Migration lab.
 - [ ] Save Inspector connected to real save data.
 - [ ] Crash injection tests.
 - [ ] Save/load world delta integration tests.
+- [x] EngineCore persistence tests.
+- [x] Build Xcode safe OK.
+
+Notes:
+
+- Tranche livree: spine core uniquement, sans branchement runtime World.
+- `SaveCoordinator` ecrit regions, journal et snapshots avant `manifest.json`, qui reste le point de commit.
+- L'autosave est debounce + budget de regions; `DirtyTracker.markSaved(_:)` garde visibles les deltas non ecrits.
+- La retention `SnapshotStore` est appliquee a l'index, mais le nettoyage physique des anciens fichiers snapshot reste a durcir avec recovery/CAS.
 
 ## Step 25 - ISLP lighting/surfaces V2
 

@@ -22,6 +22,25 @@ final class PersistenceTests: XCTestCase {
         XCTAssertNil(manifest.files.modifiedRegionsPath)
         XCTAssertNil(manifest.files.blobsPath)
         XCTAssertNil(manifest.files.snapshotsPath)
+        XCTAssertNil(manifest.files.eventJournalPath)
+    }
+
+    func testPersistenceRegistryDeclaresV2AuthoritativeAndRebuildableDomains() {
+        let registry = PersistenceRegistry.productionV2
+
+        XCTAssertEqual(registry.rootPath(for: .manifest), "manifest.json")
+        XCTAssertEqual(registry.rootPath(for: .regionDeltas), "regions")
+        XCTAssertEqual(registry.rootPath(for: .eventJournal), "events/journal.json")
+        XCTAssertEqual(
+            registry.descriptor(for: .regionDeltas)?.fileExtension,
+            "isoregion"
+        )
+        XCTAssertTrue(registry.authoritativeDomains.contains(.manifest))
+        XCTAssertTrue(registry.authoritativeDomains.contains(.regionDeltas))
+        XCTAssertTrue(registry.authoritativeDomains.contains(.blobStore))
+        XCTAssertTrue(registry.rebuildableDomains.contains(.sqliteIndex))
+        XCTAssertTrue(registry.rebuildableDomains.contains(.generatedCaches))
+        XCTAssertFalse(registry.authoritativeDomains.contains(.sqliteIndex))
     }
 
     func testPlayerProfileRecordsRecentSeedsWithDeduplication() {
@@ -155,6 +174,29 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(saved.dirtyScope().records.map { $0.coordinate }, [chunkA])
     }
 
+    func testDirtyTrackerCanMarkOnlyASavedScope() {
+        let chunkA = ChunkCoordinate(x: 0, y: 0, z: 0)
+        let chunkB = ChunkCoordinate(x: 1, y: 0, z: 0)
+        let tracker = DirtyTracker(regionSizeInChunks: 1)
+            .markingDirty(
+                coordinate: chunkA,
+                tick: 10,
+                systemID: "terrain",
+                reason: .terrainDelta
+            )
+            .markingDirty(
+                coordinate: chunkB,
+                tick: 9,
+                systemID: "props",
+                reason: .propDelta
+            )
+        let savedScope = DirtyScope(records: tracker.dirtyScope().records.filter { $0.coordinate == chunkA })
+        let saved = tracker.markSaved(savedScope)
+
+        XCTAssertEqual(saved.lastSavedTick, 0)
+        XCTAssertEqual(saved.dirtyScope(since: nil).records.map(\.coordinate), [chunkB])
+    }
+
     func testRegionDeltaStoreMergesChunkDeltasIntoStableRegionFiles() throws {
         let worldSeed = WorldSeed(99)
         let chunk = ChunkCoordinate(x: 9, y: 0, z: -1)
@@ -186,6 +228,205 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(mergedChunk.propDeltas.count, 1)
         XCTAssertEqual(mergedChunk.lastModifiedTick, 12)
         XCTAssertEqual(store.relativePaths, [file.relativePath])
+    }
+
+    func testRegionDeltaFileStoreWritesAndReadsIsoRegionFiles() throws {
+        let directory = makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let worldSeed = WorldSeed(99)
+        let region = RegionCoordinate(x: 2, y: 0, z: -1)
+        let file = RegionDeltaFile(
+            worldSeed: worldSeed,
+            region: region,
+            generation: 3,
+            generatorVersionsHash: GeneratorVersionTable.current.persistenceHash,
+            chunks: [
+                ChunkDelta(
+                    coordinate: ChunkCoordinate(x: 9, y: 0, z: -1),
+                    terrainDeltas: [TerrainSampleDelta(localX: 2, localZ: 3, heightOffset: 0.25)],
+                    lastModifiedTick: 10
+                )
+            ]
+        )
+        let store = RegionDeltaFileStore()
+        let path = try store.write(file, relativeTo: directory)
+        let loaded = try store.read(
+            region: region,
+            relativeTo: directory,
+            expectedWorldSeed: worldSeed
+        )
+
+        XCTAssertEqual(path, "regions/r.2.0.-1.isoregion")
+        XCTAssertEqual(loaded, file)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent(path).path))
+    }
+
+    func testSaveCoordinatorManualSavePersistsManifestRegionsJournalAndSnapshots() async throws {
+        let directory = makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let manifest = makeManifest(slotID: "coordinator-manual", seedText: "manual-seed")
+        let chunk = ChunkCoordinate(x: 1, y: 0, z: 1)
+        let tracker = DirtyTracker(regionSizeInChunks: 4)
+            .markingDirty(
+                coordinate: chunk,
+                tick: 10,
+                systemID: "terrain",
+                reason: .terrainDelta
+            )
+        let regionStore = RegionDeltaStore(
+            worldSeed: manifest.world.worldSeed,
+            regionSizeInChunks: 4
+        )
+        .adding(
+            ChunkDelta(
+                coordinate: chunk,
+                terrainDeltas: [TerrainSampleDelta(localX: 1, localZ: 2, heightOffset: 0.5)],
+                lastModifiedTick: 10
+            )
+        )
+        let request = SaveCoordinatorRequest(
+            manifest: manifest,
+            player: manifest.player,
+            playTimeSeconds: 12,
+            dirtyTracker: tracker,
+            regionDeltaStore: regionStore,
+            eventJournal: EventJournal(slotID: manifest.slotID),
+            snapshotStore: SnapshotStore(slotID: manifest.slotID),
+            tick: 10,
+            date: Date(timeIntervalSince1970: 500),
+            summary: "Manual save"
+        )
+        let result = try await SaveCoordinator().save(request, to: directory)
+        let writer = AtomicFileWriter()
+        let loadedManifest = try writer.readJSON(
+            SaveManifest.self,
+            from: directory.appendingPathComponent(result.manifestPath)
+        )
+        let loadedJournal = try writer.readJSON(
+            EventJournal.self,
+            from: directory.appendingPathComponent(result.eventJournalPath)
+        )
+        let loadedSnapshots = try writer.readJSON(
+            SnapshotStore.self,
+            from: directory.appendingPathComponent(try XCTUnwrap(result.snapshotIndexPath))
+        )
+        let loadedRegion = try RegionDeltaFileStore().read(
+            region: RegionCoordinate(x: 0, y: 0, z: 0),
+            relativeTo: directory,
+            expectedWorldSeed: manifest.world.worldSeed
+        )
+
+        XCTAssertEqual(result.generation, 1)
+        XCTAssertEqual(result.writtenRegionPaths, ["regions/r.0.0.0.isoregion"])
+        XCTAssertTrue(result.dirtyTracker.dirtyScope().isEmpty)
+        XCTAssertEqual(loadedManifest.integrity.generation, 1)
+        XCTAssertEqual(loadedManifest.files.modifiedRegionsPath, "regions")
+        XCTAssertEqual(loadedManifest.files.eventJournalPath, "events/journal.json")
+        XCTAssertEqual(loadedRegion.generation, 1)
+        XCTAssertEqual(loadedJournal.entries.map(\.kind), [.chunkDeltaWritten, .manualSaveCommitted])
+        XCTAssertEqual(loadedSnapshots.snapshots.map(\.reason), [.manual])
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: directory.appendingPathComponent("snapshots/1.isosnapshot").path
+            )
+        )
+    }
+
+    func testSaveCoordinatorAutosaveDebouncesAndBudgetsRegions() async throws {
+        let directory = makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let manifest = makeManifest(slotID: "coordinator-auto", seedText: "auto-seed")
+        let chunkA = ChunkCoordinate(x: 0, y: 0, z: 0)
+        let chunkB = ChunkCoordinate(x: 1, y: 0, z: 0)
+        let tracker = DirtyTracker(regionSizeInChunks: 1)
+            .markingDirty(
+                coordinate: chunkA,
+                tick: 10,
+                systemID: "terrain",
+                reason: .terrainDelta
+            )
+            .markingDirty(
+                coordinate: chunkB,
+                tick: 11,
+                systemID: "props",
+                reason: .propDelta
+            )
+        let regionStore = RegionDeltaStore(
+            worldSeed: manifest.world.worldSeed,
+            regionSizeInChunks: 1
+        )
+        .adding(
+            ChunkDelta(
+                coordinate: chunkA,
+                terrainDeltas: [TerrainSampleDelta(localX: 0, localZ: 0, heightOffset: 0.1)],
+                lastModifiedTick: 10
+            )
+        )
+        .adding(
+            ChunkDelta(
+                coordinate: chunkB,
+                propDeltas: [PropDelta(propID: StableID(500), action: .placed, type: .rock)],
+                lastModifiedTick: 11
+            )
+        )
+        let coordinator = SaveCoordinator()
+        let policy = AutosavePolicy(debounceSeconds: 60, maxRegionsPerPass: 1)
+        let firstRequest = SaveCoordinatorRequest(
+            manifest: manifest,
+            player: manifest.player,
+            playTimeSeconds: 20,
+            dirtyTracker: tracker,
+            regionDeltaStore: regionStore,
+            eventJournal: EventJournal(slotID: manifest.slotID),
+            snapshotStore: SnapshotStore(slotID: manifest.slotID),
+            tick: 11,
+            date: Date(timeIntervalSince1970: 100),
+            summary: "Autosave"
+        )
+        let firstOptional = try await coordinator.autosave(firstRequest, policy: policy, to: directory)
+        let first = try XCTUnwrap(firstOptional)
+        let debouncedRequest = SaveCoordinatorRequest(
+            manifest: first.manifest,
+            player: first.manifest.player,
+            playTimeSeconds: 25,
+            dirtyTracker: first.dirtyTracker,
+            regionDeltaStore: regionStore,
+            eventJournal: first.eventJournal,
+            snapshotStore: first.snapshotStore,
+            tick: 12,
+            date: Date(timeIntervalSince1970: 120),
+            summary: "Autosave"
+        )
+        let debounced = try await coordinator.autosave(debouncedRequest, policy: policy, to: directory)
+        let secondRequest = SaveCoordinatorRequest(
+            manifest: first.manifest,
+            player: first.manifest.player,
+            playTimeSeconds: 30,
+            dirtyTracker: first.dirtyTracker,
+            regionDeltaStore: regionStore,
+            eventJournal: first.eventJournal,
+            snapshotStore: first.snapshotStore,
+            tick: 13,
+            date: Date(timeIntervalSince1970: 170),
+            summary: "Autosave"
+        )
+        let secondOptional = try await coordinator.autosave(secondRequest, policy: policy, to: directory)
+        let second = try XCTUnwrap(secondOptional)
+
+        XCTAssertEqual(first.writtenRegionPaths, ["regions/r.0.0.0.isoregion"])
+        XCTAssertEqual(first.dirtyTracker.dirtyScope().records.map(\.coordinate), [chunkB])
+        XCTAssertEqual(first.eventJournal.entries.map(\.kind), [
+            .autosaveStarted,
+            .chunkDeltaWritten,
+            .autosaveCommitted
+        ])
+        XCTAssertNil(debounced)
+        XCTAssertEqual(second.writtenRegionPaths, ["regions/r.1.0.0.isoregion"])
+        XCTAssertTrue(second.dirtyTracker.dirtyScope().isEmpty)
+        XCTAssertEqual(second.manifest.integrity.generation, 2)
     }
 
     func testEntityStateStoreUpsertsRemovesAndExportsChunkDelta() throws {

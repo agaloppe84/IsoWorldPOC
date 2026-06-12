@@ -161,6 +161,29 @@ public struct DirtyTracker: Hashable, Codable, Sendable {
         )
     }
 
+    public func markSaved(_ scope: DirtyScope) -> DirtyTracker {
+        let savedTicksByCoordinate = Dictionary(
+            scope.records.map { ($0.coordinate, $0.lastDirtyTick) },
+            uniquingKeysWith: max
+        )
+        let savedTick = savedTicksByCoordinate.values.max() ?? lastSavedTick
+        let remainingRecords = records.filter { record in
+            guard let coordinateSavedTick = savedTicksByCoordinate[record.coordinate] else {
+                return true
+            }
+
+            return record.lastDirtyTick > coordinateSavedTick
+        }
+
+        // A partial save must keep the global tick stable so older pending records
+        // remain visible in the default dirty scope.
+        return DirtyTracker(
+            regionSizeInChunks: regionSizeInChunks,
+            records: remainingRecords,
+            lastSavedTick: remainingRecords.isEmpty ? max(lastSavedTick, savedTick) : lastSavedTick
+        )
+    }
+
     private static func merged(_ records: [DirtyChunkRecord]) -> [DirtyChunkRecord] {
         var byCoordinate: [ChunkCoordinate: DirtyChunkRecord] = [:]
 

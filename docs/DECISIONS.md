@@ -595,3 +595,15 @@ Consequence: Character Customization Lab, Animation Contact Lab, FX Preview Edit
 Garantie: les tests app verifient que tous les descriptors `ToolRegistry.v2` ont un rapport specialise, que les outils restants exposent des metriques issues des vrais contrats, que le runner golden seeds est vert et que Seed Gallery remonte le hook de validation.
 
 Limite actuelle: les rapports restent consultatifs et legers. Ils ne remplacent pas encore des editeurs interactifs de graph, des previews Metal dediees ni des validators profonds par domaine. La prochaine couche doit brancher la persistence production avant d'alourdir les outils.
+
+## 057 - Spine persistence production Step 24-BIS
+
+Decision: introduire une couche d'orchestration persistence dans `EngineCore/Persistence` sans attendre SQLite ni le branchement runtime complet.
+
+Raison: les contrats Step 23 etaient propres mais encore passifs. La V2 a besoin d'un chemin de commit testable qui ecrit les deltas regionaux, le journal et les snapshots avec une autorite claire, sans serialiser des caches de rendu ni coupler SwiftUI au moteur.
+
+Consequence: `PersistenceRegistry.productionV2` declare les domaines autoritatifs et rebuildables. `RegionDeltaFileStore` fournit le writer/reader `.isoregion`. `SaveCoordinator` est un acteur qui orchestre save manuel et autosave incremental budgete: ecriture des regions, journalisation, snapshot retention/index, puis manifest final. `SaveFilesManifest` expose les chemins V2 production, dont `events/journal.json`.
+
+Garantie: les tests EngineCore couvrent le registry, le roundtrip `.isoregion`, le dirty tracking de scope partiel, le chemin manuel manifest-last et l'autosave debounced/budgete. Le build Xcode macOS compile l'app avec ces contrats.
+
+Limite actuelle: pas encore de `state.sqlite`, WAL, CAS blob store, tests crash/recovery, Save Inspector connecte aux vraies donnees disque ni integration save/load runtime. Ces sujets composent la tranche 24-BIS-B.

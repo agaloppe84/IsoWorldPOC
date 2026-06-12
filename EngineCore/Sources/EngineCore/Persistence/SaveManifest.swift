@@ -169,7 +169,8 @@ public struct SaveManifest: Hashable, Codable, Sendable {
         at date: Date,
         playTimeSeconds: Double,
         player: SavePlayerState,
-        generation: Int? = nil
+        generation: Int? = nil,
+        files: SaveFilesManifest? = nil
     ) -> SaveManifest {
         SaveManifest(
             format: format,
@@ -184,7 +185,7 @@ public struct SaveManifest: Hashable, Codable, Sendable {
             saveVersion: saveVersion,
             world: world,
             player: player,
-            files: files,
+            files: files ?? self.files,
             integrity: integrity.advanced(to: generation ?? integrity.generation + 1)
         )
     }
@@ -241,12 +242,14 @@ public struct SaveFilesManifest: Hashable, Codable, Sendable {
     public let modifiedRegionsPath: String?
     public let blobsPath: String?
     public let snapshotsPath: String?
+    public let eventJournalPath: String?
 
     public init(
         manifestPath: String = "manifest.json",
         modifiedRegionsPath: String? = nil,
         blobsPath: String? = nil,
-        snapshotsPath: String? = nil
+        snapshotsPath: String? = nil,
+        eventJournalPath: String? = nil
     ) {
         precondition(!manifestPath.isEmpty, "manifestPath cannot be empty.")
 
@@ -254,6 +257,19 @@ public struct SaveFilesManifest: Hashable, Codable, Sendable {
         self.modifiedRegionsPath = modifiedRegionsPath
         self.blobsPath = blobsPath
         self.snapshotsPath = snapshotsPath
+        self.eventJournalPath = eventJournalPath
+    }
+
+    public static let productionV2 = SaveFilesManifest(
+        manifestPath: "manifest.json",
+        modifiedRegionsPath: "regions",
+        blobsPath: "blobs",
+        snapshotsPath: "snapshots",
+        eventJournalPath: "events/journal.json"
+    )
+
+    public var snapshotIndexPath: String? {
+        snapshotsPath.map { "\($0)/index.json" }
     }
 }
 
