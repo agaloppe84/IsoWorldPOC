@@ -239,6 +239,20 @@ Responsabilites:
 
 Cette V1 ne sort pas encore sur le systeme audio macOS. Le pipeline est d'abord data-driven et testable; une couche de sortie bas niveau pourra consommer les buffers/voices ensuite, sans changer les recipes ni les evenements moteur.
 
+### RPG DNA V1
+
+`EngineCore/RPG` transforme le seed en constitution RPG du monde.
+
+Responsabilites:
+
+- generer un `WorldRPGDNA` deterministe depuis `WorldSeed`, `SeedDomain.rpgDNA` et `GeneratorVersionTable`;
+- choisir archetype, epoque, niveau technologique, magie, menace, presence ennemie, objectif global, progression et tonalite;
+- exposer des `GameplayTag` stables pour relier terrain, props, UI, settlements, quetes, factions et sauvegarde;
+- transformer le DNA en `WorldRuleset` executable: systemes actifs, politique de violence, objectif primaire, factions et quest seeds;
+- fournir un `WorldStateLedger` compact pour stocker les faits et deltas significatifs sans sauvegarder toute la simulation.
+
+`WorldDNA.rpg` est le point d'entree du reste du moteur. Les prochains systemes ne doivent pas hardcoder leur propre genre de monde: ils lisent les tags, objectifs et regles RPG. Le debug print du monde est porte par `debugSummary`, afin que tools, tests et futurs panels puissent afficher la constitution generee sans dependance SwiftUI.
+
 ### UI/HUD V1
 
 `EngineCore/UIModel` porte les contrats purs du HUD in-game, sans SwiftUI ni Metal.

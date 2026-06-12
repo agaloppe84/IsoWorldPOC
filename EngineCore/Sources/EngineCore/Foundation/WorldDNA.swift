@@ -116,31 +116,6 @@ public struct WorldRenderDNA: Hashable, Codable, Sendable {
     }
 }
 
-public struct WorldRPGDNA: Hashable, Codable, Sendable {
-    public var historySeed: UInt64
-    public var factionSeed: UInt64
-    public var dangerBias: Float
-
-    public init(historySeed: UInt64, factionSeed: UInt64, dangerBias: Float) {
-        self.historySeed = historySeed
-        self.factionSeed = factionSeed
-        self.dangerBias = dangerBias
-    }
-
-    public static func make(
-        worldSeed: WorldSeed,
-        generatorVersions: GeneratorVersionTable = .current
-    ) -> WorldRPGDNA {
-        var random = versionedRNG(worldSeed: worldSeed, domain: .rpg, generatorVersions: generatorVersions)
-
-        return WorldRPGDNA(
-            historySeed: random.next(),
-            factionSeed: random.next(),
-            dangerBias: random.nextFloat(in: 0.15...0.85)
-        )
-    }
-}
-
 public struct WorldStyleGenome: Hashable, Codable, Sendable {
     public var artDirectionSeed: UInt64
     public var saturation: Float

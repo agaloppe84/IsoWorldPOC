@@ -523,3 +523,15 @@ Consequence: `UIFrameSnapshot` transporte player health/stamina, biome, meteo et
 Garantie: les tests EngineCore couvrent determinisme UI, themes et snapshot HUD. Les tests app couvrent l'activation du pass HUD, le batching de commandes et la production du snapshot UI depuis une session monde preparee.
 
 Limite actuelle: le HUD est volontairement minimal: quads, atlas icones 5x5 et labels bitmap. Pas encore de retained UI, input routing in-game, layout editor, atlas texture ou typographie avancee.
+
+## 051 - RPG DNA comme constitution de monde
+
+Decision: remplacer le `WorldRPGDNA` minimal historique par un module `EngineCore/RPG` pur et versionne.
+
+Raison: le seed doit definir autre chose que terrain, props et rendu. Avant d'ajouter settlements, NPCs, quetes ou director, le moteur a besoin d'un contrat central qui dit quel type de monde existe: archetype, epoque, tech, magie, menace, ennemis, objectif, progression, factions et tags gameplay.
+
+Consequence: `WorldDNA.rpg` consomme le nouveau `WorldRPGDNA`. `WorldRuleset` derive les systemes actifs, la politique de violence, l'objectif primaire, les factions et les quest seeds. Les sous-domaines RPG ont leurs seeds/versioning propres pour eviter les cascades instables.
+
+Garantie: les tests EngineCore couvrent determinisme, roundtrip Codable, versioning RPG, ruleset executable, mondes sans ennemis, ledger compact et 20 seeds de reference RPG jouables.
+
+Limite actuelle: pas encore de runtime story director, NPCs, settlements reels, storylets ou sauvegarde gameplay complete. Ces systemes devront consommer le ruleset et le ledger au lieu de dupliquer les decisions de monde.

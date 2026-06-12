@@ -270,8 +270,21 @@ Step 20 ajoute le HUD/UI procedural minimal V1 en gardant SwiftUI hors de la bou
 
 Cette passe garde SwiftUI pour les menus, tools et overlay debug. Le HUD du vrai monde passe par Metal pour eviter de recharger le rendu in-game avec des publications SwiftUI haute frequence.
 
+## Step 21 livre
+
+Step 21 remplace l'ancien RPG DNA minimal par une vraie constitution RPG deterministe du monde:
+
+- `EngineCore/RPG` contient `WorldRPGDNA`, `WorldRuleset`, `GameplayTag`, `RPGArchetype`, `WorldObjective`, `FactionDefinition`, `QuestSeed` et `WorldStateLedger`.
+- `WorldDNA.rpg` pointe maintenant vers le contrat V1 riche, plus vers un trio `historySeed/factionSeed/dangerBias` isole dans `WorldDNA.swift`.
+- Les domaines `rpg.dna`, `rpg.rules`, `rpg.factions`, `rpg.objectives`, `rpg.quests` et `rpg.ledger` sont versionnes dans `GeneratorVersionTable.current`.
+- Le seed choisit archetype, epoque, niveau tech, magie, menace, presence ennemie, objectif global, progression, tonalite et axes de densite.
+- `WorldRuleset` transforme le DNA en systemes actifs, politique de violence, objectif primaire, factions et quest seeds.
+- Le debug print du monde existe via `debugSummary` sur `WorldRPGDNA` et `WorldRuleset`.
+- `WorldStateLedger` stocke les faits significatifs et compactables sans persister le monde entier.
+- Les tests EngineCore valident 20 seeds de reference RPG jouables, determinisme, versioning, roundtrip Codable, mondes sans ennemis et ledger.
+
+Cette passe ne genere pas encore villages, settlements, NPCs, storylets runtime ou directeur narratif actif. Elle pose les contrats purs pour que les prochains systemes consomment la constitution RPG au lieu d'inventer leurs propres regles.
+
 ## Prochaine cible
 
-Step 21 doit introduire `EngineCore/RPG`: `WorldRPGDNA`, ruleset, tags gameplay, archetypes, objectifs, factions, quest seeds et ledger d'etat monde. Le seed doit commencer a definir une constitution RPG du monde, pas seulement terrain/props/audio/UI.
-
-Step 20 peut introduire le HUD procedural minimal: `UIFrameSnapshot`, themes, draw commands Metal simples et etat HUD derive du monde sans remettre le renderer sous dependance SwiftUI.
+Step 22 doit introduire `EngineCore/Settlements`: recettes de structures/settlements, intents de batiments, footprints, massing, support terrain et selection de sites adaptes a la pente, en consommant le RPG DNA V1.
