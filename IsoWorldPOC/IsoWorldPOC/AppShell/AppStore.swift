@@ -55,7 +55,7 @@ final class AppStore: ObservableObject {
         loadingProgress = nil
         currentWorldSession = nil
 
-        let session = engineCore.makeToolSession()
+        let session = engineCore.makeToolSession(seedText: normalizedSeed())
         currentToolSession = session
         mode = .toolsHub(session.id)
     }

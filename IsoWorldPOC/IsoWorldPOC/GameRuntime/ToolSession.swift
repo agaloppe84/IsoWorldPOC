@@ -14,8 +14,13 @@ struct ToolSessionID: Hashable, Identifiable {
 
 struct ToolSession: Equatable, Identifiable {
     let id: ToolSessionID
+    let workspace: ToolWorkspace
 
-    init(id: ToolSessionID = ToolSessionID()) {
+    init(
+        id: ToolSessionID = ToolSessionID(),
+        workspace: ToolWorkspace = ToolWorkspace()
+    ) {
         self.id = id
+        self.workspace = workspace
     }
 }

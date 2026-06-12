@@ -319,6 +319,20 @@ Step 23 ajoute la sauvegarde avancee V2 comme contrats EngineCore purs, sans bra
 
 Cette passe ne fait pas encore d'autosave disque complete, de WAL, de SQLite ni de writer incremental branche au runtime. Elle pose le format propre pour que les prochains outils et la future autosave consomment la vraie architecture V1/V2 au lieu de serializer des caches de rendu.
 
+## Step 24-A livre
+
+Step 24-A ouvre la V2 avec un Tools Hub production spine au-dessus des packages Step 23:
+
+- `ToolRegistry.v2` expose les 15 outils production prevus par le Step 24.
+- `ToolWorkspace` garde les documents par outil, la selection, les recents, le dirty state, les snapshots de revision et le diagnostic export.
+- `ToolSession` porte un workspace outils sans creer de `WorldSession`.
+- `ToolsHubView` consomme le workspace V2: categories, outils, commandes, indicateur unsaved, recents, validation et resume persistence.
+- `ToolDocumentStore` convertit un document outil vers `ToolProjectPackage`, `GraphPackage` et `AssetPackage`, puis ouvre/sauvegarde `.isoproj`, `.isograph` et `.isoasset`.
+- `ToolValidationIssue` porte maintenant des fix hints et la validation signale les references package invalides.
+- Les tests app couvrent registry V2, workspace dirty/recent/diagnostic et roundtrip des packages Step 24.
+
+Cette passe ne livre pas encore les vrais editeurs specialises. Les 15 outils disposent d'une surface, d'un document, d'une preview generique, d'une validation et d'une policy package-backed; Step 24-B doit maintenant remplacer les surfaces generiques par les inspectors/editors metier.
+
 ## Prochaine cible
 
-Step 24 doit produire le Tools Hub production V2 au-dessus des packages Step 23 et du shell Step 13.
+Step 24-B doit produire les editeurs specialises du Tools Hub production V2: Terrain Recipe Editor, Biome Graph Viewer, Prop Gallery, Material Viewer, Save Inspector et Seed Gallery en priorite.

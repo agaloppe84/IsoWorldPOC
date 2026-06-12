@@ -3,7 +3,7 @@ struct EngineCoreFacade {
         DebugWorldSession()
     }
 
-    func makeToolSession() -> ToolSession {
-        ToolSession()
+    func makeToolSession(seedText: String) -> ToolSession {
+        ToolSession(workspace: ToolWorkspace(seedText: seedText))
     }
 }

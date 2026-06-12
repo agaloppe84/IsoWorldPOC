@@ -13,10 +13,10 @@ Legende :
 
 | Element | Etat |
 |---|---|
-| Dernier step livre | Step 23 - Save avancee contracts |
+| Dernier step livre | Step 24-A - Tools Hub production spine |
 | Branche cible | `main` |
 | Docs reference | lecture seule |
-| Prochaine cible officielle | Step 24 - Tools Hub production V2 |
+| Prochaine cible officielle | Step 24-B - Editeurs specialises production |
 | Plan V2 | `[x]` document cree |
 | Tracker V2 | `[x]` document cree |
 
@@ -32,8 +32,8 @@ Legende :
 
 ### Architecture
 
-- [ ] `EngineCore` reste sans SwiftUI.
-- [ ] `EngineCore` reste sans Metal sauf contrats renderer neutres existants.
+- [x] `EngineCore` reste sans SwiftUI.
+- [x] `EngineCore` reste sans Metal sauf contrats renderer neutres existants.
 - [ ] Les systems V2 consomment seed + versions + recipes + deltas.
 - [ ] Les caches sont declares rebuildables.
 - [ ] Les docs actives indiquent les decisions structurantes.
@@ -49,7 +49,7 @@ Legende :
 ### Persistence
 
 - [ ] Save/cache policy par nouveau systeme.
-- [ ] Packages outils versionnes.
+- [x] Packages outils versionnes.
 - [ ] Region deltas lisibles/ecrivables.
 - [ ] SQLite/WAL introduit avec tests recovery.
 - [ ] Migration corpus maintenu.
@@ -59,7 +59,7 @@ Legende :
 - [ ] Chaque systeme majeur a un inspector ou viewer.
 - [ ] Chaque systeme majeur a un validator.
 - [ ] Seed gallery couvre les cas extremes.
-- [ ] Diagnostic bundle exportable.
+- [x] Diagnostic bundle exportable.
 
 ### Validation
 
@@ -75,55 +75,55 @@ Objectif : outils production pour modifier, valider et persister les systems.
 
 ### Core shell
 
-- [ ] Tool workspace production.
-- [ ] Navigation categories + recent projects.
-- [ ] Dirty state, close protection, unsaved indicator.
-- [ ] Command routing clavier/manette minimal.
-- [ ] Diagnostic export depuis Tools Hub.
+- [x] Tool workspace production.
+- [x] Navigation categories + recent projects.
+- [~] Dirty state, close protection, unsaved indicator.
+- [~] Command routing clavier/manette minimal.
+- [x] Diagnostic export depuis Tools Hub.
 
 ### Persistence tools
 
-- [ ] `ToolDocumentStore`.
-- [ ] Open/save `.isoproj`.
-- [ ] Open/save `.isoasset`.
-- [ ] Open/save `.isograph`.
-- [ ] Autosave draft.
-- [ ] Revision snapshot.
-- [ ] Runtime export manifest.
+- [x] `ToolDocumentStore`.
+- [x] Open/save `.isoproj`.
+- [x] Open/save `.isoasset`.
+- [x] Open/save `.isograph`.
+- [x] Autosave draft.
+- [x] Revision snapshot.
+- [x] Runtime export manifest.
 
 ### Shared validation
 
-- [ ] `ToolValidationIssue` avec severity.
-- [ ] Validation report UI.
-- [ ] Fix hints.
-- [ ] Package dependency validation.
+- [x] `ToolValidationIssue` avec severity.
+- [x] Validation report UI.
+- [x] Fix hints.
+- [x] Package dependency validation.
 - [ ] Golden seed validation runner hook.
 
 ### Production tools
 
-- [ ] Terrain Recipe Editor.
-- [ ] Biome Graph Viewer.
-- [ ] Prop Gallery.
-- [ ] Material Viewer.
-- [ ] LOD Debugger.
-- [ ] Character Customization Lab.
-- [ ] Animation Contact Lab.
-- [ ] FX Preview Editor.
-- [ ] Audio Graph Preview.
-- [ ] RPG World DNA Browser.
-- [ ] Settlement Viewer.
-- [ ] Save Inspector.
-- [ ] Performance HUD.
-- [ ] Seed Gallery.
-- [ ] Snapshot Diff.
+- [~] Terrain Recipe Editor.
+- [~] Biome Graph Viewer.
+- [~] Prop Gallery.
+- [~] Material Viewer.
+- [~] LOD Debugger.
+- [~] Character Customization Lab.
+- [~] Animation Contact Lab.
+- [~] FX Preview Editor.
+- [~] Audio Graph Preview.
+- [~] RPG World DNA Browser.
+- [~] Settlement Viewer.
+- [~] Save Inspector.
+- [~] Performance HUD.
+- [~] Seed Gallery.
+- [~] Snapshot Diff.
 
 ### Step 24 validation
 
-- [ ] Tools open without Real World.
-- [ ] Tool previews do not mutate `WorldRuntime`.
-- [ ] Package roundtrip tests.
+- [x] Tools open without Real World.
+- [x] Tool previews do not mutate `WorldRuntime`.
+- [x] Package roundtrip tests.
 - [ ] Validation UI tests where possible.
-- [ ] Build Xcode safe OK.
+- [x] Build Xcode safe OK.
 
 ## Step 24-BIS - Persistence production spine
 
@@ -481,3 +481,4 @@ Objectif : rendre la V2 testable et maintenable.
 | Date | Step | Resume | Commit |
 |---|---|---|---|
 | 2026-06-12 | V2 plan docs | Ajout du plan V2 et du tracker V2 apres Step 23 | pending |
+| 2026-06-12 | Step 24-A | Tools Hub V2 avec workspace, registry production, document store packages, validation hints et diagnostics | pending |

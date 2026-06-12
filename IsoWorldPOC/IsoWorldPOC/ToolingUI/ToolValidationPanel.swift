@@ -21,6 +21,11 @@ struct ToolValidationPanel: View {
                             .foregroundStyle(.secondary)
                         Text(issue.message)
                             .font(.callout)
+                        if let fixHint = issue.fixHint {
+                            Text(fixHint)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .padding(10)

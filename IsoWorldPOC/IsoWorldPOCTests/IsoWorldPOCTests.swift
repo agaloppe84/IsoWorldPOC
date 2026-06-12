@@ -7,6 +7,7 @@
 
 import EngineCore
 import Combine
+import Foundation
 import simd
 import Testing
 @testable import IsoWorldPOC
@@ -353,6 +354,137 @@ struct IsoWorldPOCTests {
             "seed.explorer",
         ]))
         #expect(registry.descriptors.allSatisfy { !$0.capabilities.isEmpty })
+    }
+
+    @Test func toolRegistryExposesStep24ProductionTools() {
+        let registry = ToolRegistry.v2
+
+        #expect(registry.descriptors.map(\.name) == [
+            "Terrain Recipe Editor",
+            "Biome Graph Viewer",
+            "Prop Gallery",
+            "Material Viewer",
+            "LOD Debugger",
+            "Character Customization Lab",
+            "Animation Contact Lab",
+            "FX Preview Editor",
+            "Audio Graph Preview",
+            "RPG World DNA Browser",
+            "Settlement Viewer",
+            "Save Inspector",
+            "Performance HUD",
+            "Seed Gallery",
+            "Snapshot Diff",
+        ])
+        #expect(registry.defaultDescriptor.id == "terrain.recipe.editor")
+        #expect(registry.descriptors.allSatisfy { $0.capabilities.contains(.preview) })
+        #expect(registry.descriptors.allSatisfy { $0.capabilities.contains(.validation) })
+        #expect(registry.descriptors.allSatisfy { $0.capabilities.contains(.diagnostics) })
+    }
+
+    @Test func toolWorkspaceTracksDirtyStateRecentProjectsAndDiagnostics() {
+        let registry = ToolRegistry.v2
+        let now = Date(timeIntervalSince1970: 1_800)
+        var workspace = ToolWorkspace(registry: registry, seedText: "v2-workspace-seed", now: now)
+
+        #expect(workspace.documents.count == registry.descriptors.count)
+        #expect(workspace.selectedToolID == "terrain.recipe.editor")
+        #expect(workspace.isDirty == false)
+
+        var document = workspace.selectedDocument
+        document.notes = "terrain recipe edited"
+        workspace.updateSelectedDocument(document, now: now.addingTimeInterval(1))
+
+        #expect(workspace.dirtyToolIDs == ["terrain.recipe.editor"])
+
+        let snapshot = workspace.snapshotRevision(now: now.addingTimeInterval(2))
+        #expect(snapshot.id == "terrain.recipe.editor-r1")
+        #expect(workspace.revisionSnapshots.first == snapshot)
+        #expect(workspace.selectedDocument.revisionID == snapshot.id)
+
+        let saveResult = workspace.perform(
+            .markSaved,
+            registry: registry,
+            seedText: "v2-workspace-seed",
+            now: now.addingTimeInterval(3)
+        )
+        #expect(saveResult.command == .markSaved)
+        #expect(workspace.isDirty == false)
+        #expect(workspace.recentProjects.first?.packagePath.hasSuffix(".isoproj") == true)
+
+        _ = workspace.perform(
+            .autosaveDraft,
+            registry: registry,
+            seedText: "v2-workspace-seed",
+            now: now.addingTimeInterval(4)
+        )
+        #expect(workspace.recentProjects.first?.isAutosaveDraft == true)
+
+        _ = workspace.perform(
+            .exportDiagnostics,
+            registry: registry,
+            seedText: "v2-workspace-seed",
+            now: now.addingTimeInterval(5)
+        )
+        #expect(workspace.pendingDiagnostic?.selectedToolID == "terrain.recipe.editor")
+        #expect(workspace.pendingDiagnostic?.validationReports.count == registry.descriptors.count)
+    }
+
+    @Test func toolDocumentStoreRoundTripsStep24Packages() throws {
+        let registry = ToolRegistry.v2
+        let descriptor = registry.descriptor(for: "terrain.recipe.editor")!
+        let document = ToolDocument(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000024")!,
+            toolID: descriptor.id,
+            seedText: "v2-package-seed",
+            presetName: "Terrain recipe V2",
+            sampleCount: 64,
+            notes: "roundtrip",
+            revisionID: "terrain-r1",
+            packageReferences: ["assets/materials/example.isoasset"]
+        )
+        let store = ToolDocumentStore()
+        let now = Date(timeIntervalSince1970: 2_400)
+        let project = store.makeProjectPackage(
+            for: document,
+            descriptor: descriptor,
+            registry: registry,
+            now: now
+        )
+        let graph = try #require(project.graphPackage)
+        let asset = store.makeAssetPackage(
+            for: document,
+            descriptor: descriptor,
+            registry: registry,
+            graphPackage: graph
+        )
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("IsoWorldPOC-Step24-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let projectURL = rootURL.appendingPathComponent("terrain.isoproj")
+        let assetURL = rootURL.appendingPathComponent("terrain.isoasset")
+        let graphURL = rootURL.appendingPathComponent("terrain.isograph")
+
+        try store.saveProject(project, to: projectURL)
+        try store.saveAsset(asset, to: assetURL)
+        try store.saveGraph(graph, to: graphURL)
+
+        #expect(try store.openProject(from: projectURL) == project)
+        #expect(try store.openAsset(from: assetURL) == asset)
+        #expect(try store.openGraph(from: graphURL) == graph)
+        #expect(project.kind == .terrainRecipeEditor)
+        #expect(project.validationReport.isValid)
+        #expect(asset.validationReport.isValid)
+        #expect(graph.validationReport.isValid)
+
+        let runtimeExport = store.runtimeExportManifest(
+            for: asset,
+            path: "runtime/tools/terrain.recipe.json"
+        )
+        #expect(runtimeExport.contentHash == asset.contentHash)
     }
 
     @Test func toolRegistryCreatesDeterministicPreviewWithoutWorldPayload() {

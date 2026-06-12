@@ -421,6 +421,21 @@ Les fichiers cibles sont declaratifs: `regions/*.isoregion`, `snapshots/*.isosna
 
 La V1 ne doit pas sauvegarder les caches de rendu Metal ni les meshes regenerables. Les deltas regionaux et les entites persistantes representent les modifications du monde vivant; les assets, graphs et projets outils representent les donnees editees par les outils. SQLite, WAL et autosave incremental disque sont reserves a une couche d'orchestration ulterieure au-dessus de ces contrats.
 
+### Tools Hub production V2
+
+Le Tools Hub V2 reste dans l'application SwiftUI et consomme les contrats purs de `EngineCore/Persistence`.
+
+Responsabilites:
+
+- exposer `ToolRegistry.v2` avec les outils de production Step 24;
+- garder un `ToolWorkspace` par session outils, separe des `WorldSession`;
+- suivre documents ouverts, dirty state, recents, snapshots de revision et diagnostic export;
+- convertir les documents outils en packages via `ToolDocumentStore`;
+- sauvegarder/lire `.isoproj`, `.isoasset` et `.isograph` avec `AtomicFileWriter`;
+- produire des previews par `ToolPreviewSnapshot` sans muter `WorldRuntime`.
+
+Cette couche ne doit pas pousser SwiftUI dans `EngineCore`. Les editeurs specialises V2 devront brancher leurs propres inspectors/validators sur ce workspace et sur les packages Step 23 au lieu de creer des formats paralleles.
+
 ## Input
 
 GameController est utilise pour le support manette PS5.

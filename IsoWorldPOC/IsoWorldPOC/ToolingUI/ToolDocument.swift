@@ -7,6 +7,8 @@ struct ToolDocument: Codable, Equatable, Identifiable {
     var presetName: String
     var sampleCount: Int
     var notes: String
+    var revisionID: String
+    var packageReferences: [String]
 
     init(
         id: UUID = UUID(),
@@ -14,7 +16,9 @@ struct ToolDocument: Codable, Equatable, Identifiable {
         seedText: String,
         presetName: String,
         sampleCount: Int,
-        notes: String = ""
+        notes: String = "",
+        revisionID: String = "initial",
+        packageReferences: [String] = []
     ) {
         self.id = id
         self.toolID = toolID
@@ -22,6 +26,24 @@ struct ToolDocument: Codable, Equatable, Identifiable {
         self.presetName = presetName
         self.sampleCount = sampleCount
         self.notes = notes
+        self.revisionID = revisionID
+        self.packageReferences = Self.normalizedPackageReferences(packageReferences)
+    }
+
+    private static func normalizedPackageReferences(_ references: [String]) -> [String] {
+        var seen: Set<String> = []
+        var result: [String] = []
+
+        for reference in references {
+            let trimmed = reference.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else {
+                continue
+            }
+
+            result.append(trimmed)
+        }
+
+        return result
     }
 }
 
@@ -61,6 +83,19 @@ struct ToolValidationIssue: Codable, Equatable, Identifiable {
     let id: String
     let severity: ToolValidationSeverity
     let message: String
+    let fixHint: String?
+
+    init(
+        id: String,
+        severity: ToolValidationSeverity,
+        message: String,
+        fixHint: String? = nil
+    ) {
+        self.id = id
+        self.severity = severity
+        self.message = message
+        self.fixHint = fixHint
+    }
 }
 
 struct ToolValidationReport: Codable, Equatable {
@@ -69,5 +104,9 @@ struct ToolValidationReport: Codable, Equatable {
 
     var isValid: Bool {
         !issues.contains { $0.severity == .error }
+    }
+
+    var blockingIssueCount: Int {
+        issues.filter { $0.severity == .error }.count
     }
 }

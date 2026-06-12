@@ -7,6 +7,15 @@ enum ToolCategory: String, CaseIterable, Codable, Hashable, Identifiable {
     case props
     case materials
     case lod
+    case characters
+    case animation
+    case fx
+    case audio
+    case rpg
+    case settlements
+    case saves
+    case performance
+    case snapshots
 
     var id: String {
         rawValue
@@ -26,6 +35,24 @@ enum ToolCategory: String, CaseIterable, Codable, Hashable, Identifiable {
             "Materials"
         case .lod:
             "LOD"
+        case .characters:
+            "Characters"
+        case .animation:
+            "Animation"
+        case .fx:
+            "FX"
+        case .audio:
+            "Audio"
+        case .rpg:
+            "RPG"
+        case .settlements:
+            "Settlements"
+        case .saves:
+            "Saves"
+        case .performance:
+            "Performance"
+        case .snapshots:
+            "Snapshots"
         }
     }
 
@@ -43,6 +70,24 @@ enum ToolCategory: String, CaseIterable, Codable, Hashable, Identifiable {
             "paintpalette"
         case .lod:
             "square.stack.3d.up"
+        case .characters:
+            "person.crop.rectangle.stack"
+        case .animation:
+            "figure.walk.motion"
+        case .fx:
+            "sparkles"
+        case .audio:
+            "waveform"
+        case .rpg:
+            "map"
+        case .settlements:
+            "building.2"
+        case .saves:
+            "externaldrive"
+        case .performance:
+            "speedometer"
+        case .snapshots:
+            "square.on.square.dashed"
         }
     }
 }
@@ -52,6 +97,8 @@ enum ToolCapability: String, CaseIterable, Codable, Hashable {
     case validation
     case presets
     case export
+    case persistence
+    case diagnostics
 
     var displayName: String {
         switch self {
@@ -63,6 +110,10 @@ enum ToolCapability: String, CaseIterable, Codable, Hashable {
             "Presets"
         case .export:
             "Export"
+        case .persistence:
+            "Persistence"
+        case .diagnostics:
+            "Diagnostics"
         }
     }
 }

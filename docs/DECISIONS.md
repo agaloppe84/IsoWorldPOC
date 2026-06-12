@@ -559,3 +559,15 @@ Consequence: `SaveVersion.current` passe en schema 2. `DirtyTracker`, `RegionDel
 Garantie: les tests EngineCore couvrent grouping de dirty chunks, merge de deltas, tombstones d'entites, journal compactable, retention snapshots, migration schema 1 vers 2 et roundtrip des packages outils/assets/graphs.
 
 Limite actuelle: pas encore d'autosave incremental branche au runtime, pas de WAL, pas de SQLite et pas de stockage disque des deltas. Ces couches doivent consommer les contrats Step 23 sans changer leur forme.
+
+## 054 - Tools Hub production spine V2
+
+Decision: faire demarrer la V2 par un Tools Hub package-backed, sans ouvrir de `WorldRuntime`.
+
+Raison: les futurs editeurs V2 doivent modifier, valider et persister des recettes, graphs et assets sans polluer le vrai monde ni serialiser des caches de rendu. Le hub doit donc posseder un workspace propre avant les editeurs specialises.
+
+Consequence: `ToolRegistry.v2` expose les 15 outils du Step 24. `ToolWorkspace` porte la selection, les documents par outil, les recents, le dirty state, les snapshots de revision et le diagnostic export. `ToolDocumentStore` convertit les documents en `ToolProjectPackage`, `GraphPackage` et `AssetPackage`, puis les sauvegarde/lit via `AtomicFileWriter`.
+
+Garantie: les tests app couvrent le registry V2, le workspace dirty/recent/diagnostic, l'ouverture du hub sans session monde, l'isolation preview et le roundtrip `.isoproj` / `.isoasset` / `.isograph`.
+
+Limite actuelle: les 15 outils sont branches comme surfaces production generiques avec preview/validation/packages. Les vrais editeurs specialises (terrain graph authoring, material editing, save inspector connecte, seed lab complet, etc.) restent a livrer dans Step 24-B et suivants.
