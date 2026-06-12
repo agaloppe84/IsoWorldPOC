@@ -547,3 +547,15 @@ Consequence: `SettlementSystem` consomme `TerrainSampleGrid` et `WorldRuleset`, 
 Garantie: les tests EngineCore couvrent determinisme, roundtrip Codable, classification support terrain, selection de site, footprints bornes au chunk, massing renderable, influence RPG, versioning et seeds de reference.
 
 Limite actuelle: les plans de settlements ne sont pas encore injectes dans le runtime monde ni rendus par Metal. Ce branchement doit consommer les instances V1, pas recalculer une logique de placement cote app.
+
+## 053 - Save avancee V2 par contrats purs
+
+Decision: ajouter les contrats de sauvegarde avancee dans `EngineCore/Persistence` avant de brancher un writer disque complet.
+
+Raison: le monde vivant, les outils et les assets edits ne doivent pas etre persistes en serialisant des caches de rendu ou des objets app. Le moteur a besoin d'un format stable: chunks sales, deltas regionaux, entites persistantes, journal, snapshots, migrations et packages outils/assets/graphs.
+
+Consequence: `SaveVersion.current` passe en schema 2. `DirtyTracker`, `RegionDeltaStore`, `EntityStateStore`, `EventJournal`, `SnapshotStore`, `MigrationManager`, `ToolProjectPackage`, `AssetPackage` et `GraphPackage` deviennent les contrats sources. Les chemins cibles restent declaratifs (`.isoregion`, `.isosnapshot`, `.isoproj`, `.isoasset`, `.isograph`), sans dependance SwiftUI, Metal ou SQLite.
+
+Garantie: les tests EngineCore couvrent grouping de dirty chunks, merge de deltas, tombstones d'entites, journal compactable, retention snapshots, migration schema 1 vers 2 et roundtrip des packages outils/assets/graphs.
+
+Limite actuelle: pas encore d'autosave incremental branche au runtime, pas de WAL, pas de SQLite et pas de stockage disque des deltas. Ces couches doivent consommer les contrats Step 23 sans changer leur forme.

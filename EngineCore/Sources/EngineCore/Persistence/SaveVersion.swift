@@ -10,7 +10,7 @@ public struct SaveVersion: Hashable, Codable, Comparable, Sendable, CustomString
         self.schemaVersion = schemaVersion
     }
 
-    public static let current = SaveVersion(formatVersion: 1, schemaVersion: 1)
+    public static let current = SaveVersion(formatVersion: 1, schemaVersion: 2)
 
     public var description: String {
         "format-\(formatVersion).schema-\(schemaVersion)"

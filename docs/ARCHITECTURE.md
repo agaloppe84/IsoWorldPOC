@@ -402,6 +402,25 @@ Le correctif Step 12-DEBUG-LEAN garde le Debug World utilisable sans redevenir l
 
 Ce factory ne doit pas importer RealityKit ni Metal. Il remplace l'ancien melange entre generation de donnees et rendu RealityKit.
 
+### Persistence avancee V2
+
+La persistence avancee vit dans `EngineCore/Persistence` et reste une couche de contrats purs.
+
+Responsabilites:
+
+- suivre les chunks sales via `DirtyTracker` et `DirtyChunkRecord`;
+- regrouper les modifications par region avec `RegionDeltaStore` et `RegionDeltaFile`;
+- stocker les deltas terrain, props, settlements et references d'entites dans `ChunkDelta`;
+- conserver les entites persistantes et leurs tombstones via `EntityStateStore`;
+- tracer les evenements de save, autosave, snapshot et migration dans `EventJournal`;
+- creer des manifests de snapshots incrementaux avec `SnapshotStore`;
+- planifier les migrations de schema via `MigrationManager`;
+- serialiser les projets outils, assets et graphs avec `ToolProjectPackage`, `AssetPackage` et `GraphPackage`.
+
+Les fichiers cibles sont declaratifs: `regions/*.isoregion`, `snapshots/*.isosnapshot`, `projects/*.isoproj`, `assets/*.isoasset` et `graphs/*.isograph`. `SaveVersion.current` est `format-1.schema-2` pour signaler ce contrat.
+
+La V1 ne doit pas sauvegarder les caches de rendu Metal ni les meshes regenerables. Les deltas regionaux et les entites persistantes representent les modifications du monde vivant; les assets, graphs et projets outils representent les donnees editees par les outils. SQLite, WAL et autosave incremental disque sont reserves a une couche d'orchestration ulterieure au-dessus de ces contrats.
+
 ## Input
 
 GameController est utilise pour le support manette PS5.

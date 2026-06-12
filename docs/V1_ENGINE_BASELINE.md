@@ -302,6 +302,23 @@ Step 22 ajoute les buildings/settlements V1 comme pipeline EngineCore pur et det
 
 Cette passe ne branche pas encore les settlements dans le runtime monde visible ni dans le renderer Metal app. Elle pose le contrat complet et testable que Step 33 pourra enrichir avec districts, routes avancees, interiors, NPCs et streaming monde.
 
+## Step 23 livre
+
+Step 23 ajoute la sauvegarde avancee V2 comme contrats EngineCore purs, sans brancher encore un stockage lourd:
+
+- `EngineCore/Persistence` contient maintenant dirty tracking, region deltas, entity persistence, event journal, snapshot store, migration manager et packages outils/assets/graphs.
+- `SaveVersion.current` passe en `format-1.schema-2` pour marquer l'arrivee des deltas regionaux et des packages V2.
+- `DirtyTracker` groupe les chunks sales par region, systeme et raison, avec ticks de premiere/derniere modification.
+- `RegionDeltaStore` produit des fichiers `regions/r.x.y.z.isoregion` contenant deltas terrain, props, settlements et references d'entites persistantes.
+- `EntityStateStore` conserve les entites vivantes et les tombstones de suppression afin que les removals soient persistables.
+- `EventJournal` trace les evenements save/autosave/snapshot/migration de maniere ordonnee et compactable.
+- `SnapshotStore` cree des manifests de snapshots incrementaux et applique une retention simple par raison.
+- `MigrationManager` planifie la migration schema 1 vers schema 2 avec modes strict, migrated et regenerated.
+- `GraphPackage`, `AssetPackage` et `ToolProjectPackage` posent les formats `.isograph`, `.isoasset` et `.isoproj` pour les outils V1/V2.
+- Les tests EngineCore couvrent merge de deltas, dirty tracking, entites supprimees, journal, snapshots, migration et packages.
+
+Cette passe ne fait pas encore d'autosave disque complete, de WAL, de SQLite ni de writer incremental branche au runtime. Elle pose le format propre pour que les prochains outils et la future autosave consomment la vraie architecture V1/V2 au lieu de serializer des caches de rendu.
+
 ## Prochaine cible
 
-Step 23 doit ajouter la sauvegarde avancee: region deltas, dirty tracking, entity persistence, event journal, snapshot store, migrations et packages outils/assets/graphs.
+Step 24 doit produire le Tools Hub production V2 au-dessus des packages Step 23 et du shell Step 13.
