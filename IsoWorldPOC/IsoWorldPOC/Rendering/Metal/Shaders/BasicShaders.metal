@@ -24,6 +24,8 @@ struct TerrainUniforms {
 struct LightingUniforms {
     float4 sunDirectionAndIntensity;
     float4 ambientAndFlags;
+    float4 exposureAndSurfaceState;
+    float4 skyAndFog;
 };
 
 struct DebugUniforms {
@@ -57,6 +59,9 @@ struct TerrainVertexOut {
     float3 worldPosition;
     float3 worldNormal;
     float shade;
+    float4 surfaceStateAndExposure;
+    float4 skyAndFog;
+    float mossAmount;
     float2 debugModeAndSplatLayer;
 };
 
@@ -125,6 +130,9 @@ vertex TerrainVertexOut terrain_vertex(
     out.worldPosition = worldPosition;
     out.worldNormal = worldNormal;
     out.shade = shade;
+    out.surfaceStateAndExposure = lightingUniforms.exposureAndSurfaceState;
+    out.skyAndFog = lightingUniforms.skyAndFog;
+    out.mossAmount = lightingUniforms.ambientAndFlags.z;
     out.debugModeAndSplatLayer = debugUniforms.terrainMaterialModeAndFlags.xy;
     return out;
 }
@@ -160,14 +168,36 @@ fragment float4 terrain_fragment(
             in.splatUVScales
         );
         IsoPBRInput pbrInput;
-        pbrInput.baseColor = terrainSample.albedo;
+        float wetness = clamp(in.surfaceStateAndExposure.y, 0.0, 1.0);
+        float snow = clamp(in.surfaceStateAndExposure.z, 0.0, 1.0);
+        float dust = clamp(in.surfaceStateAndExposure.w, 0.0, 1.0);
+        float moss = clamp(in.mossAmount, 0.0, 1.0);
+        float3 surfaceColor = isoApplySurfaceBaseColor(
+            terrainSample.albedo,
+            wetness,
+            snow,
+            dust,
+            moss
+        );
+        float surfaceRoughness = isoApplySurfaceRoughness(
+            terrainSample.roughness,
+            wetness,
+            snow,
+            dust,
+            moss
+        );
+
+        pbrInput.baseColor = surfaceColor;
         pbrInput.normal = worldNormal;
-        pbrInput.roughness = terrainSample.roughness;
+        pbrInput.roughness = surfaceRoughness;
         pbrInput.metallic = 0.0;
         pbrInput.ambientOcclusion = terrainSample.ambientOcclusion;
         pbrInput.shade = in.shade;
+        pbrInput.exposure = in.surfaceStateAndExposure.x;
+        pbrInput.skyTint = in.skyAndFog.rgb;
+        pbrInput.fogDensity = in.skyAndFog.w;
 
-        sampledRoughness = terrainSample.roughness;
+        sampledRoughness = surfaceRoughness;
         outputColor = isoOpaquePBR(pbrInput);
     } else {
         outputColor *= in.shade;

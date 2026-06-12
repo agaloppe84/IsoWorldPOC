@@ -56,6 +56,7 @@ final class RenderSnapshotBuilder {
         chunkStreamer: ChunkDataStreamer,
         camera: CameraRenderState,
         lighting: LightingState,
+        environment: RenderEnvironmentState,
         debugOptions: RenderSnapshotDebugOptions,
         fx: FXFrameSnapshot = .empty,
         ui: UIFrameSnapshot = .empty
@@ -64,6 +65,7 @@ final class RenderSnapshotBuilder {
             chunkStreamer: chunkStreamer,
             camera: camera,
             lighting: lighting,
+            environment: environment,
             debugOptions: debugOptions,
             fx: fx,
             ui: ui
@@ -74,6 +76,7 @@ final class RenderSnapshotBuilder {
         chunkStreamer: ChunkDataStreamer,
         camera: CameraRenderState,
         lighting: LightingState,
+        environment: RenderEnvironmentState,
         debugOptions: RenderSnapshotDebugOptions,
         fx: FXFrameSnapshot = .empty,
         ui: UIFrameSnapshot = .empty
@@ -105,6 +108,7 @@ final class RenderSnapshotBuilder {
         let snapshot = RenderWorldSnapshot(
             camera: camera,
             lighting: lighting,
+            environment: environment,
             chunks: chunks,
             debugOptions: RenderDebugOptions(
                 showChunkBounds: debugOptions.showChunkBounds,

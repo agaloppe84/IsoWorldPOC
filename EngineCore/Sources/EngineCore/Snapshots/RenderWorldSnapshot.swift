@@ -59,6 +59,7 @@ public struct RenderDebugOptions: Equatable, Codable, Sendable {
 public struct RenderWorldSnapshot: Equatable, Codable, Sendable {
     public let camera: CameraRenderState
     public let lighting: LightingState
+    public let environment: RenderEnvironmentState
     public let chunks: [RenderChunk]
     public let debugOptions: RenderDebugOptions
     public let fx: FXFrameSnapshot
@@ -99,6 +100,7 @@ public struct RenderWorldSnapshot: Equatable, Codable, Sendable {
     public init(
         camera: CameraRenderState,
         lighting: LightingState = .defaultDay,
+        environment: RenderEnvironmentState = .default,
         chunks: [RenderChunk],
         debugOptions: RenderDebugOptions = RenderDebugOptions(),
         fx: FXFrameSnapshot = .empty,
@@ -106,9 +108,46 @@ public struct RenderWorldSnapshot: Equatable, Codable, Sendable {
     ) {
         self.camera = camera
         self.lighting = lighting
+        self.environment = environment
         self.chunks = chunks
         self.debugOptions = debugOptions
         self.fx = fx
         self.ui = ui
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case camera
+        case lighting
+        case environment
+        case chunks
+        case debugOptions
+        case fx
+        case ui
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        self.init(
+            camera: try container.decode(CameraRenderState.self, forKey: .camera),
+            lighting: try container.decodeIfPresent(LightingState.self, forKey: .lighting) ?? .defaultDay,
+            environment: try container.decodeIfPresent(RenderEnvironmentState.self, forKey: .environment) ?? .default,
+            chunks: try container.decode([RenderChunk].self, forKey: .chunks),
+            debugOptions: try container.decodeIfPresent(RenderDebugOptions.self, forKey: .debugOptions) ?? RenderDebugOptions(),
+            fx: try container.decodeIfPresent(FXFrameSnapshot.self, forKey: .fx) ?? .empty,
+            ui: try container.decodeIfPresent(UIFrameSnapshot.self, forKey: .ui) ?? .empty
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(camera, forKey: .camera)
+        try container.encode(lighting, forKey: .lighting)
+        try container.encode(environment, forKey: .environment)
+        try container.encode(chunks, forKey: .chunks)
+        try container.encode(debugOptions, forKey: .debugOptions)
+        try container.encode(fx, forKey: .fx)
+        try container.encode(ui, forKey: .ui)
     }
 }

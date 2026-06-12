@@ -13,10 +13,10 @@ Legende :
 
 | Element | Etat |
 |---|---|
-| Dernier step livre | Step 24-BIS-C - Runtime save/load world delta integration |
+| Dernier step livre | Step 25-A - ISLP surface/material/lighting foundation |
 | Branche cible | `main` |
 | Docs reference | lecture seule |
-| Prochaine cible officielle | Step 25 - ISLP lighting/surfaces V2 |
+| Prochaine cible officielle | Step 25-B - Terrain surface quality + material LOD/debug views |
 | Plan V2 | `[x]` document cree |
 | Tracker V2 | `[x]` document cree |
 
@@ -166,28 +166,28 @@ Objectif : pipeline surface/lumiere/weather moderne sans RT.
 
 ### Materials
 
-- [ ] `WorldRenderDNA`.
-- [ ] Material palette per biome/RPG/world.
-- [ ] `IsoMaterialRuntime`.
-- [ ] Material parameter blocks.
-- [ ] Texture set registry.
-- [ ] baseColor/normal/ORM packing.
+- [x] `WorldRenderDNA`.
+- [~] Material palette per biome/RPG/world.
+- [x] `IsoMaterialRuntime`.
+- [x] Material parameter blocks.
+- [x] Texture set registry.
+- [x] baseColor/normal/ORM packing.
 - [ ] Material LOD.
 - [ ] Material graph package bridge.
 
 ### Terrain surfaces
 
-- [ ] Terrain layered PBR.
-- [ ] Height/slope/biome blending.
-- [ ] Triplanar cliffs.
+- [~] Terrain layered PBR.
+- [~] Height/slope/biome blending.
+- [~] Triplanar cliffs.
 - [ ] Macro/micro variation.
 - [ ] Detail normals.
-- [ ] Debug baseColor/normal/roughness/splats.
+- [~] Debug baseColor/normal/roughness/splats.
 
 ### Lighting
 
-- [ ] Tone mapping/exposure.
-- [ ] IBL sky simple.
+- [~] Tone mapping/exposure.
+- [~] IBL sky simple.
 - [ ] CSM.
 - [ ] Shadow atlas local.
 - [ ] Forward+ or clustered lights.
@@ -197,20 +197,30 @@ Objectif : pipeline surface/lumiere/weather moderne sans RT.
 
 ### Weather/surface states
 
-- [ ] Wetness maps.
-- [ ] Snow accumulation.
-- [ ] Dust/sand.
-- [ ] Moss/lichen.
+- [~] Wetness maps.
+- [~] Snow accumulation.
+- [~] Dust/sand.
+- [~] Moss/lichen.
 - [ ] Water shader baseline.
-- [ ] Fog/atmosphere baseline.
+- [~] Fog/atmosphere baseline.
 
 ### Tools/validation
 
-- [ ] Material Viewer production.
+- [~] Material Viewer production.
 - [ ] Lighting sandbox.
 - [ ] Texture residency debugger.
-- [ ] Albedo/roughness/normal validators.
+- [~] Albedo/roughness/normal validators.
 - [ ] Perf HUD integration.
+
+Notes:
+
+- Tranche 25-A livree: `WorldRenderDNA` porte les choix PBR/style/contraste/texture density/weather/fog/shadow.
+- `IsoMaterialRuntimeTable` regroupe materiaux terrain, texture sets PBR et palettes biomes, avec validator ISLP.
+- `MaterialParameterBlock` et `SurfaceState` transportent wetness/snow/dust/mud/moss avec reponses materiau.
+- `RenderEnvironmentState` est present dans les snapshots et derive tone mapping, sky/fog et surface state depuis `WorldDNA`, biome et terrain sample.
+- Le renderer Metal consomme exposure, fog, sky tint et etats de surface dans le shader terrain.
+- Le Material Viewer affiche les donnees runtime ISLP et les compteurs de validation.
+- Dette restante: les surfaces restent des previews code-side; pas encore de material LOD, detail normals reels, residency texture, CSM, probes ni Forward+/clustered.
 
 ## Step 26 - IVDS / LOD avance
 

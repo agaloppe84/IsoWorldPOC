@@ -631,3 +631,15 @@ Consequence: `WorldRuntime.makePersistenceCapture()` fabrique une capture depuis
 Garantie: les tests EngineCore couvrent `EntityStateFileStore` et le coordinator enrichi. Le test app `worldRuntimeSaveServiceRoundTripsVisibleWorldFromDisk` execute un roundtrip save/load visible sans lancer le scenario UI Debug.
 
 Limite actuelle: les systemes de gameplay ne produisent pas encore de mutations terrain/props editables en runtime. Le chemin region delta est charge et conserve, mais l'application fine de ces mutations sera etendue avec les systemes producteurs.
+
+## 060 - Fondation ISLP surface/material/lighting V2
+
+Decision: introduire ISLP comme spine V2 entre `WorldRenderDNA`, materiaux runtime, etat d'environnement snapshot et shader terrain.
+
+Raison: la V2 visuelle doit avancer sans empiler des constantes Metal ou des exceptions par biome. Les choix de style, weather surfaces, texture density, fog et lighting doivent etre deterministes, serialisables, testables et derives du monde.
+
+Consequence: `WorldRenderDNA` porte les profils PBR/style/contraste/material/weather. `IsoMaterialRuntimeTable` regroupe materiaux terrain, texture sets PBR, palettes biomes et validation. `MaterialParameterBlock` et `SurfaceState` transportent wetness, snow, dust, mud et moss. `RenderWorldSnapshot` contient un `RenderEnvironmentState`, que `WorldRuntime` derive du biome/terrain sample courant et que Metal consomme via les uniforms de frame.
+
+Garantie: les tests EngineCore couvrent la table runtime ISLP, les reponses de surface, l'environnement derive et la compatibilite de decoding des anciens `WorldRenderDNA`/snapshots. Les tests app verifient le Material Viewer et le roundtrip runtime save/load apres branchement snapshot.
+
+Limite actuelle: Step 25-A reste une fondation. Les textures sont encore preview/code-side, le terrain n'a pas encore detail normals ou material LOD, et les ombres/probes/Forward+ restent volontairement separes pour garder le shader profilable.

@@ -363,17 +363,21 @@ struct ToolSpecializedPreviewBuilder {
         let materials = TerrainMaterialKind.allCases
             .map(TerrainMaterialDescriptor.definition(for:))
         let surfaces = materials.map(SurfaceDescriptor.terrain(_:))
+        let runtimeTable = IsoMaterialRuntimeTable.terrainBaseline(
+            renderDNA: WorldRenderDNA.make(worldSeed: context.worldSeed)
+        )
+        let validationReport = runtimeTable.validationReport()
         let pbrSlotCount = TerrainTextureSlot.allTerrainPBRSlots.count
         let triplanarCount = surfaces.filter(\.supportsTriplanar).count
         let dryGrass = SurfaceDescriptor
             .terrain(TerrainMaterialDescriptor.definition(for: .grass))
             .parameters
-        let wetGrass = SurfaceState(wetness: 1).applying(to: dryGrass)
+        let wetGrass = SurfaceState(wetness: 1, moss: 0.2).applying(to: dryGrass)
 
         return ToolSpecializedPreviewReport(
             toolID: context.descriptor.id,
             title: "Material Viewer",
-            summary: "Terrain material slots, PBR texture roles and surface state hooks.",
+            summary: "ISLP runtime table, terrain PBR texture roles and surface state hooks.",
             isSpecialized: true,
             sections: [
                 ToolPreviewSection(
@@ -384,6 +388,17 @@ struct ToolSpecializedPreviewBuilder {
                         metric("material.texture.map.count", "Texture maps", TerrainTextureMap.allCases.count),
                         metric("material.pbr.slot.count", "PBR slots", pbrSlotCount),
                         metric("material.triplanar.count", "Triplanar surfaces", triplanarCount),
+                    ]
+                ),
+                ToolPreviewSection(
+                    id: "material.runtime-table",
+                    title: "Runtime table",
+                    metrics: [
+                        metric("material.runtime.count", "Runtime materials", runtimeTable.materials.count),
+                        metric("material.texture-set.count", "Texture sets", runtimeTable.textureSets.count),
+                        metric("material.biome-palette.count", "Biome palettes", runtimeTable.biomePalettes.count),
+                        metric("material.validation.errors", "Validation errors", validationReport.errorCount),
+                        metric("material.validation.warnings", "Validation warnings", validationReport.warningCount),
                     ]
                 ),
                 ToolPreviewSection(

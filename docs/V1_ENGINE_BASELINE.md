@@ -417,4 +417,6 @@ Limite volontaire: le gameplay courant ne modifie pas encore terrain/props en je
 
 ## Prochaine cible
 
-Step 25 peut demarrer sur les surfaces/lighting V2. En parallele, une future tranche persistence devra etendre le runtime aux mutations terrain/props editables quand les systemes producteurs existent.
+Step 25-A demarre la V2 visuelle sans casser la baseline V1: le runtime a maintenant un spine ISLP pour `WorldRenderDNA`, table materiaux, texture sets, etat environnement, surface states et premiers hooks shader/Material Viewer.
+
+La prochaine tranche logique est Step 25-B: surfaces terrain plus riches, material LOD/residency contract et vues debug material plus fines. En parallele, une future tranche persistence devra etendre le runtime aux mutations terrain/props editables quand les systemes producteurs existent.

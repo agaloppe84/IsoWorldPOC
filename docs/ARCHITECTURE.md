@@ -428,6 +428,21 @@ Les fichiers cibles sont declaratifs: `manifest.json`, `regions/*.isoregion`, `e
 
 La V1 ne doit pas sauvegarder les caches de rendu Metal ni les meshes regenerables. Les deltas regionaux et les entites persistantes representent les modifications du monde vivant; les assets, graphs et projets outils representent les donnees editees par les outils. Le spine Step 24-BIS livre le writer/reader regional, l'autosave incremental budgete, le chemin de save manuel atomique par fichier, l'index SQLite/WAL, le CAS blob store et le scanner recovery. Step 24-BIS-C branche le vrai `WorldRuntime` sur ce flux: le runtime capture seed/DNA/player/chunk courant, ecrit un slot via `SaveCoordinator`, puis `WorldRuntimeSaveService` recharge manifest, regions, entites, blobs et reconstruit une `WorldSession` visible. Les mutations terrain/props avancees seront appliquees quand les systemes gameplay exposeront de vrais deltas editables.
 
+### ISLP surface/lighting V2
+
+ISLP vit comme un contrat cross-domain entre `WorldDNA`, les materiaux, les snapshots de rendu et le renderer Metal.
+
+Responsabilites:
+
+- definir le style de rendu monde dans `WorldRenderDNA`: profil PBR, style couleur, contraste, complexite materiau, densite texture, intensite weather surface, mutation biome, fog et shadow bias;
+- produire une table runtime `IsoMaterialRuntimeTable` avec materiaux terrain, texture sets baseColor/normal/ORM, palettes biomes et tags de compatibilite;
+- transporter les reponses materiau via `MaterialParameterBlock` et les etats de surface wetness/snow/dust/mud/moss via `SurfaceState`;
+- attacher `RenderEnvironmentState` a `RenderWorldSnapshot` pour que tone mapping, sky/fog et surface state viennent du pipeline monde, pas d'un hardcode shader;
+- convertir cet etat en uniforms Metal dans `RenderFrameContext` et l'appliquer dans le shader terrain;
+- exposer les compteurs et validations ISLP dans le Material Viewer du Tools Hub.
+
+Step 25-A livre la fondation. Les assets PBR reels, detail normals, material LOD/residency, CSM, probes, water et Forward+/clustered lighting restent des couches Step 25 suivantes. Le renderer peut rester simple tant que les contrats sont testables et que les futurs ajouts ne cassent pas les saves/snapshots existants.
+
 ### Tools Hub production V2
 
 Le Tools Hub V2 reste dans l'application SwiftUI et consomme les contrats purs de `EngineCore/Persistence`.

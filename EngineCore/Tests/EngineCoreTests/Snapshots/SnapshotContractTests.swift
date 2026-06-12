@@ -63,6 +63,8 @@ final class SnapshotContractTests: XCTestCase {
         XCTAssertEqual(snapshot.visibleChunkCount, 1)
         XCTAssertEqual(snapshot.visiblePropCount, 0)
         XCTAssertEqual(snapshot.approximateTriangleCount, 12)
+        XCTAssertEqual(snapshot.environment.surfaceState, .dry)
+        XCTAssertGreaterThan(snapshot.environment.toneMapping.exposure, 0)
     }
 
     private func makeRenderSnapshot() -> RenderWorldSnapshot {

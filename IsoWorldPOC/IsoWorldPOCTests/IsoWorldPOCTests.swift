@@ -844,11 +844,9 @@ struct IsoWorldPOCTests {
 
     @MainActor
     @Test func worldRuntimeSaveServiceRoundTripsVisibleWorldFromDisk() async throws {
-        let pipeline = WorldPreparePipeline()
-        let session = try await pipeline.prepareWorld(
-            request: WorldPrepareRequest(seedText: "runtime-save-roundtrip", initialChunkRadius: 0)
-        ) { _ in }
-        let runtime = WorldRuntime(worldSession: session, debugOptions: realWorldDebugOptions())
+        let runtime = WorldRuntime(debugOptions: realWorldDebugOptions())
+        let sourceSeed = runtime.frameSnapshot.worldSeed
+        _ = runtime.update(deltaTime: 0, debugOptions: realWorldDebugOptions())
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("IsoWorldPOC-RuntimeRoundtrip-\(UUID().uuidString)", isDirectory: true)
         defer {
@@ -874,7 +872,7 @@ struct IsoWorldPOCTests {
             debugOptions: realWorldDebugOptions()
         )
         let playerEntityID = StableID.entity(
-            worldSeed: session.worldSeed,
+            worldSeed: sourceSeed,
             localIndex: 0
         )
 
@@ -891,7 +889,7 @@ struct IsoWorldPOCTests {
         #expect(loadResult.entityStore?.entity(id: playerEntityID) != nil)
         #expect(loadResult.blobManifest?.blobs.isEmpty == false)
         #expect(loadResult.session.saveRootURL == rootURL)
-        #expect(restoredRuntime.frameSnapshot.worldSeed == session.worldSeed)
+        #expect(restoredRuntime.frameSnapshot.worldSeed == sourceSeed)
         #expect(restoredRuntime.playerPosition.x == loadResult.manifest.player.position.x)
         #expect(restoredRuntime.playerPosition.z == loadResult.manifest.player.position.z)
         #expect(restoredSnapshot.visibleChunkCount > 0)

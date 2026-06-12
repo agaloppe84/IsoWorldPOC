@@ -91,15 +91,98 @@ public struct WorldBiomeDNA: Hashable, Codable, Sendable {
     }
 }
 
+public enum RenderPBRProfile: String, CaseIterable, Codable, Sendable {
+    case stylizedPlausible
+    case balanced
+    case highFidelity
+}
+
+public enum RenderColorStyle: String, CaseIterable, Codable, Sendable {
+    case natural
+    case coolMist
+    case warmEarth
+    case highlandClear
+}
+
+public enum RenderContrastCurve: String, CaseIterable, Codable, Sendable {
+    case soft
+    case filmic
+    case crisp
+}
+
+public enum RenderMaterialComplexity: String, CaseIterable, Codable, Sendable {
+    case compact
+    case balanced
+    case rich
+}
+
+public enum RenderWetnessModel: String, CaseIterable, Codable, Sendable {
+    case subtleFilm
+    case puddled
+}
+
+public enum RenderSnowModel: String, CaseIterable, Codable, Sendable {
+    case altitudeAndCold
+    case windSheltered
+}
+
+public enum RenderDustModel: String, CaseIterable, Codable, Sendable {
+    case dryExposure
+    case biomeDriven
+}
+
 public struct WorldRenderDNA: Hashable, Codable, Sendable {
     public var paletteSeed: UInt64
     public var exposureBias: Float
     public var lightTemperature: Float
+    public var pbrProfile: RenderPBRProfile
+    public var colorStyle: RenderColorStyle
+    public var contrastCurve: RenderContrastCurve
+    public var materialComplexity: RenderMaterialComplexity
+    public var textureDensityScale: Float
+    public var weatherSurfaceIntensity: Float
+    public var biomeMaterialMutation: Float
+    public var fogDensityBias: Float
+    public var shadowSoftnessBias: Float
+    public var wetnessModel: RenderWetnessModel
+    public var snowModel: RenderSnowModel
+    public var dustModel: RenderDustModel
+    public var worldAgeVisualBias: Float
 
-    public init(paletteSeed: UInt64, exposureBias: Float, lightTemperature: Float) {
+    public init(
+        paletteSeed: UInt64,
+        exposureBias: Float,
+        lightTemperature: Float,
+        pbrProfile: RenderPBRProfile = .balanced,
+        colorStyle: RenderColorStyle = .natural,
+        contrastCurve: RenderContrastCurve = .filmic,
+        materialComplexity: RenderMaterialComplexity = .balanced,
+        textureDensityScale: Float = 1,
+        weatherSurfaceIntensity: Float = 1,
+        biomeMaterialMutation: Float = 0,
+        fogDensityBias: Float = 0,
+        shadowSoftnessBias: Float = 0,
+        wetnessModel: RenderWetnessModel = .subtleFilm,
+        snowModel: RenderSnowModel = .altitudeAndCold,
+        dustModel: RenderDustModel = .dryExposure,
+        worldAgeVisualBias: Float = 0.5
+    ) {
         self.paletteSeed = paletteSeed
-        self.exposureBias = exposureBias
-        self.lightTemperature = lightTemperature
+        self.exposureBias = Self.clamped(exposureBias, lower: -0.45, upper: 0.45)
+        self.lightTemperature = Self.clamped(lightTemperature, lower: 3_200, upper: 8_500)
+        self.pbrProfile = pbrProfile
+        self.colorStyle = colorStyle
+        self.contrastCurve = contrastCurve
+        self.materialComplexity = materialComplexity
+        self.textureDensityScale = Self.clamped(textureDensityScale, lower: 0.5, upper: 2)
+        self.weatherSurfaceIntensity = Self.clamped(weatherSurfaceIntensity, lower: 0, upper: 1.5)
+        self.biomeMaterialMutation = Self.clamped(biomeMaterialMutation, lower: 0, upper: 1)
+        self.fogDensityBias = Self.clamped(fogDensityBias, lower: -0.08, upper: 0.16)
+        self.shadowSoftnessBias = Self.clamped(shadowSoftnessBias, lower: -1, upper: 1)
+        self.wetnessModel = wetnessModel
+        self.snowModel = snowModel
+        self.dustModel = dustModel
+        self.worldAgeVisualBias = Self.clamped(worldAgeVisualBias, lower: 0, upper: 1)
     }
 
     public static func make(
@@ -111,8 +194,88 @@ public struct WorldRenderDNA: Hashable, Codable, Sendable {
         return WorldRenderDNA(
             paletteSeed: random.next(),
             exposureBias: random.nextFloat(in: -0.10...0.12),
-            lightTemperature: random.nextFloat(in: 4_800...6_800)
+            lightTemperature: random.nextFloat(in: 4_800...6_800),
+            pbrProfile: random.element(from: RenderPBRProfile.allCases),
+            colorStyle: random.element(from: RenderColorStyle.allCases),
+            contrastCurve: random.element(from: RenderContrastCurve.allCases),
+            materialComplexity: random.element(from: RenderMaterialComplexity.allCases),
+            textureDensityScale: random.nextFloat(in: 0.82...1.28),
+            weatherSurfaceIntensity: random.nextFloat(in: 0.72...1.20),
+            biomeMaterialMutation: random.nextFloat(in: 0.10...0.48),
+            fogDensityBias: random.nextFloat(in: -0.02...0.05),
+            shadowSoftnessBias: random.nextFloat(in: -0.20...0.35),
+            wetnessModel: random.element(from: RenderWetnessModel.allCases),
+            snowModel: random.element(from: RenderSnowModel.allCases),
+            dustModel: random.element(from: RenderDustModel.allCases),
+            worldAgeVisualBias: random.nextFloat(in: 0.18...0.86)
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case paletteSeed
+        case exposureBias
+        case lightTemperature
+        case pbrProfile
+        case colorStyle
+        case contrastCurve
+        case materialComplexity
+        case textureDensityScale
+        case weatherSurfaceIntensity
+        case biomeMaterialMutation
+        case fogDensityBias
+        case shadowSoftnessBias
+        case wetnessModel
+        case snowModel
+        case dustModel
+        case worldAgeVisualBias
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        self.init(
+            paletteSeed: try container.decode(UInt64.self, forKey: .paletteSeed),
+            exposureBias: try container.decode(Float.self, forKey: .exposureBias),
+            lightTemperature: try container.decode(Float.self, forKey: .lightTemperature),
+            pbrProfile: try container.decodeIfPresent(RenderPBRProfile.self, forKey: .pbrProfile) ?? .balanced,
+            colorStyle: try container.decodeIfPresent(RenderColorStyle.self, forKey: .colorStyle) ?? .natural,
+            contrastCurve: try container.decodeIfPresent(RenderContrastCurve.self, forKey: .contrastCurve) ?? .filmic,
+            materialComplexity: try container.decodeIfPresent(RenderMaterialComplexity.self, forKey: .materialComplexity) ?? .balanced,
+            textureDensityScale: try container.decodeIfPresent(Float.self, forKey: .textureDensityScale) ?? 1,
+            weatherSurfaceIntensity: try container.decodeIfPresent(Float.self, forKey: .weatherSurfaceIntensity) ?? 1,
+            biomeMaterialMutation: try container.decodeIfPresent(Float.self, forKey: .biomeMaterialMutation) ?? 0,
+            fogDensityBias: try container.decodeIfPresent(Float.self, forKey: .fogDensityBias) ?? 0,
+            shadowSoftnessBias: try container.decodeIfPresent(Float.self, forKey: .shadowSoftnessBias) ?? 0,
+            wetnessModel: try container.decodeIfPresent(RenderWetnessModel.self, forKey: .wetnessModel) ?? .subtleFilm,
+            snowModel: try container.decodeIfPresent(RenderSnowModel.self, forKey: .snowModel) ?? .altitudeAndCold,
+            dustModel: try container.decodeIfPresent(RenderDustModel.self, forKey: .dustModel) ?? .dryExposure,
+            worldAgeVisualBias: try container.decodeIfPresent(Float.self, forKey: .worldAgeVisualBias) ?? 0.5
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(paletteSeed, forKey: .paletteSeed)
+        try container.encode(exposureBias, forKey: .exposureBias)
+        try container.encode(lightTemperature, forKey: .lightTemperature)
+        try container.encode(pbrProfile, forKey: .pbrProfile)
+        try container.encode(colorStyle, forKey: .colorStyle)
+        try container.encode(contrastCurve, forKey: .contrastCurve)
+        try container.encode(materialComplexity, forKey: .materialComplexity)
+        try container.encode(textureDensityScale, forKey: .textureDensityScale)
+        try container.encode(weatherSurfaceIntensity, forKey: .weatherSurfaceIntensity)
+        try container.encode(biomeMaterialMutation, forKey: .biomeMaterialMutation)
+        try container.encode(fogDensityBias, forKey: .fogDensityBias)
+        try container.encode(shadowSoftnessBias, forKey: .shadowSoftnessBias)
+        try container.encode(wetnessModel, forKey: .wetnessModel)
+        try container.encode(snowModel, forKey: .snowModel)
+        try container.encode(dustModel, forKey: .dustModel)
+        try container.encode(worldAgeVisualBias, forKey: .worldAgeVisualBias)
+    }
+
+    private static func clamped(_ value: Float, lower: Float, upper: Float) -> Float {
+        min(max(value, lower), upper)
     }
 }
 
@@ -151,4 +314,10 @@ private func versionedRNG(
     }
 
     return StableRNG(seed: worldSeed, domain: domain, values: [versionHash.value])
+}
+
+private extension StableRNG {
+    mutating func element<Element>(from values: [Element]) -> Element {
+        values[nextInt(upperBound: values.count)]
+    }
 }

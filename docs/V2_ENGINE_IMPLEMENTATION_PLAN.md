@@ -505,6 +505,20 @@ Sous-steps proposes :
 10. fog/atmosphere/water baseline.
 11. material/lighting tools et validators.
 
+Tranche 25-A livree :
+
+- `WorldRenderDNA` devient le spine deterministic du rendu monde: profil PBR, style couleur, contraste, complexite materiau, densite texture, intensite weather surface, mutation biome, fog et shadow bias.
+- `IsoMaterialRuntimeTable` regroupe les materiaux runtime terrain, les texture sets PBR et les palettes biomes avec tags de compatibilite.
+- Les parameter blocks et surface states transportent wetness, snow, dust, mud et moss jusqu'au shader terrain.
+- `RenderEnvironmentState` entre dans `RenderWorldSnapshot` et derive tone mapping, sky/fog et surface state depuis `WorldDNA`, biome courant et terrain sample.
+- Le Material Viewer lit la table runtime ISLP et expose les compteurs de validation.
+
+Prochaine tranche Step 25-B :
+
+- renforcer les surfaces terrain: macro/micro variation, detail normals, meilleure reponse aux pentes/falaises et debug views dediees.
+- introduire le material LOD/residency contract avant les assets PBR reels.
+- garder le shader profilable; CSM, probes et Forward+/clustered restent des sous-steps separes apres stabilisation des surfaces.
+
 ### Step 26 - IVDS / LOD avance
 
 But : densite massive, sans casser gameplay ni M1.

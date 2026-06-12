@@ -21,7 +21,10 @@ struct MetalFrameContext {
     }
 
     var lightingUniforms: MetalLightingUniforms {
-        MetalLightingUniforms(state: snapshot.lighting)
+        MetalLightingUniforms(
+            state: snapshot.lighting,
+            environment: snapshot.environment
+        )
     }
 
     var debugUniforms: MetalRenderDebugUniforms {
@@ -46,8 +49,10 @@ typealias RenderFrameContext = MetalFrameContext
 struct MetalLightingUniforms {
     let sunDirectionAndIntensity: SIMD4<Float>
     let ambientAndFlags: SIMD4<Float>
+    let exposureAndSurfaceState: SIMD4<Float>
+    let skyAndFog: SIMD4<Float>
 
-    init(state: LightingState) {
+    init(state: LightingState, environment: RenderEnvironmentState) {
         let rawDirection = vector(from: state.sunDirection)
         let directionLength = simd_length(rawDirection)
         let direction = directionLength > 0.0001
@@ -63,8 +68,20 @@ struct MetalLightingUniforms {
         self.ambientAndFlags = SIMD4<Float>(
             max(state.ambientIntensity, 0),
             state.shadowsEnabled ? 1 : 0,
-            0,
-            0
+            environment.surfaceState.moss,
+            environment.renderDNA.shadowSoftnessBias
+        )
+        self.exposureAndSurfaceState = SIMD4<Float>(
+            environment.toneMapping.exposure,
+            environment.surfaceState.wetness,
+            environment.surfaceState.snow,
+            environment.surfaceState.dust
+        )
+        self.skyAndFog = SIMD4<Float>(
+            environment.sky.tint.red,
+            environment.sky.tint.green,
+            environment.sky.tint.blue,
+            environment.sky.fogDensity
         )
     }
 }

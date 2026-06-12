@@ -23,7 +23,7 @@ final class WorldRuntime {
     private let audioEngine = IsoAudioEngine()
     private let biomeSampler: BiomeSampler
     private let uiWorldDNA: UIWorldDNA
-    private let lightingState = LightingState.defaultDay
+    private let lightingState: LightingState
     private let seedText: String
     private let worldSeed: WorldSeed
     private let worldDNA: WorldDNA
@@ -102,6 +102,7 @@ final class WorldRuntime {
         self.seedText = resolvedSeedText
         self.worldSeed = resolvedWorldSeed
         self.worldDNA = resolvedWorldDNA
+        self.lightingState = LightingState.daylight(renderDNA: resolvedWorldDNA.render)
         self.saveRootURL = worldSession?.saveRootURL
         self.playerController = PlayerController(position: SIMD3<Float>(
             spawnPosition?.x ?? 0,
@@ -413,9 +414,27 @@ final class WorldRuntime {
             chunkStreamer: chunkStreamer,
             camera: cameraController.renderState(following: playerController.position),
             lighting: lightingState,
+            environment: makeRenderEnvironment(),
             debugOptions: debugOptions,
             fx: latestFXSnapshot,
             ui: latestUIFrameSnapshot
+        )
+    }
+
+    private func makeRenderEnvironment() -> RenderEnvironmentState {
+        let terrainSample = lastGrounding.groundSample?.terrainSample
+        let biome = terrainSample?.materialWeights.primaryBiome ??
+            biomeSampler.biome(at: WorldPosition(
+                x: playerController.position.x,
+                y: playerController.position.y,
+                z: playerController.position.z
+            ))
+
+        return RenderEnvironmentState.make(
+            worldDNA: worldDNA,
+            primaryBiome: biome,
+            terrainSample: terrainSample,
+            simulationTime: simulationTime
         )
     }
 

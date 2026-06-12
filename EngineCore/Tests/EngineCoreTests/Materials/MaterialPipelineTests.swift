@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import EngineCore
 
@@ -131,7 +132,7 @@ final class MaterialPipelineTests: XCTestCase {
         let material = TerrainMaterialDescriptor.definition(for: .rock)
         let runtime = IsoMaterialRuntime.terrain(
             material,
-            surfaceState: SurfaceState(wetness: 1)
+            surfaceState: SurfaceState(wetness: 1, moss: 0.5)
         )
         let dryParameters = MaterialParameterBlock.terrain(material)
         let wetParameters = runtime.resolvedParameters
@@ -154,5 +155,95 @@ final class MaterialPipelineTests: XCTestCase {
         XCTAssertEqual(runtime.descriptor.terrainMaterialKind, descriptor.kind)
         XCTAssertEqual(runtime.resolvedParameters.baseColor, descriptor.baseColor)
         XCTAssertEqual(runtime.resolvedParameters.roughness, descriptor.roughness, accuracy: 0.0001)
+    }
+
+    func testISLPRuntimeTableExposesCompleteTerrainPBRContract() {
+        let renderDNA = WorldRenderDNA.make(worldSeed: WorldSeed(24_025))
+        let table = IsoMaterialRuntimeTable.terrainBaseline(renderDNA: renderDNA)
+        let report = table.validationReport()
+
+        XCTAssertEqual(table.materials.count, TerrainMaterialKind.allCases.count)
+        XCTAssertEqual(table.textureSets.count, TerrainMaterialKind.allCases.count)
+        XCTAssertEqual(table.biomePalettes.count, BiomeType.allCases.count)
+        XCTAssertTrue(report.isValid)
+        XCTAssertEqual(report.errorCount, 0)
+
+        for kind in TerrainMaterialKind.allCases {
+            let material = TerrainMaterialDescriptor.definition(for: kind)
+            let runtime = table.runtimeMaterial(for: MaterialID(material.identifier))
+            let textureSet = table.textureSet(for: MaterialID(material.identifier))
+
+            XCTAssertNotNil(runtime)
+            XCTAssertEqual(
+                Set(textureSet?.bindings.map(\.role) ?? []),
+                Set([SurfaceTextureRole.baseColor, .normal, .orm])
+            )
+            XCTAssertEqual(textureSet?.packsORM, true)
+        }
+    }
+
+    func testRenderEnvironmentDerivesSurfaceStateFromTerrainAndDNA() {
+        let dna = WorldDNA(
+            terrain: WorldTerrainDNA(continentScale: 1, verticalScale: 1, erosionSeed: 7),
+            biomes: WorldBiomeDNA(
+                climateSeed: 11,
+                transitionSharpness: 1,
+                moistureBias: 0,
+                temperatureBias: 0
+            ),
+            render: WorldRenderDNA(
+                paletteSeed: 13,
+                exposureBias: 0.08,
+                lightTemperature: 6_200,
+                weatherSurfaceIntensity: 1.1,
+                fogDensityBias: 0.02
+            ),
+            rpg: WorldRPGDNA.make(worldSeed: WorldSeed(7)),
+            style: WorldStyleGenome.make(worldSeed: WorldSeed(7))
+        )
+        let sample = TerrainSample(
+            localX: 0,
+            localZ: 0,
+            worldX: 0,
+            worldZ: 0,
+            height: 0,
+            slope: 0.08,
+            roughness: 0.25,
+            moisture: 0.82,
+            temperature: 0.42,
+            materialWeights: MaterialWeights(primaryBiome: Biome.definition(for: .temperateForest)),
+            waterDepth: 0.08
+        )
+        let environment = RenderEnvironmentState.make(
+            worldDNA: dna,
+            primaryBiome: Biome.definition(for: .temperateForest),
+            terrainSample: sample,
+            simulationTime: 2
+        )
+
+        XCTAssertGreaterThan(environment.surfaceState.wetness, 0)
+        XCTAssertGreaterThan(environment.surfaceState.moss, 0)
+        XCTAssertGreaterThan(environment.sky.fogDensity, 0.02)
+        XCTAssertEqual(environment.toneMapping.exposure, 1.08, accuracy: 0.0001)
+    }
+
+    func testWorldRenderDNADecodesOlderSaveShapeWithDefaults() throws {
+        let data = """
+        {
+          "paletteSeed": 42,
+          "exposureBias": 0.05,
+          "lightTemperature": 5400
+        }
+        """.data(using: .utf8)!
+
+        let dna = try JSONDecoder().decode(WorldRenderDNA.self, from: data)
+
+        XCTAssertEqual(dna.paletteSeed, 42)
+        XCTAssertEqual(dna.exposureBias, 0.05, accuracy: 0.0001)
+        XCTAssertEqual(dna.lightTemperature, 5_400, accuracy: 0.0001)
+        XCTAssertEqual(dna.pbrProfile, .balanced)
+        XCTAssertEqual(dna.materialComplexity, .balanced)
+        XCTAssertEqual(dna.textureDensityScale, 1, accuracy: 0.0001)
+        XCTAssertEqual(dna.weatherSurfaceIntensity, 1, accuracy: 0.0001)
     }
 }
