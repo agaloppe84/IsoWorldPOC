@@ -897,6 +897,64 @@ struct IsoWorldPOCTests {
     }
 
     @MainActor
+    @Test func appStoreMenuSaveSlotContinuesAndDeletesMovedRuntime() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("IsoWorldPOC-MenuSaveSlots-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+        let store = AppStore(seedInput: "menu-save-roundtrip", saveRootDirectory: rootURL)
+        let pipeline = WorldPreparePipeline()
+        let session = try await pipeline.prepareWorld(
+            request: WorldPrepareRequest(seedText: "menu-save-roundtrip", initialChunkRadius: 0)
+        ) { _ in }
+        let runtime = WorldRuntime(worldSession: session, debugOptions: realWorldDebugOptions())
+
+        let startPosition = runtime.playerPosition
+        runtime.handleKeyDown(keyCode: 13)
+        for _ in 0..<30 {
+            _ = runtime.update(deltaTime: 1.0 / 30.0, debugOptions: realWorldDebugOptions())
+        }
+        runtime.handleKeyUp(keyCode: 13)
+        let movedPosition = runtime.playerPosition
+
+        #expect(simd_distance(startPosition, movedPosition) > 0.2)
+
+        await store.refreshSaveSlots()
+        #expect(store.saveSlotSummaries.isEmpty)
+
+        await store.saveCurrentWorldNow(runtime: runtime)
+
+        let summary = try #require(store.latestSaveSlotSummary)
+        #expect(summary.worldSeedText == session.seed)
+        #expect(store.runtimeSaveMessage?.hasPrefix("Saved g") == true)
+
+        store.showMainMenu()
+        await store.openSavedWorldNow(slotID: summary.slotID)
+
+        guard case .realWorld = store.mode else {
+            Issue.record("Expected AppStore to open a real world from the save slot.")
+            return
+        }
+
+        let loadedSession = try #require(store.currentWorldSession)
+        let loadedManifest = try #require(loadedSession.saveManifest)
+        let loadedRuntime = WorldRuntime(worldSession: loadedSession, debugOptions: realWorldDebugOptions())
+
+        #expect(loadedManifest.player.position.x == movedPosition.x)
+        #expect(loadedManifest.player.position.z == movedPosition.z)
+        #expect(loadedRuntime.playerPosition.x == movedPosition.x)
+        #expect(loadedRuntime.playerPosition.z == movedPosition.z)
+
+        store.showMainMenu()
+        await store.deleteSavedWorld(slotID: summary.slotID)
+
+        #expect(store.saveSlotSummaries.isEmpty)
+        #expect(store.runtimeSaveMessage == "Save deleted")
+        #expect(FileManager.default.fileExists(atPath: rootURL.appendingPathComponent(summary.slotID.rawValue).path) == false)
+    }
+
+    @MainActor
     @Test func worldRuntimePublishesUIFrameSnapshotFromPreparedSession() async throws {
         let pipeline = WorldPreparePipeline()
         let session = try await pipeline.prepareWorld(

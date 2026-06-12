@@ -1,3 +1,4 @@
+import EngineCore
 import SwiftUI
 
 struct MainMenuView: View {
@@ -52,10 +53,22 @@ struct MainMenuView: View {
                     ShellStatusRow(label: "Renderer", value: "Idle")
                     ShellStatusRow(label: "World", value: "Unloaded")
                     ShellStatusRow(label: "Toolchain", value: "Xcode 26.5")
+
+                    if let runtimeSaveMessage = store.runtimeSaveMessage {
+                        Divider()
+                        Text(runtimeSaveMessage)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding(18)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+
+                SaveSlotPanel(store: store)
             }
+        }
+        .task {
+            await store.refreshSaveSlots()
         }
         .padding(44)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -92,6 +105,66 @@ private struct ShellButton: View {
                 .frame(width: 220, alignment: .leading)
         }
         .controlSize(.large)
+    }
+}
+
+private struct SaveSlotPanel: View {
+    @ObservedObject var store: AppStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Save", systemImage: "externaldrive")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    Task {
+                        await store.refreshSaveSlots()
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .help("Refresh saves")
+            }
+
+            if let summary = store.latestSaveSlotSummary {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(summary.displayName)
+                        .font(.subheadline.weight(.semibold))
+                    Text(summary.worldSeedText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ShellStatusRow(label: "Saved", value: summary.lastSavedAt.formatted(date: .abbreviated, time: .shortened))
+                    ShellStatusRow(label: "Region", value: "\(summary.playerRegion.x), \(summary.playerRegion.z)")
+                }
+
+                HStack(spacing: 8) {
+                    Button {
+                        store.openSavedWorld(slotID: summary.slotID)
+                    } label: {
+                        Label("Continue", systemImage: "play.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button(role: .destructive) {
+                        Task {
+                            await store.deleteSavedWorld(slotID: summary.slotID)
+                        }
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            } else {
+                Text("No save")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 280, alignment: .leading)
+        .padding(18)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 }
 

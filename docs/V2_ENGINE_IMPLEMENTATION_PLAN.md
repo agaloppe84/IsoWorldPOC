@@ -480,11 +480,13 @@ Sous-steps proposes :
 7. CAS blob store pour assets/caches lourds.
 8. migration lab avec corpus de saves.
 9. Save Inspector connecte aux vraies donnees.
+10. Save Slot UI avec Continue/Delete depuis le menu.
 
 Definition of Done :
 
 - un monde modifie peut sauvegarder puis recharger un delta terrain/prop/entity.
 - un crash injecte pendant save recupere le dernier etat valide.
+- le Main Menu detecte une save valide, peut la continuer et peut la supprimer sans slot fantome.
 - les caches restent exclus de la source de verite.
 
 ### Step 25 - ISLP lighting/surfaces V2

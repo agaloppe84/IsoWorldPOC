@@ -13,7 +13,7 @@ Legende :
 
 | Element | Etat |
 |---|---|
-| Dernier step livre | Step 25-A - ISLP surface/material/lighting foundation |
+| Dernier step livre | Step 24-BIS-D - Save Slot UI + Continue/Delete |
 | Branche cible | `main` |
 | Docs reference | lecture seule |
 | Prochaine cible officielle | Step 25-B - Terrain surface quality + material LOD/debug views |
@@ -144,8 +144,11 @@ Objectif : brancher les contrats Step 23 dans une persistence robuste.
 - [x] CAS blob store.
 - [x] Migration lab.
 - [x] Save Inspector connected to real save data.
+- [x] Save slot UI connected to real save data.
+- [x] Continue/Delete save slot from Main Menu.
 - [x] Crash injection tests.
 - [x] Save/load world delta integration tests.
+- [x] Menu save/load/delete roundtrip test.
 - [x] EngineCore persistence tests.
 - [x] Build Xcode safe OK.
 - [x] Xcode build-for-testing OK.
@@ -153,11 +156,13 @@ Objectif : brancher les contrats Step 23 dans une persistence robuste.
 Notes:
 
 - Tranche 24-BIS-C livree: runtime World branche sur save/load disque avec roundtrip visible.
+- Tranche 24-BIS-D livree: le Main Menu detecte le dernier slot valide, peut continuer une save runtime et supprimer le slot.
 - `SaveCoordinator` ecrit regions, journal et snapshots avant `manifest.json`, qui reste le point de commit.
 - `SaveCoordinator` ecrit aussi entites, CAS + `state.sqlite` avant `manifest.json`; SQLite reste un index rebuildable.
 - `SaveRecoveryScanner` detecte/nettoie les artefacts region/snapshot et index support non commit apres crash injecte.
 - Le Save Inspector du Tools Hub lit un vrai dossier via `saveRoot:/chemin` et garde un fallback preview.
 - `WorldRuntimeSaveService` sauve le runtime vivant, recharge manifest + regions + entites + blobs en `WorldSession` et le test app valide un snapshot visible restaure.
+- `AppStore` centralise la racine de save, expose les summaries via `SaveSlotManager`, et le test app valide save -> menu -> continue -> position restauree -> delete.
 - Dette restante: mutations terrain/props runtime avancees a appliquer quand les systemes producteurs existent.
 
 ## Step 25 - ISLP lighting/surfaces V2
@@ -510,3 +515,4 @@ Objectif : rendre la V2 testable et maintenable.
 | 2026-06-12 | Step 24-A | Tools Hub V2 avec workspace, registry production, document store packages, validation hints et diagnostics | pending |
 | 2026-06-12 | Step 24-B | Rapports specialises pour terrain, biomes, props, materiaux, LOD, save inspector et seed gallery | pending |
 | 2026-06-12 | Step 24-C | Rapports specialises pour les outils restants et runner golden seeds branche dans la validation | pending |
+| 2026-06-12 | Step 24-BIS-D | Save slot UI, Continue/Delete depuis le menu et roundtrip menu reel | pending |

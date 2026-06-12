@@ -415,8 +415,22 @@ Step 24-BIS-C branche la persistence sur le vrai runtime World:
 
 Limite volontaire: le gameplay courant ne modifie pas encore terrain/props en jeu. Le step prepare et transporte les region deltas, mais l'application de mutations terrain/props avancees restera a brancher quand les outils ou systemes gameplay produiront ces deltas en runtime.
 
+## Step 24-BIS-D livre
+
+Step 24-BIS-D rend la persistence visible et actionnable depuis le vrai menu:
+
+- `AppStore` possede une racine de save injectable, un `SaveSlotManager` et des summaries de slots publies pour l'UI.
+- La save runtime manuelle passe par un chemin async deterministe et rafraichit les slots apres commit.
+- Le Main Menu affiche le dernier slot valide, son seed, sa date et la region joueur sauvegardee.
+- Le bouton Continue recharge le slot via `WorldRuntimeSaveService` et rouvre un `realWorld` restaure.
+- Le bouton Delete supprime le slot disque et rafraichit le menu sans laisser de save fantome.
+- `RealWorldView` affiche un feedback de save compact sans transformer le vrai monde en panel debug.
+- Le test app `appStoreMenuSaveSlotContinuesAndDeletesMovedRuntime` valide le roundtrip joueur: deplacement, save, retour menu, continue, position restauree, suppression.
+
+Cette passe ne change pas encore les mutations terrain/props disponibles en jeu. Elle verrouille le roundtrip menu reel pour que les prochains systemes V2 puissent s'appuyer sur une save visible par le joueur.
+
 ## Prochaine cible
 
-Step 25-A demarre la V2 visuelle sans casser la baseline V1: le runtime a maintenant un spine ISLP pour `WorldRenderDNA`, table materiaux, texture sets, etat environnement, surface states et premiers hooks shader/Material Viewer.
+Step 25-A a demarre la V2 visuelle sans casser la baseline V1: le runtime a maintenant un spine ISLP pour `WorldRenderDNA`, table materiaux, texture sets, etat environnement, surface states et premiers hooks shader/Material Viewer.
 
 La prochaine tranche logique est Step 25-B: surfaces terrain plus riches, material LOD/residency contract et vues debug material plus fines. En parallele, une future tranche persistence devra etendre le runtime aux mutations terrain/props editables quand les systemes producteurs existent.

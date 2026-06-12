@@ -643,3 +643,15 @@ Consequence: `WorldRenderDNA` porte les profils PBR/style/contraste/material/wea
 Garantie: les tests EngineCore couvrent la table runtime ISLP, les reponses de surface, l'environnement derive et la compatibilite de decoding des anciens `WorldRenderDNA`/snapshots. Les tests app verifient le Material Viewer et le roundtrip runtime save/load apres branchement snapshot.
 
 Limite actuelle: Step 25-A reste une fondation. Les textures sont encore preview/code-side, le terrain n'a pas encore detail normals ou material LOD, et les ombres/probes/Forward+ restent volontairement separes pour garder le shader profilable.
+
+## 061 - Save Slot UI par summaries autoritatives
+
+Decision: exposer les saves joueur dans le Main Menu via `SaveSlotManager` et `SaveSlotSummary`, puis faire passer Continue/Delete par `AppStore`.
+
+Raison: une sauvegarde qui existe seulement dans le dossier disque ou dans le Save Inspector reste invisible pour le joueur. Le menu doit lire les slots valides, afficher l'etat sauvegarde et rouvrir un monde restaure sans chemin parallele.
+
+Consequence: `AppStore` centralise la racine de save, rafraichit les summaries apres save/menu/delete, recharge un slot via `WorldRuntimeSaveService` et supprime un slot via `SaveSlotManager`. `MainMenuView` affiche le dernier slot valide avec seed/date/region et expose Continue/Delete.
+
+Garantie: le test app `appStoreMenuSaveSlotContinuesAndDeletesMovedRuntime` valide un deplacement runtime, save disque, retour menu, continue, position restauree et suppression du slot.
+
+Limite actuelle: le menu gere un slot latest-first. Les slots multiples, renommage, confirmations avancees et metadata gameplay riches pourront arriver quand la persistence aura plus de types de deltas visibles.

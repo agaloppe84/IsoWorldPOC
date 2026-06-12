@@ -11,10 +11,17 @@ final class AppStore: ObservableObject {
     @Published private(set) var currentToolSession: ToolSession?
     @Published private(set) var runtimeSaveMessage: String?
     @Published private(set) var lastRuntimeSaveReport: SaveInspectionReport?
+    @Published private(set) var saveSlotSummaries: [SaveSlotSummary] = []
+
+    var latestSaveSlotSummary: SaveSlotSummary? {
+        saveSlotSummaries.first
+    }
 
     private let engineCore: EngineCoreFacade
     private let worldPreparePipeline: WorldPreparePipeline
     private let worldRuntimeSaveService: WorldRuntimeSaveService
+    private let saveRootDirectory: URL
+    private let saveSlotManager: SaveSlotManager
     private var loadingTask: Task<Void, Never>?
 
     init(
@@ -22,13 +29,18 @@ final class AppStore: ObservableObject {
         seedInput: String = "isoworld-seed-001",
         engineCore: EngineCoreFacade = EngineCoreFacade(),
         worldPreparePipeline: WorldPreparePipeline = WorldPreparePipeline(),
-        worldRuntimeSaveService: WorldRuntimeSaveService = WorldRuntimeSaveService()
+        worldRuntimeSaveService: WorldRuntimeSaveService = WorldRuntimeSaveService(),
+        saveRootDirectory: URL? = nil
     ) {
+        let resolvedSaveRootDirectory = saveRootDirectory ?? Self.defaultSaveRootDirectory()
+
         self.mode = mode
         self.seedInput = seedInput
         self.engineCore = engineCore
         self.worldPreparePipeline = worldPreparePipeline
         self.worldRuntimeSaveService = worldRuntimeSaveService
+        self.saveRootDirectory = resolvedSaveRootDirectory
+        self.saveSlotManager = SaveSlotManager(rootDirectory: resolvedSaveRootDirectory)
     }
 
     deinit {
@@ -41,9 +53,11 @@ final class AppStore: ObservableObject {
         loadingProgress = nil
         currentWorldSession = nil
         currentToolSession = nil
-        runtimeSaveMessage = nil
-        lastRuntimeSaveReport = nil
         mode = .mainMenu
+
+        Task { @MainActor [weak self] in
+            await self?.refreshSaveSlots()
+        }
     }
 
     func openDebugWorld() {
@@ -88,6 +102,12 @@ final class AppStore: ObservableObject {
     }
 
     func saveCurrentWorld(runtime: WorldRuntime?) {
+        Task { @MainActor [weak self, runtime] in
+            await self?.saveCurrentWorldNow(runtime: runtime)
+        }
+    }
+
+    func saveCurrentWorldNow(runtime: WorldRuntime?) async {
         guard let runtime else {
             runtimeSaveMessage = "World runtime unavailable"
             return
@@ -99,18 +119,30 @@ final class AppStore: ObservableObject {
         let worldName = currentWorldSession?.saveManifest?.worldName ?? "IsoWorld Runtime"
 
         runtimeSaveMessage = "Saving"
-        Task { @MainActor [weak self, runtime] in
-            await self?.runRuntimeSave(
-                runtime: runtime,
-                rootURL: rootURL,
-                slotID: slotID,
-                displayName: displayName,
-                worldName: worldName
-            )
-        }
+        await runRuntimeSave(
+            runtime: runtime,
+            rootURL: rootURL,
+            slotID: slotID,
+            displayName: displayName,
+            worldName: worldName
+        )
+    }
+
+    func openSavedWorld(slotID: SaveSlotID) {
+        openSavedWorld(from: saveRootURL(for: slotID))
     }
 
     func openSavedWorld(from saveRootURL: URL) {
+        Task { @MainActor [weak self] in
+            await self?.openSavedWorldNow(from: saveRootURL)
+        }
+    }
+
+    func openSavedWorldNow(slotID: SaveSlotID) async {
+        await openSavedWorldNow(from: saveRootURL(for: slotID))
+    }
+
+    func openSavedWorldNow(from saveRootURL: URL) async {
         loadingTask?.cancel()
         loadingTask = nil
         currentWorldSession = nil
@@ -118,8 +150,25 @@ final class AppStore: ObservableObject {
         runtimeSaveMessage = "Loading"
         mode = .preparingWorld(LoadingSessionID())
 
-        Task { @MainActor [weak self] in
-            await self?.runRuntimeLoad(from: saveRootURL)
+        await runRuntimeLoad(from: saveRootURL)
+    }
+
+    func refreshSaveSlots() async {
+        do {
+            saveSlotSummaries = try await saveSlotManager.listSlots()
+        } catch {
+            saveSlotSummaries = []
+            runtimeSaveMessage = "Save scan failed"
+        }
+    }
+
+    func deleteSavedWorld(slotID: SaveSlotID) async {
+        do {
+            try await saveSlotManager.delete(slotID: slotID)
+            await refreshSaveSlots()
+            runtimeSaveMessage = "Save deleted"
+        } catch {
+            runtimeSaveMessage = "Delete failed"
         }
     }
 
@@ -177,6 +226,7 @@ final class AppStore: ObservableObject {
             )
             lastRuntimeSaveReport = result.inspection
             runtimeSaveMessage = "Saved g\(result.manifest.integrity.generation)"
+            await refreshSaveSlots()
         } catch {
             runtimeSaveMessage = "Save failed"
         }
@@ -219,6 +269,14 @@ final class AppStore: ObservableObject {
     }
 
     private func defaultSaveRootURL(for slotID: SaveSlotID) -> URL {
+        saveRootURL(for: slotID)
+    }
+
+    private func saveRootURL(for slotID: SaveSlotID) -> URL {
+        saveRootDirectory.appendingPathComponent(slotID.rawValue, isDirectory: true)
+    }
+
+    private static func defaultSaveRootDirectory() -> URL {
         let root = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -227,6 +285,5 @@ final class AppStore: ObservableObject {
         return root
             .appendingPathComponent("IsoWorldPOC", isDirectory: true)
             .appendingPathComponent("Saves", isDirectory: true)
-            .appendingPathComponent(slotID.rawValue, isDirectory: true)
     }
 }
