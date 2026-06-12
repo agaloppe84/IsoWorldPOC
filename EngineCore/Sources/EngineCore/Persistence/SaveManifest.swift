@@ -243,13 +243,15 @@ public struct SaveFilesManifest: Hashable, Codable, Sendable {
     public let blobsPath: String?
     public let snapshotsPath: String?
     public let eventJournalPath: String?
+    public let sqliteIndexPath: String?
 
     public init(
         manifestPath: String = "manifest.json",
         modifiedRegionsPath: String? = nil,
         blobsPath: String? = nil,
         snapshotsPath: String? = nil,
-        eventJournalPath: String? = nil
+        eventJournalPath: String? = nil,
+        sqliteIndexPath: String? = nil
     ) {
         precondition(!manifestPath.isEmpty, "manifestPath cannot be empty.")
 
@@ -258,6 +260,7 @@ public struct SaveFilesManifest: Hashable, Codable, Sendable {
         self.blobsPath = blobsPath
         self.snapshotsPath = snapshotsPath
         self.eventJournalPath = eventJournalPath
+        self.sqliteIndexPath = sqliteIndexPath
     }
 
     public static let productionV2 = SaveFilesManifest(
@@ -265,7 +268,8 @@ public struct SaveFilesManifest: Hashable, Codable, Sendable {
         modifiedRegionsPath: "regions",
         blobsPath: "blobs",
         snapshotsPath: "snapshots",
-        eventJournalPath: "events/journal.json"
+        eventJournalPath: "events/journal.json",
+        sqliteIndexPath: "state.sqlite"
     )
 
     public var snapshotIndexPath: String? {

@@ -383,6 +383,23 @@ Step 24-BIS branche une premiere tranche du spine persistence production au-dess
 
 Cette passe ne branche pas encore le runtime World reel sur `SaveCoordinator`. Elle ne livre pas non plus `state.sqlite`, WAL, CAS blob store, crash injection/recovery ni le Save Inspector connecte aux donnees de save reelles. Ces sujets restent le prochain bloc persistence avant les gros pipelines V2 suivants.
 
+## Step 24-BIS-B livre
+
+Step 24-BIS-B durcit la persistence production avec les briques disque robustes manquantes:
+
+- `CSQLite` ajoute un pont SwiftPM/Xcode vers `sqlite3` sans pousser SQLite dans l'app.
+- `SQLiteStateIndexStore` cree `state.sqlite`, active WAL, execute les writes dans une transaction et indexe metadata, regions, events, snapshots, entities et blobs.
+- `CASBlobStore` ecrit les payloads lourds par adresse de contenu stable dans `blobs/*/*.blob` et maintient `blobs/manifest.json`.
+- `SaveCoordinator` ecrit maintenant le manifest CAS et l'index SQLite avant `manifest.json`; le manifest reste le point de commit final.
+- `SaveCrashInjectionPoint` permet d'injecter un crash apres regions ou avant commit manifest pour tester recovery.
+- `SaveRecoveryScanner` detecte les fichiers region/snapshot et les artefacts support SQLite/journal/index plus recents que le manifest committe, puis peut nettoyer ces artefacts non commit.
+- `SaveInspector` lit un dossier de save reel et expose status, generation, compteurs regions/events/snapshots/blobs, WAL et recovery.
+- Le Tools Hub Save Inspector accepte une reference `saveRoot:/chemin` et affiche les vraies donnees du dossier de save quand elle est disponible, avec fallback preview contractuel.
+- `MigrationLab` lance un corpus de samples contre `MigrationManager` pour garder la migration visible et testable.
+- Les tests EngineCore couvrent CAS, SQLite/WAL, crash/recovery, migration lab et coordinator enrichi; le build Xcode `build-for-testing` compile app + tests sans lancer l'UI Debug.
+
+Cette passe ne branche pas encore le vrai `WorldRuntime` sur le save/load complet. Les contrats disque sont prets, mais il manque l'integration gameplay: collecter les deltas runtime reels, charger un slot, appliquer les deltas terrain/props/entities et valider un roundtrip monde visible.
+
 ## Prochaine cible
 
-Step 24-BIS-B doit durcir la persistence production: `state.sqlite` experimental, WAL/recovery, CAS blob store, migration lab, crash injection tests, branchement Save Inspector aux vraies donnees et integration save/load du World runtime.
+Step 24-BIS-C doit brancher le save/load runtime: collecter les deltas du World, sauvegarder un slot, recharger manifest + regions + entities + blobs, appliquer les deltas au runtime et ajouter un test roundtrip monde visible avant de basculer sur Step 25.

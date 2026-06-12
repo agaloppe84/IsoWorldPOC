@@ -585,6 +585,119 @@ struct IsoWorldPOCTests {
         #expect(report.metricValue(for: "save.project.valid") == "yes")
         #expect(report.metricValue(for: "save.graph.valid") == "yes")
         #expect(report.metricValue(for: "save.asset.valid") == "yes")
+        #expect(report.metricValue(for: "save.real.status") == "ready")
+        #expect(report.metricValue(for: "save.real.regions") == "1")
+        #expect(report.metricValue(for: "save.recovery.status") == "clean")
+        #expect(report.metricValue(for: "save.sqlite.wal") == "no")
+    }
+
+    @Test func saveInspectorSpecializedReportReadsRealSaveRoot() throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("IsoWorldPOC-SaveInspector-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let worldSeed = WorldSeed(StableHash.make { builder in
+            builder.combine("real-save-root")
+        }.value)
+        let manifest = SaveManifest.newWorld(
+            slotID: "real-save-root",
+            displayName: "Real save",
+            worldName: "Real Save Root",
+            seedText: "real-save-root",
+            worldSeed: worldSeed,
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        let regionFile = RegionDeltaFile(
+            worldSeed: worldSeed,
+            region: .origin,
+            generation: 1,
+            generatorVersionsHash: GeneratorVersionTable.current.persistenceHash,
+            chunks: [
+                ChunkDelta(
+                    coordinate: .origin,
+                    terrainDeltas: [TerrainSampleDelta(localX: 0, localZ: 0, heightOffset: 0.2)],
+                    lastModifiedTick: 1
+                )
+            ]
+        )
+        let blobStore = CASBlobStore()
+        let blob = try blobStore.write(Data("save-inspector-blob".utf8), kind: .toolExport, relativeTo: rootURL)
+        let blobManifest = CASBlobManifest(blobs: [blob])
+        let savedManifest = manifest.saved(
+            at: Date(timeIntervalSince1970: 2),
+            playTimeSeconds: 2,
+            player: manifest.player,
+            generation: 1,
+            files: .productionV2
+        )
+        let journal = EventJournal(slotID: manifest.slotID)
+            .appending(
+                kind: .manualSaveCommitted,
+                tick: 1,
+                date: Date(timeIntervalSince1970: 2),
+                summary: "Manual save"
+            )
+        let snapshots = SnapshotStore(slotID: manifest.slotID)
+            .recording(
+                manifest: savedManifest,
+                reason: .manual,
+                date: Date(timeIntervalSince1970: 2),
+                regionDeltaPaths: [regionFile.relativePath],
+                blobHashes: [blob.hash],
+                summary: "Manual save"
+            )
+        let entityStore = EntityStateStore().upserting(
+            EntityPersistenceState(
+                id: StableID(42),
+                kind: .player,
+                worldPosition: WorldPosition(x: 1, y: 0, z: 1),
+                lastModifiedTick: 1
+            )
+        )
+        let writer = AtomicFileWriter()
+        try RegionDeltaFileStore().write(regionFile, relativeTo: rootURL)
+        try blobStore.writeManifest(blobManifest, relativeTo: rootURL)
+        try writer.writeJSON(journal, to: rootURL.appendingPathComponent("events/journal.json"))
+        try writer.writeJSON(snapshots, to: rootURL.appendingPathComponent("snapshots/index.json"))
+        try writer.writeJSON(snapshots.snapshots[0], to: rootURL.appendingPathComponent("snapshots/1.isosnapshot"))
+        try SQLiteStateIndexStore().write(
+            SQLiteStateIndexSnapshot(
+                manifest: savedManifest,
+                eventJournal: journal,
+                snapshotStore: snapshots,
+                regionFiles: [regionFile],
+                entityStore: entityStore,
+                blobManifest: blobManifest
+            ),
+            relativeTo: rootURL
+        )
+        try writer.writeJSON(savedManifest, to: rootURL.appendingPathComponent("manifest.json"))
+
+        let registry = ToolRegistry.v2
+        let descriptor = registry.descriptor(for: "save.inspector")!
+        let document = ToolDocument(
+            toolID: descriptor.id,
+            seedText: "real-save-root",
+            presetName: "Real Save",
+            sampleCount: 1,
+            packageReferences: ["saveRoot:\(rootURL.path)"]
+        )
+        let report = ToolSpecializedPreviewBuilder().makeReport(
+            for: descriptor,
+            document: document,
+            registry: registry
+        )
+
+        #expect(report.metricValue(for: "save.real.status") == "ready")
+        #expect(report.metricValue(for: "save.real.generation") == "1")
+        #expect(report.metricValue(for: "save.real.regions") == "1")
+        #expect(report.metricValue(for: "save.real.events") == "1")
+        #expect(report.metricValue(for: "save.real.snapshots") == "1")
+        #expect(report.metricValue(for: "save.real.blobs") == "1")
+        #expect(report.metricValue(for: "save.sqlite.wal") == "yes")
+        #expect(report.metricValue(for: "save.sqlite.entities") == "1")
     }
 
     @Test func seedGallerySpecializedReportUsesGoldenSeedCorpus() {

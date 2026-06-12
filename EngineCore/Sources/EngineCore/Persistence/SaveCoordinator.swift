@@ -2,6 +2,13 @@ import Foundation
 
 public enum SaveCoordinatorError: Error, Equatable, Sendable {
     case missingRegistryDomain(PersistenceDomain)
+    case injectedCrash(SaveCrashInjectionPoint)
+}
+
+public enum SaveCrashInjectionPoint: String, CaseIterable, Codable, Sendable {
+    case afterRegionFiles
+    case afterJournalSnapshotsAndIndex
+    case beforeManifestCommit
 }
 
 public struct AutosavePolicy: Hashable, Codable, Sendable {
@@ -52,9 +59,12 @@ public struct SaveCoordinatorRequest: Sendable {
     public let regionDeltaStore: RegionDeltaStore
     public let eventJournal: EventJournal
     public let snapshotStore: SnapshotStore
+    public let entityStore: EntityStateStore?
+    public let blobManifest: CASBlobManifest?
     public let tick: UInt64
     public let date: Date
     public let summary: String
+    public let crashInjectionPoint: SaveCrashInjectionPoint?
 
     public init(
         manifest: SaveManifest,
@@ -64,9 +74,12 @@ public struct SaveCoordinatorRequest: Sendable {
         regionDeltaStore: RegionDeltaStore,
         eventJournal: EventJournal,
         snapshotStore: SnapshotStore,
+        entityStore: EntityStateStore? = nil,
+        blobManifest: CASBlobManifest? = nil,
         tick: UInt64,
         date: Date = Date(),
-        summary: String
+        summary: String,
+        crashInjectionPoint: SaveCrashInjectionPoint? = nil
     ) {
         precondition(playTimeSeconds >= 0, "playTimeSeconds must be non-negative.")
         precondition(!summary.isEmpty, "summary cannot be empty.")
@@ -78,9 +91,12 @@ public struct SaveCoordinatorRequest: Sendable {
         self.regionDeltaStore = regionDeltaStore
         self.eventJournal = eventJournal
         self.snapshotStore = snapshotStore
+        self.entityStore = entityStore
+        self.blobManifest = blobManifest
         self.tick = tick
         self.date = date
         self.summary = summary
+        self.crashInjectionPoint = crashInjectionPoint
     }
 }
 
@@ -93,6 +109,8 @@ public struct SaveCoordinatorResult: Sendable {
     public let manifestPath: String
     public let eventJournalPath: String
     public let snapshotIndexPath: String?
+    public let sqliteIndexPath: String?
+    public let blobManifestPath: String?
     public let generation: Int
 
     public var wroteRegionDeltas: Bool {
@@ -104,15 +122,21 @@ public actor SaveCoordinator {
     private let registry: PersistenceRegistry
     private let fileWriter: AtomicFileWriter
     private let regionFileStore: RegionDeltaFileStore
+    private let sqliteIndexStore: SQLiteStateIndexStore
+    private let blobStore: CASBlobStore
     private var lastAutosaveAt: Date?
 
     public init(
         registry: PersistenceRegistry = .productionV2,
-        fileWriter: AtomicFileWriter = AtomicFileWriter()
+        fileWriter: AtomicFileWriter = AtomicFileWriter(),
+        sqliteIndexStore: SQLiteStateIndexStore = SQLiteStateIndexStore(),
+        blobStore: CASBlobStore = CASBlobStore()
     ) {
         self.registry = registry
         self.fileWriter = fileWriter
         self.regionFileStore = RegionDeltaFileStore(fileWriter: fileWriter)
+        self.sqliteIndexStore = sqliteIndexStore
+        self.blobStore = blobStore
     }
 
     public func save(
@@ -158,9 +182,12 @@ public actor SaveCoordinator {
             regionDeltaStore: request.regionDeltaStore,
             eventJournal: startedJournal,
             snapshotStore: request.snapshotStore,
+            entityStore: request.entityStore,
+            blobManifest: request.blobManifest,
             tick: request.tick,
             date: request.date,
-            summary: request.summary
+            summary: request.summary,
+            crashInjectionPoint: request.crashInjectionPoint
         )
         let result = try performSave(
             scopedRequest,
@@ -190,6 +217,8 @@ public actor SaveCoordinator {
         )
         let writtenRegionPaths = try regionFileStore.write(regionFiles, relativeTo: rootURL)
         let savedScope = scope(forWrittenFiles: regionFiles, originalScope: dirtyScope)
+        try crashIfNeeded(.afterRegionFiles, request: request)
+
         let savedManifest = request.manifest.saved(
             at: request.date,
             playTimeSeconds: request.playTimeSeconds,
@@ -208,16 +237,33 @@ public actor SaveCoordinator {
         let snapshots = request.snapshotStore
             .recording(
                 manifest: savedManifest,
-                reason: reason,
-                date: request.date,
-                regionDeltaPaths: writtenRegionPaths,
-                summary: request.summary
-            )
-            .retained(policy: snapshotRetentionPolicy)
-
+            reason: reason,
+            date: request.date,
+            regionDeltaPaths: writtenRegionPaths,
+            blobHashes: request.blobManifest?.blobs.map(\.hash) ?? [],
+            summary: request.summary
+        )
+        .retained(policy: snapshotRetentionPolicy)
+        let blobManifestPath = try request.blobManifest.map {
+            try blobStore.writeManifest($0, relativeTo: rootURL)
+        }
         try writeSnapshotStore(snapshots, rootURL: rootURL, snapshotsPath: files.snapshotsPath)
         try writeLatestSnapshot(from: snapshots, rootURL: rootURL)
         try fileWriter.writeJSON(journal, to: rootURL.appendingPathComponent(files.eventJournalPath ?? "events/journal.json"))
+        let sqliteSummary = try sqliteIndexStore.write(
+            SQLiteStateIndexSnapshot(
+                manifest: savedManifest,
+                eventJournal: journal,
+                snapshotStore: snapshots,
+                regionFiles: regionFiles,
+                entityStore: request.entityStore,
+                blobManifest: request.blobManifest
+            ),
+            relativeTo: rootURL
+        )
+
+        try crashIfNeeded(.afterJournalSnapshotsAndIndex, request: request)
+        try crashIfNeeded(.beforeManifestCommit, request: request)
         try fileWriter.writeJSON(savedManifest, to: rootURL.appendingPathComponent(files.manifestPath))
 
         return SaveCoordinatorResult(
@@ -229,6 +275,8 @@ public actor SaveCoordinator {
             manifestPath: files.manifestPath,
             eventJournalPath: files.eventJournalPath ?? "events/journal.json",
             snapshotIndexPath: files.snapshotIndexPath,
+            sqliteIndexPath: sqliteSummary.relativePath,
+            blobManifestPath: blobManifestPath,
             generation: generation
         )
     }
@@ -239,7 +287,8 @@ public actor SaveCoordinator {
             modifiedRegionsPath: try rootPath(for: .regionDeltas),
             blobsPath: try rootPath(for: .blobStore),
             snapshotsPath: try rootPath(for: .snapshots),
-            eventJournalPath: try rootPath(for: .eventJournal)
+            eventJournalPath: try rootPath(for: .eventJournal),
+            sqliteIndexPath: try rootPath(for: .sqliteIndex)
         )
     }
 
@@ -335,5 +384,16 @@ public actor SaveCoordinator {
         }
 
         try fileWriter.writeJSON(snapshot, to: rootURL.appendingPathComponent(snapshot.relativePath))
+    }
+
+    private func crashIfNeeded(
+        _ point: SaveCrashInjectionPoint,
+        request: SaveCoordinatorRequest
+    ) throws {
+        guard request.crashInjectionPoint == point else {
+            return
+        }
+
+        throw SaveCoordinatorError.injectedCrash(point)
     }
 }

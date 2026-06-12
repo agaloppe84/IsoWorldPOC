@@ -606,4 +606,16 @@ Consequence: `PersistenceRegistry.productionV2` declare les domaines autoritatif
 
 Garantie: les tests EngineCore couvrent le registry, le roundtrip `.isoregion`, le dirty tracking de scope partiel, le chemin manuel manifest-last et l'autosave debounced/budgete. Le build Xcode macOS compile l'app avec ces contrats.
 
-Limite actuelle: pas encore de `state.sqlite`, WAL, CAS blob store, tests crash/recovery, Save Inspector connecte aux vraies donnees disque ni integration save/load runtime. Ces sujets composent la tranche 24-BIS-B.
+Limite actuelle: la tranche core ne branchait pas encore `state.sqlite`, WAL, CAS blob store, tests crash/recovery, Save Inspector connecte aux vraies donnees disque ni integration save/load runtime. Ces sujets composent la tranche 24-BIS-B et le branchement runtime suivant.
+
+## 058 - SQLite WAL, CAS et recovery comme index rebuildable
+
+Decision: ajouter `state.sqlite`, WAL, CAS blob store, recovery scanner et Save Inspector reel sans faire de SQLite la source de verite du monde.
+
+Raison: la sauvegarde V2 doit pouvoir interroger vite entities/events/regions/snapshots/blobs et diagnostiquer les saves, mais le format durable doit rester lisible et reconstructible: manifest, deltas regionaux, journal, snapshots et blobs. SQLite est donc un index rebuildable, pas le coeur de la save.
+
+Consequence: `EngineCore` depend d'un petit target C `CSQLite` lie a `sqlite3`. `SQLiteStateIndexStore` cree `state.sqlite`, active WAL, ecrit dans une transaction et expose un summary. `CASBlobStore` stocke les payloads par hash stable. `SaveCoordinator` ecrit regions, CAS, snapshots, journal et SQLite avant `manifest.json`. `SaveRecoveryScanner` detecte les artefacts non commit et peut les nettoyer. `SaveInspector` lit un vrai dossier de save, et le Save Inspector du Tools Hub consomme ces donnees via une reference `saveRoot:/chemin`.
+
+Garantie: les tests EngineCore couvrent CAS, SQLite/WAL, crash injecte avant commit manifest, rollback des artefacts non commit et migration lab. Le build Xcode `build-for-testing` compile app + tests avec SQLite sans executer l'UI.
+
+Limite actuelle: le vrai `WorldRuntime` ne collecte pas encore ses deltas vers `SaveCoordinator` et ne recharge pas encore un slot complet. La prochaine tranche doit brancher ce roundtrip gameplay avant d'attaquer les surfaces/lighting Step 25.

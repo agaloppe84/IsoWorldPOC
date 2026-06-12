@@ -681,11 +681,12 @@ struct ToolSpecializedPreviewBuilder {
             for: asset,
             path: "runtime/tools/\(context.descriptor.id).json"
         )
+        let saveInspection = saveInspectionReport(context)
 
         return ToolSpecializedPreviewReport(
             toolID: context.descriptor.id,
             title: "Save Inspector",
-            summary: "Package manifest, graph and runtime export contracts for the selected tool.",
+            summary: "Package contracts and real save data health for the selected save root.",
             isSpecialized: true,
             sections: [
                 ToolPreviewSection(
@@ -708,8 +709,44 @@ struct ToolSpecializedPreviewBuilder {
                         metric("save.runtime.export", "Runtime export", runtimeExport.path),
                     ]
                 ),
+                ToolPreviewSection(
+                    id: "save.real",
+                    title: "Real Save",
+                    metrics: [
+                        metric("save.real.status", "Status", saveInspection.status.rawValue),
+                        metric("save.real.source", "Source", saveInspection.sourcePath),
+                        metric("save.real.generation", "Generation", saveInspection.manifestGeneration.map(String.init) ?? "none"),
+                        metric("save.real.regions", "Region files", saveInspection.regionFileCount),
+                        metric("save.real.events", "Events", saveInspection.eventCount),
+                        metric("save.real.snapshots", "Snapshots", saveInspection.snapshotCount),
+                        metric("save.real.blobs", "Blobs", saveInspection.blobCount),
+                    ]
+                ),
+                ToolPreviewSection(
+                    id: "save.recovery",
+                    title: "Recovery",
+                    metrics: [
+                        metric("save.recovery.status", "Recovery", saveInspection.recoveryReport.status.rawValue),
+                        metric("save.recovery.orphan-regions", "Orphan regions", saveInspection.recoveryReport.orphanRegionFileCount),
+                        metric("save.recovery.orphan-snapshots", "Orphan snapshots", saveInspection.recoveryReport.orphanSnapshotFileCount),
+                        metric("save.sqlite.wal", "SQLite WAL", yesNo(saveInspection.walEnabled)),
+                        metric("save.sqlite.entities", "SQLite entities", saveInspection.sqliteSummary?.entityCount ?? 0),
+                    ]
+                ),
             ]
         )
+    }
+
+    private func saveInspectionReport(_ context: ToolPreviewReportContext) -> SaveInspectionReport {
+        guard let rootPath = context.document.packageReferences
+            .first(where: { $0.hasPrefix("saveRoot:") })
+            .map({ String($0.dropFirst("saveRoot:".count)) }),
+            !rootPath.isEmpty
+        else {
+            return SaveInspectionReport.preview()
+        }
+
+        return SaveInspector().inspect(rootURL: URL(fileURLWithPath: rootPath))
     }
 
     private func performanceReport(_ context: ToolPreviewReportContext) -> ToolSpecializedPreviewReport {

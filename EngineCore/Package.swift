@@ -15,7 +15,16 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "CSQLite",
+            path: "Sources/CSQLite",
+            publicHeadersPath: "include",
+            linkerSettings: [
+                .linkedLibrary("sqlite3")
+            ]
+        ),
+        .target(
             name: "EngineCore",
+            dependencies: ["CSQLite"],
             path: "Sources/EngineCore"
         ),
         .testTarget(

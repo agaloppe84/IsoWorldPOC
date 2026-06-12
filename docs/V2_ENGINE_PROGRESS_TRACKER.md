@@ -13,10 +13,10 @@ Legende :
 
 | Element | Etat |
 |---|---|
-| Dernier step livre | Step 24-BIS - Persistence production spine core |
+| Dernier step livre | Step 24-BIS-B - SQLite/WAL/CAS/recovery + Save Inspector real data |
 | Branche cible | `main` |
 | Docs reference | lecture seule |
-| Prochaine cible officielle | Step 24-BIS-B - SQLite/WAL/CAS/recovery + Save Inspector real data |
+| Prochaine cible officielle | Step 24-BIS-C - Runtime save/load world delta integration |
 | Plan V2 | `[x]` document cree |
 | Tracker V2 | `[x]` document cree |
 
@@ -48,11 +48,11 @@ Legende :
 
 ### Persistence
 
-- [~] Save/cache policy par nouveau systeme.
+- [x] Save/cache policy par nouveau systeme.
 - [x] Packages outils versionnes.
 - [x] Region deltas lisibles/ecrivables.
-- [ ] SQLite/WAL introduit avec tests recovery.
-- [ ] Migration corpus maintenu.
+- [x] SQLite/WAL introduit avec tests recovery.
+- [~] Migration corpus maintenu.
 
 ### Tooling
 
@@ -137,24 +137,27 @@ Objectif : brancher les contrats Step 23 dans une persistence robuste.
 - [x] Region file writer/reader.
 - [x] Autosave incremental.
 - [x] Manual save transaction path.
-- [ ] `state.sqlite` experimental.
-- [ ] WAL enabled.
+- [x] `state.sqlite` experimental.
+- [x] WAL enabled.
 - [x] Event journal persisted.
 - [~] Snapshot compaction.
-- [ ] CAS blob store.
-- [ ] Migration lab.
-- [ ] Save Inspector connected to real save data.
-- [ ] Crash injection tests.
+- [x] CAS blob store.
+- [x] Migration lab.
+- [x] Save Inspector connected to real save data.
+- [x] Crash injection tests.
 - [ ] Save/load world delta integration tests.
 - [x] EngineCore persistence tests.
 - [x] Build Xcode safe OK.
+- [x] Xcode build-for-testing OK.
 
 Notes:
 
-- Tranche livree: spine core uniquement, sans branchement runtime World.
+- Tranche 24-BIS-B livree: SQLite/WAL, CAS, recovery, migration lab et Save Inspector reel, sans branchement runtime World complet.
 - `SaveCoordinator` ecrit regions, journal et snapshots avant `manifest.json`, qui reste le point de commit.
-- L'autosave est debounce + budget de regions; `DirtyTracker.markSaved(_:)` garde visibles les deltas non ecrits.
-- La retention `SnapshotStore` est appliquee a l'index, mais le nettoyage physique des anciens fichiers snapshot reste a durcir avec recovery/CAS.
+- `SaveCoordinator` ecrit aussi CAS + `state.sqlite` avant `manifest.json`; SQLite reste un index rebuildable.
+- `SaveRecoveryScanner` detecte/nettoie les artefacts region/snapshot et index support non commit apres crash injecte.
+- Le Save Inspector du Tools Hub lit un vrai dossier via `saveRoot:/chemin` et garde un fallback preview.
+- Dette restante: integration runtime save/load du vrai World et test roundtrip monde visible.
 
 ## Step 25 - ISLP lighting/surfaces V2
 

@@ -23,6 +23,7 @@ final class PersistenceTests: XCTestCase {
         XCTAssertNil(manifest.files.blobsPath)
         XCTAssertNil(manifest.files.snapshotsPath)
         XCTAssertNil(manifest.files.eventJournalPath)
+        XCTAssertNil(manifest.files.sqliteIndexPath)
     }
 
     func testPersistenceRegistryDeclaresV2AuthoritativeAndRebuildableDomains() {
@@ -324,9 +325,16 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(loadedManifest.integrity.generation, 1)
         XCTAssertEqual(loadedManifest.files.modifiedRegionsPath, "regions")
         XCTAssertEqual(loadedManifest.files.eventJournalPath, "events/journal.json")
+        XCTAssertEqual(loadedManifest.files.sqliteIndexPath, "state.sqlite")
+        XCTAssertEqual(result.sqliteIndexPath, "state.sqlite")
         XCTAssertEqual(loadedRegion.generation, 1)
         XCTAssertEqual(loadedJournal.entries.map(\.kind), [.chunkDeltaWritten, .manualSaveCommitted])
         XCTAssertEqual(loadedSnapshots.snapshots.map(\.reason), [.manual])
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: directory.appendingPathComponent("state.sqlite").path
+            )
+        )
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: directory.appendingPathComponent("snapshots/1.isosnapshot").path
@@ -427,6 +435,183 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(second.writtenRegionPaths, ["regions/r.1.0.0.isoregion"])
         XCTAssertTrue(second.dirtyTracker.dirtyScope().isEmpty)
         XCTAssertEqual(second.manifest.integrity.generation, 2)
+    }
+
+    func testCASBlobStoreWritesVerifiesAndManifestsContentAddressedBlobs() throws {
+        let directory = makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let store = CASBlobStore()
+        let data = Data("blob-payload".utf8)
+        let first = try store.write(data, kind: .toolExport, relativeTo: directory)
+        let second = try store.write(data, kind: .toolExport, relativeTo: directory)
+        let manifest = CASBlobManifest(blobs: [first])
+        let manifestPath = try store.writeManifest(manifest, relativeTo: directory)
+        let loadedManifest = try store.readManifest(relativeTo: directory)
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(first.byteCount, data.count)
+        XCTAssertEqual(first.relativePath, CASBlobStore.relativePath(for: first.hash))
+        XCTAssertTrue(try store.verify(first, relativeTo: directory))
+        XCTAssertEqual(manifestPath, "blobs/manifest.json")
+        XCTAssertEqual(loadedManifest, manifest)
+    }
+
+    func testSQLiteStateIndexWritesWalBackedEntitiesEventsRegionsSnapshotsAndBlobs() throws {
+        let directory = makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let manifest = makeManifest(slotID: "sqlite-index", seedText: "sqlite-seed")
+        let regionFile = RegionDeltaFile(
+            worldSeed: manifest.world.worldSeed,
+            region: .origin,
+            generation: 1,
+            generatorVersionsHash: GeneratorVersionTable.current.persistenceHash,
+            chunks: [
+                ChunkDelta(
+                    coordinate: .origin,
+                    terrainDeltas: [TerrainSampleDelta(localX: 0, localZ: 0, heightOffset: 0.1)],
+                    lastModifiedTick: 1
+                )
+            ]
+        )
+        let journal = EventJournal(slotID: manifest.slotID)
+            .appending(
+                kind: .manualSaveCommitted,
+                tick: 1,
+                date: Date(timeIntervalSince1970: 10),
+                summary: "Manual save"
+            )
+        let savedManifest = manifest.saved(
+            at: Date(timeIntervalSince1970: 10),
+            playTimeSeconds: 3,
+            player: manifest.player,
+            generation: 1,
+            files: .productionV2
+        )
+        let snapshots = SnapshotStore(slotID: manifest.slotID)
+            .recording(
+                manifest: savedManifest,
+                reason: .manual,
+                date: Date(timeIntervalSince1970: 10),
+                regionDeltaPaths: [regionFile.relativePath],
+                blobHashes: ["0xblob"],
+                summary: "Manual save"
+            )
+        let entityStore = EntityStateStore().upserting(
+            EntityPersistenceState(
+                id: StableID(777),
+                kind: .player,
+                worldPosition: WorldPosition(x: 1, y: 2, z: 3),
+                lastModifiedTick: 1
+            )
+        )
+        let blob = CASBlobReference(
+            hash: "0xblob",
+            stableHash: StableHash(123),
+            byteCount: 12,
+            relativePath: "blobs/0xblob.blob",
+            kind: .runtimeAsset
+        )
+        let summary = try SQLiteStateIndexStore().write(
+            SQLiteStateIndexSnapshot(
+                manifest: savedManifest,
+                eventJournal: journal,
+                snapshotStore: snapshots,
+                regionFiles: [regionFile],
+                entityStore: entityStore,
+                blobManifest: CASBlobManifest(blobs: [blob])
+            ),
+            relativeTo: directory
+        )
+        let loaded = try SQLiteStateIndexStore().readSummary(relativeTo: directory)
+
+        XCTAssertEqual(summary, loaded)
+        XCTAssertTrue(summary.walEnabled)
+        XCTAssertEqual(summary.userVersion, 2)
+        XCTAssertEqual(summary.generation, 1)
+        XCTAssertEqual(summary.entityCount, 1)
+        XCTAssertEqual(summary.eventCount, 1)
+        XCTAssertEqual(summary.regionFileCount, 1)
+        XCTAssertEqual(summary.snapshotCount, 1)
+        XCTAssertEqual(summary.blobCount, 1)
+    }
+
+    func testSaveInspectorDoesNotCreateSQLiteIndexForMissingSave() {
+        let directory = makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let report = SaveInspector().inspect(rootURL: directory)
+
+        XCTAssertEqual(report.status, .missing)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("state.sqlite").path))
+    }
+
+    func testSaveCoordinatorCrashBeforeManifestLeavesRecoverableOrphans() async throws {
+        let directory = makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let manifest = makeManifest(slotID: "recovery", seedText: "recovery-seed")
+        try AtomicFileWriter().writeJSON(manifest, to: directory.appendingPathComponent("manifest.json"))
+
+        let chunk = ChunkCoordinate(x: 0, y: 0, z: 0)
+        let tracker = DirtyTracker(regionSizeInChunks: 4)
+            .markingDirty(
+                coordinate: chunk,
+                tick: 10,
+                systemID: "terrain",
+                reason: .terrainDelta
+            )
+        let regionStore = RegionDeltaStore(
+            worldSeed: manifest.world.worldSeed,
+            regionSizeInChunks: 4
+        )
+        .adding(
+            ChunkDelta(
+                coordinate: chunk,
+                terrainDeltas: [TerrainSampleDelta(localX: 0, localZ: 0, heightOffset: 0.2)],
+                lastModifiedTick: 10
+            )
+        )
+        let request = SaveCoordinatorRequest(
+            manifest: manifest,
+            player: manifest.player,
+            playTimeSeconds: 1,
+            dirtyTracker: tracker,
+            regionDeltaStore: regionStore,
+            eventJournal: EventJournal(slotID: manifest.slotID),
+            snapshotStore: SnapshotStore(slotID: manifest.slotID),
+            tick: 10,
+            date: Date(timeIntervalSince1970: 20),
+            summary: "Injected crash",
+            crashInjectionPoint: .beforeManifestCommit
+        )
+
+        do {
+            _ = try await SaveCoordinator().save(request, to: directory)
+            XCTFail("Expected injected crash before manifest commit.")
+        } catch SaveCoordinatorError.injectedCrash(.beforeManifestCommit) {
+            // Expected.
+        }
+
+        let scanner = SaveRecoveryScanner()
+        let report = scanner.scan(rootURL: directory)
+        let recovered = try scanner.rollbackUncommittedArtifacts(rootURL: directory)
+        let committedManifest = try AtomicFileWriter().readJSON(
+            SaveManifest.self,
+            from: directory.appendingPathComponent("manifest.json")
+        )
+
+        XCTAssertEqual(report.status, .needsRollback)
+        XCTAssertEqual(report.latestCommittedGeneration, 0)
+        XCTAssertEqual(report.orphanRegionFileCount, 1)
+        XCTAssertEqual(report.orphanSnapshotFileCount, 1)
+        XCTAssertTrue(report.orphanRelativePaths.contains("state.sqlite"))
+        XCTAssertTrue(report.orphanRelativePaths.contains("snapshots/index.json"))
+        XCTAssertEqual(recovered.status, .clean)
+        XCTAssertEqual(committedManifest.integrity.generation, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("state.sqlite").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("snapshots/index.json").path))
     }
 
     func testEntityStateStoreUpsertsRemovesAndExportsChunkDelta() throws {
@@ -538,6 +723,27 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(migrated.rules.map(\.systemID), ["persistence.region-deltas"])
         XCTAssertTrue(migrated.requiresBackup)
         XCTAssertTrue(report.success)
+        XCTAssertEqual(report.migratedSystems, ["persistence.region-deltas"])
+    }
+
+    func testMigrationLabRunsCorpusAgainstCurrentRules() {
+        let lab = MigrationLab()
+        let report = lab.run(samples: [
+            MigrationCorpusSample(
+                sampleID: "schema-1-region-deltas",
+                sourceVersion: SaveVersion(formatVersion: 1, schemaVersion: 1),
+                mode: .migrated
+            ),
+            MigrationCorpusSample(
+                sampleID: "current",
+                sourceVersion: .current,
+                mode: .strict
+            ),
+        ])
+
+        XCTAssertTrue(report.isReady)
+        XCTAssertEqual(report.checkedSamples, 2)
+        XCTAssertEqual(report.blockedSamples, 0)
         XCTAssertEqual(report.migratedSystems, ["persistence.region-deltas"])
     }
 
