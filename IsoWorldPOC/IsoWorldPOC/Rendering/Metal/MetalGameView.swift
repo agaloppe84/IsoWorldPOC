@@ -13,12 +13,14 @@ import SwiftUI
 struct MetalGameView: NSViewRepresentable {
     let debugMetrics: DebugMetrics
     let worldSession: WorldSession?
+    let runtimeHandle: WorldRuntimeHandle?
     let publishesDebugTelemetry: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             debugMetrics: debugMetrics,
             worldSession: worldSession,
+            runtimeHandle: runtimeHandle,
             publishesDebugTelemetry: publishesDebugTelemetry
         )
     }
@@ -63,11 +65,13 @@ struct MetalGameView: NSViewRepresentable {
         init(
             debugMetrics: DebugMetrics,
             worldSession: WorldSession?,
+            runtimeHandle: WorldRuntimeHandle?,
             publishesDebugTelemetry: Bool
         ) {
             self.renderer = MetalRenderer(
                 debugMetrics: debugMetrics,
                 worldSession: worldSession,
+                runtimeHandle: runtimeHandle,
                 publishesDebugTelemetry: publishesDebugTelemetry
             )
         }

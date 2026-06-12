@@ -23,6 +23,7 @@ final class PersistenceTests: XCTestCase {
         XCTAssertNil(manifest.files.blobsPath)
         XCTAssertNil(manifest.files.snapshotsPath)
         XCTAssertNil(manifest.files.eventJournalPath)
+        XCTAssertNil(manifest.files.entityStatePath)
         XCTAssertNil(manifest.files.sqliteIndexPath)
     }
 
@@ -32,6 +33,7 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(registry.rootPath(for: .manifest), "manifest.json")
         XCTAssertEqual(registry.rootPath(for: .regionDeltas), "regions")
         XCTAssertEqual(registry.rootPath(for: .eventJournal), "events/journal.json")
+        XCTAssertEqual(registry.rootPath(for: .entityState), "entities/state.isoentity")
         XCTAssertEqual(
             registry.descriptor(for: .regionDeltas)?.fileExtension,
             "isoregion"
@@ -287,6 +289,17 @@ final class PersistenceTests: XCTestCase {
                 lastModifiedTick: 10
             )
         )
+        let entityStore = EntityStateStore(regionSizeInChunks: 4).upserting(
+            EntityPersistenceState(
+                id: StableID(99),
+                kind: .player,
+                worldPosition: manifest.player.position,
+                chunk: chunk,
+                region: RegionCoordinate(x: 0, y: 0, z: 0),
+                regionSizeInChunks: 4,
+                lastModifiedTick: 10
+            )
+        )
         let request = SaveCoordinatorRequest(
             manifest: manifest,
             player: manifest.player,
@@ -295,6 +308,7 @@ final class PersistenceTests: XCTestCase {
             regionDeltaStore: regionStore,
             eventJournal: EventJournal(slotID: manifest.slotID),
             snapshotStore: SnapshotStore(slotID: manifest.slotID),
+            entityStore: entityStore,
             tick: 10,
             date: Date(timeIntervalSince1970: 500),
             summary: "Manual save"
@@ -313,6 +327,11 @@ final class PersistenceTests: XCTestCase {
             SnapshotStore.self,
             from: directory.appendingPathComponent(try XCTUnwrap(result.snapshotIndexPath))
         )
+        let loadedEntityPackage = try EntityStateFileStore().read(
+            relativeTo: directory,
+            relativePath: try XCTUnwrap(result.entityStatePath),
+            expectedWorldSeed: manifest.world.worldSeed
+        )
         let loadedRegion = try RegionDeltaFileStore().read(
             region: RegionCoordinate(x: 0, y: 0, z: 0),
             relativeTo: directory,
@@ -325,11 +344,20 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(loadedManifest.integrity.generation, 1)
         XCTAssertEqual(loadedManifest.files.modifiedRegionsPath, "regions")
         XCTAssertEqual(loadedManifest.files.eventJournalPath, "events/journal.json")
+        XCTAssertEqual(loadedManifest.files.entityStatePath, "entities/state.isoentity")
         XCTAssertEqual(loadedManifest.files.sqliteIndexPath, "state.sqlite")
+        XCTAssertEqual(result.entityStatePath, "entities/state.isoentity")
         XCTAssertEqual(result.sqliteIndexPath, "state.sqlite")
         XCTAssertEqual(loadedRegion.generation, 1)
+        XCTAssertEqual(loadedEntityPackage.generation, 1)
+        XCTAssertEqual(loadedEntityPackage.store.entities.map(\.id), [StableID(99)])
         XCTAssertEqual(loadedJournal.entries.map(\.kind), [.chunkDeltaWritten, .manualSaveCommitted])
         XCTAssertEqual(loadedSnapshots.snapshots.map(\.reason), [.manual])
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: directory.appendingPathComponent("entities/state.isoentity").path
+            )
+        )
         XCTAssertTrue(
             FileManager.default.fileExists(
                 atPath: directory.appendingPathComponent("state.sqlite").path
@@ -455,6 +483,39 @@ final class PersistenceTests: XCTestCase {
         XCTAssertTrue(try store.verify(first, relativeTo: directory))
         XCTAssertEqual(manifestPath, "blobs/manifest.json")
         XCTAssertEqual(loadedManifest, manifest)
+    }
+
+    func testEntityStateFileStorePersistsAuthoritativeEntityState() throws {
+        let directory = makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let worldSeed = WorldSeed(StableHash.make { builder in
+            builder.combine("entity-state-file")
+        }.value)
+        let store = EntityStateStore().upserting(
+            EntityPersistenceState(
+                id: StableID.entity(worldSeed: worldSeed, localIndex: 0),
+                kind: .player,
+                worldPosition: WorldPosition(x: 2, y: 0, z: 3),
+                lastModifiedTick: 12
+            )
+        )
+        let fileStore = EntityStateFileStore()
+        let path = try fileStore.write(
+            store,
+            worldSeed: worldSeed,
+            generation: 2,
+            relativeTo: directory
+        )
+        let loaded = try fileStore.read(
+            relativeTo: directory,
+            expectedWorldSeed: worldSeed
+        )
+
+        XCTAssertEqual(path, "entities/state.isoentity")
+        XCTAssertEqual(loaded.generation, 2)
+        XCTAssertEqual(loaded.store, store)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent(path).path))
     }
 
     func testSQLiteStateIndexWritesWalBackedEntitiesEventsRegionsSnapshotsAndBlobs() throws {

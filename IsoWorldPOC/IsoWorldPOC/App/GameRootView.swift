@@ -12,6 +12,7 @@ struct GameRootView: View {
     let initialRunMode: DebugWorldRunMode
     let worldSession: WorldSession?
     let publishesDebugTelemetry: Bool
+    let runtimeHandle: WorldRuntimeHandle?
 
     @StateObject private var debugMetrics: DebugMetrics
 
@@ -19,11 +20,13 @@ struct GameRootView: View {
         showsDebugOverlay: Bool = true,
         initialRunMode: DebugWorldRunMode = .slowInspection,
         worldSession: WorldSession? = nil,
+        runtimeHandle: WorldRuntimeHandle? = nil,
         publishesDebugTelemetry: Bool? = nil
     ) {
         self.showsDebugOverlay = showsDebugOverlay
         self.initialRunMode = initialRunMode
         self.worldSession = worldSession
+        self.runtimeHandle = runtimeHandle
         let resolvedPublishesDebugTelemetry = publishesDebugTelemetry ?? showsDebugOverlay
         self.publishesDebugTelemetry = resolvedPublishesDebugTelemetry
         self._debugMetrics = StateObject(wrappedValue: DebugMetrics(
@@ -38,6 +41,7 @@ struct GameRootView: View {
             MetalGameView(
                 debugMetrics: debugMetrics,
                 worldSession: worldSession,
+                runtimeHandle: runtimeHandle,
                 publishesDebugTelemetry: publishesDebugTelemetry
             )
                 .ignoresSafeArea()

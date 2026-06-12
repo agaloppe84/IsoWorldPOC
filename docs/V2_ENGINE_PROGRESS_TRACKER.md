@@ -13,10 +13,10 @@ Legende :
 
 | Element | Etat |
 |---|---|
-| Dernier step livre | Step 24-BIS-B - SQLite/WAL/CAS/recovery + Save Inspector real data |
+| Dernier step livre | Step 24-BIS-C - Runtime save/load world delta integration |
 | Branche cible | `main` |
 | Docs reference | lecture seule |
-| Prochaine cible officielle | Step 24-BIS-C - Runtime save/load world delta integration |
+| Prochaine cible officielle | Step 25 - ISLP lighting/surfaces V2 |
 | Plan V2 | `[x]` document cree |
 | Tracker V2 | `[x]` document cree |
 
@@ -65,7 +65,7 @@ Legende :
 
 - [~] Tests determinisme par domaine.
 - [ ] Tests seams terrain/biome/material.
-- [ ] Tests save/load/migration.
+- [~] Tests save/load/migration.
 - [ ] Tests budgets perf quand possible.
 - [ ] Visual snapshots pour systems renderer/UI/FX critiques.
 
@@ -145,19 +145,20 @@ Objectif : brancher les contrats Step 23 dans une persistence robuste.
 - [x] Migration lab.
 - [x] Save Inspector connected to real save data.
 - [x] Crash injection tests.
-- [ ] Save/load world delta integration tests.
+- [x] Save/load world delta integration tests.
 - [x] EngineCore persistence tests.
 - [x] Build Xcode safe OK.
 - [x] Xcode build-for-testing OK.
 
 Notes:
 
-- Tranche 24-BIS-B livree: SQLite/WAL, CAS, recovery, migration lab et Save Inspector reel, sans branchement runtime World complet.
+- Tranche 24-BIS-C livree: runtime World branche sur save/load disque avec roundtrip visible.
 - `SaveCoordinator` ecrit regions, journal et snapshots avant `manifest.json`, qui reste le point de commit.
-- `SaveCoordinator` ecrit aussi CAS + `state.sqlite` avant `manifest.json`; SQLite reste un index rebuildable.
+- `SaveCoordinator` ecrit aussi entites, CAS + `state.sqlite` avant `manifest.json`; SQLite reste un index rebuildable.
 - `SaveRecoveryScanner` detecte/nettoie les artefacts region/snapshot et index support non commit apres crash injecte.
 - Le Save Inspector du Tools Hub lit un vrai dossier via `saveRoot:/chemin` et garde un fallback preview.
-- Dette restante: integration runtime save/load du vrai World et test roundtrip monde visible.
+- `WorldRuntimeSaveService` sauve le runtime vivant, recharge manifest + regions + entites + blobs en `WorldSession` et le test app valide un snapshot visible restaure.
+- Dette restante: mutations terrain/props runtime avancees a appliquer quand les systemes producteurs existent.
 
 ## Step 25 - ISLP lighting/surfaces V2
 

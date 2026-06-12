@@ -109,6 +109,7 @@ public struct SaveCoordinatorResult: Sendable {
     public let manifestPath: String
     public let eventJournalPath: String
     public let snapshotIndexPath: String?
+    public let entityStatePath: String?
     public let sqliteIndexPath: String?
     public let blobManifestPath: String?
     public let generation: Int
@@ -122,6 +123,7 @@ public actor SaveCoordinator {
     private let registry: PersistenceRegistry
     private let fileWriter: AtomicFileWriter
     private let regionFileStore: RegionDeltaFileStore
+    private let entityStateFileStore: EntityStateFileStore
     private let sqliteIndexStore: SQLiteStateIndexStore
     private let blobStore: CASBlobStore
     private var lastAutosaveAt: Date?
@@ -129,12 +131,14 @@ public actor SaveCoordinator {
     public init(
         registry: PersistenceRegistry = .productionV2,
         fileWriter: AtomicFileWriter = AtomicFileWriter(),
+        entityStateFileStore: EntityStateFileStore = EntityStateFileStore(),
         sqliteIndexStore: SQLiteStateIndexStore = SQLiteStateIndexStore(),
         blobStore: CASBlobStore = CASBlobStore()
     ) {
         self.registry = registry
         self.fileWriter = fileWriter
         self.regionFileStore = RegionDeltaFileStore(fileWriter: fileWriter)
+        self.entityStateFileStore = entityStateFileStore
         self.sqliteIndexStore = sqliteIndexStore
         self.blobStore = blobStore
     }
@@ -247,6 +251,15 @@ public actor SaveCoordinator {
         let blobManifestPath = try request.blobManifest.map {
             try blobStore.writeManifest($0, relativeTo: rootURL)
         }
+        let entityStatePath = try request.entityStore.map {
+            try entityStateFileStore.write(
+                $0,
+                worldSeed: savedManifest.world.worldSeed,
+                generation: generation,
+                relativeTo: rootURL,
+                relativePath: files.entityStatePath ?? EntityStateFileStore.defaultRelativePath
+            )
+        }
         try writeSnapshotStore(snapshots, rootURL: rootURL, snapshotsPath: files.snapshotsPath)
         try writeLatestSnapshot(from: snapshots, rootURL: rootURL)
         try fileWriter.writeJSON(journal, to: rootURL.appendingPathComponent(files.eventJournalPath ?? "events/journal.json"))
@@ -275,6 +288,7 @@ public actor SaveCoordinator {
             manifestPath: files.manifestPath,
             eventJournalPath: files.eventJournalPath ?? "events/journal.json",
             snapshotIndexPath: files.snapshotIndexPath,
+            entityStatePath: entityStatePath,
             sqliteIndexPath: sqliteSummary.relativePath,
             blobManifestPath: blobManifestPath,
             generation: generation
@@ -288,6 +302,7 @@ public actor SaveCoordinator {
             blobsPath: try rootPath(for: .blobStore),
             snapshotsPath: try rootPath(for: .snapshots),
             eventJournalPath: try rootPath(for: .eventJournal),
+            entityStatePath: try rootPath(for: .entityState),
             sqliteIndexPath: try rootPath(for: .sqliteIndex)
         )
     }

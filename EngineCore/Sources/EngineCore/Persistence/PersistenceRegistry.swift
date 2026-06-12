@@ -101,7 +101,7 @@ public struct PersistenceRegistry: Hashable, Codable, Sendable {
         ),
         PersistenceDomainDescriptor(
             domain: .entityState,
-            rootPath: "entities",
+            rootPath: "entities/state.isoentity",
             fileExtension: "isoentity",
             isAuthoritative: true,
             isRebuildable: false

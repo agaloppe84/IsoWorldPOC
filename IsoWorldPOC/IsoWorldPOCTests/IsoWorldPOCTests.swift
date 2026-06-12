@@ -843,6 +843,62 @@ struct IsoWorldPOCTests {
     }
 
     @MainActor
+    @Test func worldRuntimeSaveServiceRoundTripsVisibleWorldFromDisk() async throws {
+        let pipeline = WorldPreparePipeline()
+        let session = try await pipeline.prepareWorld(
+            request: WorldPrepareRequest(seedText: "runtime-save-roundtrip", initialChunkRadius: 0)
+        ) { _ in }
+        let runtime = WorldRuntime(worldSession: session, debugOptions: realWorldDebugOptions())
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("IsoWorldPOC-RuntimeRoundtrip-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+        let service = WorldRuntimeSaveService()
+
+        let saveResult = try await service.save(
+            runtime: runtime,
+            to: rootURL,
+            slotID: "runtime-roundtrip",
+            displayName: "Runtime Roundtrip",
+            worldName: "Runtime Roundtrip",
+            date: Date(timeIntervalSince1970: 24_000)
+        )
+        let loadResult = try await service.load(from: rootURL)
+        let restoredRuntime = WorldRuntime(
+            worldSession: loadResult.session,
+            debugOptions: realWorldDebugOptions()
+        )
+        let restoredSnapshot = restoredRuntime.update(
+            deltaTime: 0,
+            debugOptions: realWorldDebugOptions()
+        )
+        let playerEntityID = StableID.entity(
+            worldSeed: session.worldSeed,
+            localIndex: 0
+        )
+
+        #expect(saveResult.inspection.status == .ready)
+        #expect(saveResult.manifest.files.entityStatePath == "entities/state.isoentity")
+        #expect(saveResult.manifest.files.sqliteIndexPath == "state.sqlite")
+        #expect(FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("manifest.json").path))
+        #expect(FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("entities/state.isoentity").path))
+        #expect(FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("state.sqlite").path))
+        #expect(FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("blobs/manifest.json").path))
+        #expect(loadResult.inspection.status == .ready)
+        #expect(loadResult.manifest.player.position == saveResult.manifest.player.position)
+        #expect(loadResult.regionDeltaFiles.isEmpty == false)
+        #expect(loadResult.entityStore?.entity(id: playerEntityID) != nil)
+        #expect(loadResult.blobManifest?.blobs.isEmpty == false)
+        #expect(loadResult.session.saveRootURL == rootURL)
+        #expect(restoredRuntime.frameSnapshot.worldSeed == session.worldSeed)
+        #expect(restoredRuntime.playerPosition.x == loadResult.manifest.player.position.x)
+        #expect(restoredRuntime.playerPosition.z == loadResult.manifest.player.position.z)
+        #expect(restoredSnapshot.visibleChunkCount > 0)
+        #expect(restoredSnapshot.debugOptions.showChunkBounds == false)
+    }
+
+    @MainActor
     @Test func worldRuntimePublishesUIFrameSnapshotFromPreparedSession() async throws {
         let pipeline = WorldPreparePipeline()
         let session = try await pipeline.prepareWorld(
@@ -1240,6 +1296,20 @@ struct IsoWorldPOCTests {
             seed: WorldSeed(1),
             horizontalScale: 1,
             verticalScale: 1
+        )
+    }
+
+    private func realWorldDebugOptions() -> RenderSnapshotDebugOptions {
+        RenderSnapshotDebugOptions(
+            showChunkBounds: false,
+            renderTerrain: true,
+            renderProps: true,
+            renderPlayer: true,
+            terrainMaterialDebugMode: .normal,
+            terrainSplatDebugLayerIndex: 0,
+            freezeSimulation: false,
+            freezeChunkStreaming: false,
+            forcedLODLevel: nil
         )
     }
 

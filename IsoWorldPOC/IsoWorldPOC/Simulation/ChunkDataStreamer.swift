@@ -138,6 +138,14 @@ final class ChunkDataStreamer {
         chunkJobScheduler.snapshot
     }
 
+    var activeCoordinatesForPersistence: [ChunkCoordinate] {
+        sorted(activeChunkSet)
+    }
+
+    var loadedCoordinatesForPersistence: [ChunkCoordinate] {
+        sorted(Set(loadedChunkData.keys))
+    }
+
     func activeChunkData() -> [ChunkStreamerRenderData] {
         sorted(activeChunkSet).compactMap { coordinate in
             guard let data = loadedChunkData[coordinate] else {

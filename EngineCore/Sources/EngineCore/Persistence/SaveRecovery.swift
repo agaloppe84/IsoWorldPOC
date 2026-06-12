@@ -207,8 +207,18 @@ public struct SaveRecoveryScanner: Sendable {
                rootURL: rootURL,
                manifestURL: manifestURL,
                committedGeneration: committedGeneration
-           ) {
+        ) {
             paths.insert(eventJournalPath)
+        }
+
+        if let entityStatePath = files.entityStatePath ?? fallbackFiles.entityStatePath,
+           fileIsNewerThanManifestOrMissingManifest(
+               relativePath: entityStatePath,
+               rootURL: rootURL,
+               manifestURL: manifestURL,
+               committedGeneration: committedGeneration
+           ) {
+            paths.insert(entityStatePath)
         }
 
         return paths.sorted()
@@ -275,6 +285,30 @@ public struct SaveRecoveryScanner: Sendable {
         }
 
         return eventDate > manifestDate
+    }
+
+    private func fileIsNewerThanManifestOrMissingManifest(
+        relativePath: String,
+        rootURL: URL,
+        manifestURL: URL,
+        committedGeneration: Int?
+    ) -> Bool {
+        let url = rootURL.appendingPathComponent(relativePath)
+
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return false
+        }
+
+        guard committedGeneration != nil else {
+            return true
+        }
+
+        guard let fileDate = modificationDate(for: url),
+              let manifestDate = modificationDate(for: manifestURL) else {
+            return false
+        }
+
+        return fileDate > manifestDate
     }
 
     private func sqliteSidecarPaths(relativePath: String, rootURL: URL) -> [String] {

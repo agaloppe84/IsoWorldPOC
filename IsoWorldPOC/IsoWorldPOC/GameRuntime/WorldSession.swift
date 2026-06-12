@@ -1,7 +1,7 @@
 import Foundation
 import EngineCore
 
-struct WorldSessionID: Hashable, Identifiable {
+struct WorldSessionID: Hashable, Identifiable, Sendable {
     let rawValue: UUID
 
     var id: UUID {
@@ -13,7 +13,7 @@ struct WorldSessionID: Hashable, Identifiable {
     }
 }
 
-struct WorldSession: Identifiable {
+struct WorldSession: Identifiable, Sendable {
     let id: WorldSessionID
     let seed: String
     let worldSeed: WorldSeed
@@ -22,6 +22,11 @@ struct WorldSession: Identifiable {
     let initialChunkRadius: Int
     let initialChunks: [ProceduralChunkData]
     let openRequirements: WorldOpenRequirements
+    let saveRootURL: URL?
+    let saveManifest: SaveManifest?
+    let loadedRegionDeltaFiles: [RegionDeltaFile]
+    let loadedEntityStore: EntityStateStore?
+    let loadedBlobManifest: CASBlobManifest?
 
     var initialChunkCount: Int {
         initialChunks.count
@@ -35,7 +40,12 @@ struct WorldSession: Identifiable {
         spawnPosition: WorldPosition,
         initialChunkRadius: Int,
         initialChunks: [ProceduralChunkData],
-        openRequirements: WorldOpenRequirements
+        openRequirements: WorldOpenRequirements,
+        saveRootURL: URL? = nil,
+        saveManifest: SaveManifest? = nil,
+        loadedRegionDeltaFiles: [RegionDeltaFile] = [],
+        loadedEntityStore: EntityStateStore? = nil,
+        loadedBlobManifest: CASBlobManifest? = nil
     ) {
         self.id = id
         self.seed = seed
@@ -45,5 +55,10 @@ struct WorldSession: Identifiable {
         self.initialChunkRadius = initialChunkRadius
         self.initialChunks = initialChunks
         self.openRequirements = openRequirements
+        self.saveRootURL = saveRootURL
+        self.saveManifest = saveManifest
+        self.loadedRegionDeltaFiles = loadedRegionDeltaFiles
+        self.loadedEntityStore = loadedEntityStore
+        self.loadedBlobManifest = loadedBlobManifest
     }
 }

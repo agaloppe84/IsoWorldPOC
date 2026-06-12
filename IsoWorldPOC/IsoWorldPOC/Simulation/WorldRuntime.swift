@@ -24,7 +24,10 @@ final class WorldRuntime {
     private let biomeSampler: BiomeSampler
     private let uiWorldDNA: UIWorldDNA
     private let lightingState = LightingState.defaultDay
+    private let seedText: String
     private let worldSeed: WorldSeed
+    private let worldDNA: WorldDNA
+    private let saveRootURL: URL?
     private var frameIndex: UInt64 = 0
     private var simulationTime: Float = 0
     private var fxFrameState = FXFrameState()
@@ -76,14 +79,30 @@ final class WorldRuntime {
         latestUIFrameSnapshot
     }
 
+    var currentSaveRootURL: URL? {
+        saveRootURL
+    }
+
     init(
         worldSession: WorldSession? = nil,
         debugOptions: RenderSnapshotDebugOptions = .defaults
     ) {
-        let resolvedWorldSeed = worldSession?.worldSeed ?? ProceduralChunkDataFactory.activeSeed
-        let spawnPosition = worldSession?.spawnPosition
+        let restoredPlayer = worldSession?.saveManifest?.player
+        let resolvedWorldSeed = worldSession?.saveManifest?.world.worldSeed ??
+            worldSession?.worldSeed ??
+            ProceduralChunkDataFactory.activeSeed
+        let resolvedSeedText = worldSession?.saveManifest?.world.seedText ??
+            worldSession?.seed ??
+            "seed-\(resolvedWorldSeed.value)"
+        let resolvedWorldDNA = worldSession?.saveManifest?.world.worldDNA ??
+            worldSession?.dna ??
+            WorldDNA.make(worldSeed: resolvedWorldSeed)
+        let spawnPosition = restoredPlayer?.position ?? worldSession?.spawnPosition
         let characterDNA = CharacterDNA.makePlayer(worldSeed: resolvedWorldSeed)
+        self.seedText = resolvedSeedText
         self.worldSeed = resolvedWorldSeed
+        self.worldDNA = resolvedWorldDNA
+        self.saveRootURL = worldSession?.saveRootURL
         self.playerController = PlayerController(position: SIMD3<Float>(
             spawnPosition?.x ?? 0,
             spawnPosition?.y ?? 0,
@@ -106,6 +125,11 @@ final class WorldRuntime {
             render: emptySnapshot,
             debug: DebugSnapshot(frameIndex: 0)
         )
+
+        if let restoredPlayer {
+            cameraController.cameraYaw = restoredPlayer.cameraYaw
+            cameraController.cameraPitch = restoredPlayer.cameraPitch
+        }
 
         chunkStreamer.update(
             around: playerController.position,
@@ -213,6 +237,90 @@ final class WorldRuntime {
 
     var snapshotBuildTiming: RenderSnapshotBuildTiming {
         lastSnapshotBuildTiming
+    }
+
+    func makePersistenceCapture() -> WorldRuntimePersistenceCapture {
+        let playerWorldPosition = WorldPosition(
+            x: playerController.position.x,
+            y: playerController.position.y,
+            z: playerController.position.z
+        )
+        let playerChunk = chunkStreamer.currentChunk
+        let playerRegion = RegionCoordinate.containing(playerChunk, regionSizeInChunks: 8)
+        let playerState = SavePlayerState(
+            profile: PlayerProfile()
+                .recordingRecentSeed(seedText),
+            position: playerWorldPosition,
+            region: playerRegion,
+            cameraYaw: cameraController.cameraYaw,
+            cameraPitch: cameraController.cameraPitch
+        )
+        let playerEntityID = StableID.entity(
+            worldSeed: worldSeed,
+            localIndex: 0
+        )
+        let runtimeState = playerController.characterRuntimeState
+        let playerEntity = EntityPersistenceState(
+            id: playerEntityID,
+            kind: .player,
+            displayName: "Player",
+            worldPosition: playerWorldPosition,
+            chunk: playerChunk,
+            region: playerRegion,
+            lastModifiedTick: frameIndex,
+            tags: ["entity.player"],
+            components: [
+                EntityComponentState(
+                    componentID: "character.runtime",
+                    payloadHash: StableHash.make { builder in
+                        builder.combine("character.runtime")
+                        builder.combine(runtimeState.health)
+                        builder.combine(runtimeState.stamina)
+                        builder.combine(runtimeState.fatigue)
+                        builder.combine(runtimeState.wetness)
+                        builder.combine(runtimeState.dirtiness)
+                        builder.combine(runtimeState.movementStance.rawValue)
+                    },
+                    scalarValues: [
+                        "health": Double(runtimeState.health),
+                        "stamina": Double(runtimeState.stamina),
+                        "fatigue": Double(runtimeState.fatigue),
+                        "wetness": Double(runtimeState.wetness),
+                        "dirtiness": Double(runtimeState.dirtiness),
+                    ],
+                    stringValues: [
+                        "movementStance": runtimeState.movementStance.rawValue,
+                    ]
+                ),
+            ]
+        )
+        let entityStore = EntityStateStore().upserting(playerEntity)
+        let chunkDelta = entityStore.chunkDelta(for: playerChunk, tick: frameIndex)
+        let regionDeltaStore = RegionDeltaStore(worldSeed: worldSeed)
+            .adding(chunkDelta)
+        let dirtyTracker = DirtyTracker()
+            .markingDirty(
+                coordinate: playerChunk,
+                tick: frameIndex,
+                systemID: "runtime.player",
+                reason: .entityState
+            )
+
+        return WorldRuntimePersistenceCapture(
+            seedText: seedText,
+            worldSeed: worldSeed,
+            worldDNA: worldDNA,
+            playerState: playerState,
+            playerEntityID: playerEntityID,
+            currentChunk: playerChunk,
+            activeChunkCoordinates: chunkStreamer.activeCoordinatesForPersistence,
+            visibleChunkCoordinates: snapshot.chunks.map(\.coordinate),
+            frameIndex: frameIndex,
+            simulationTime: simulationTime,
+            dirtyTracker: dirtyTracker,
+            regionDeltaStore: regionDeltaStore,
+            entityStore: entityStore
+        )
     }
 
     private func updateSimulation(

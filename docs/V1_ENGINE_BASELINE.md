@@ -400,6 +400,21 @@ Step 24-BIS-B durcit la persistence production avec les briques disque robustes 
 
 Cette passe ne branche pas encore le vrai `WorldRuntime` sur le save/load complet. Les contrats disque sont prets, mais il manque l'integration gameplay: collecter les deltas runtime reels, charger un slot, appliquer les deltas terrain/props/entities et valider un roundtrip monde visible.
 
+## Step 24-BIS-C livre
+
+Step 24-BIS-C branche la persistence sur le vrai runtime World:
+
+- `EntityStateFileStore` ajoute `entities/state.isoentity` comme source autoritative des entites persistantes, separee de l'index SQLite rebuildable.
+- `SaveFilesManifest` et `PersistenceRegistry.productionV2` declarent maintenant le fichier entites.
+- `SaveCoordinator` ecrit l'etat entites, les regions, le CAS, les snapshots, le journal et `state.sqlite` avant le commit `manifest.json`.
+- `SaveRecoveryScanner` peut nettoyer `entities/state.isoentity` si le fichier est en avance sur le manifest committe.
+- `WorldRuntime` expose une capture persistence issue du vrai runtime: seed texte, `WorldDNA`, position/camera joueur, entite joueur, chunk courant, chunks actifs/visibles, dirty scope et region delta.
+- `WorldRuntimeSaveService` sauvegarde un runtime vivant vers un dossier de slot, ecrit un blob CAS de receipt runtime, inspecte le resultat, puis recharge manifest + regions + entites + blobs en `WorldSession` restaurable.
+- `RealWorldView` possede un bouton Save branche sur le `WorldRuntime` rendu par Metal via `WorldRuntimeHandle`; ce n'est plus une save theorique de menu.
+- Le test app `worldRuntimeSaveServiceRoundTripsVisibleWorldFromDisk` prouve le roundtrip visible: runtime prepare, save disque, load disque, nouveau `WorldRuntime`, snapshot sans chunk bounds et chunk visible.
+
+Limite volontaire: le gameplay courant ne modifie pas encore terrain/props en jeu. Le step prepare et transporte les region deltas, mais l'application de mutations terrain/props avancees restera a brancher quand les outils ou systemes gameplay produiront ces deltas en runtime.
+
 ## Prochaine cible
 
-Step 24-BIS-C doit brancher le save/load runtime: collecter les deltas du World, sauvegarder un slot, recharger manifest + regions + entities + blobs, appliquer les deltas au runtime et ajouter un test roundtrip monde visible avant de basculer sur Step 25.
+Step 25 peut demarrer sur les surfaces/lighting V2. En parallele, une future tranche persistence devra etendre le runtime aux mutations terrain/props editables quand les systemes producteurs existent.

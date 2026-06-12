@@ -57,6 +57,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
     init(
         debugMetrics: DebugMetrics,
         worldSession: WorldSession? = nil,
+        runtimeHandle: WorldRuntimeHandle? = nil,
         publishesDebugTelemetry: Bool = true
     ) {
         let device = MTLCreateSystemDefaultDevice()
@@ -82,6 +83,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, GameRenderer {
             debugOptions: Self.makeDebugOptions(from: debugMetrics)
         )
         self.snapshot = runtime.snapshot
+        runtimeHandle?.attach(runtime: runtime)
 
         super.init()
 

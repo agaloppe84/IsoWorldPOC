@@ -618,4 +618,16 @@ Consequence: `EngineCore` depend d'un petit target C `CSQLite` lie a `sqlite3`. 
 
 Garantie: les tests EngineCore couvrent CAS, SQLite/WAL, crash injecte avant commit manifest, rollback des artefacts non commit et migration lab. Le build Xcode `build-for-testing` compile app + tests avec SQLite sans executer l'UI.
 
-Limite actuelle: le vrai `WorldRuntime` ne collecte pas encore ses deltas vers `SaveCoordinator` et ne recharge pas encore un slot complet. La prochaine tranche doit brancher ce roundtrip gameplay avant d'attaquer les surfaces/lighting Step 25.
+Limite actuelle: le vrai `WorldRuntime` ne collectait pas encore ses deltas vers `SaveCoordinator` et ne rechargeait pas encore un slot complet. Ce sujet est traite par la tranche 24-BIS-C.
+
+## 059 - Runtime World save/load via manifest-last et entites autoritatives
+
+Decision: brancher le vrai `WorldRuntime` sur `SaveCoordinator` avec un fichier entites autoritatif `entities/state.isoentity`, puis recharger un save root en `WorldSession` restaurable.
+
+Raison: le runtime doit pouvoir sauver autre chose qu'un contrat abstrait. La position/camera joueur, l'entite joueur, les chunks actifs/visibles et les deltas regionaux doivent venir du monde vivant. En meme temps, SQLite doit rester un index rebuildable: les entites persistantes ont donc leur propre fichier source de verite.
+
+Consequence: `WorldRuntime.makePersistenceCapture()` fabrique une capture depuis l'etat runtime. `WorldRuntimeSaveService` ecrit le slot, un receipt CAS, l'etat entites, les regions, le journal, les snapshots et SQLite, puis recharge manifest + regions + entites + blobs en `WorldSession`. `RealWorldView` declenche la save via un `WorldRuntimeHandle` attache au renderer Metal.
+
+Garantie: les tests EngineCore couvrent `EntityStateFileStore` et le coordinator enrichi. Le test app `worldRuntimeSaveServiceRoundTripsVisibleWorldFromDisk` execute un roundtrip save/load visible sans lancer le scenario UI Debug.
+
+Limite actuelle: les systemes de gameplay ne produisent pas encore de mutations terrain/props editables en runtime. Le chemin region delta est charge et conserve, mais l'application fine de ces mutations sera etendue avec les systemes producteurs.
