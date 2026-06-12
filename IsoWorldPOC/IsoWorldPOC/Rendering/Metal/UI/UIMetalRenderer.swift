@@ -20,10 +20,21 @@ struct UIViewportUniforms {
 }
 
 final class UIMetalRenderer {
+    static let maxInlineVertexBytes = 4_096
+
+    private static let vertexBufferRingCount = 3
+
+    private let device: MTLDevice?
     private let pipelineState: MTLRenderPipelineState?
     private let depthStencilState: MTLDepthStencilState?
+    private var vertexBuffers: [MTLBuffer?]
+    private var vertexBufferLengths: [Int]
+    private var vertexBufferCursor = 0
 
     init(device: MTLDevice?) {
+        self.device = device
+        self.vertexBuffers = Array(repeating: nil, count: Self.vertexBufferRingCount)
+        self.vertexBufferLengths = Array(repeating: 0, count: Self.vertexBufferRingCount)
         self.pipelineState = Self.makePipelineState(device: device)
         self.depthStencilState = Self.makeDepthStencilState(device: device)
     }
@@ -38,8 +49,11 @@ final class UIMetalRenderer {
             return .empty
         }
 
-        let vertices = commands.flatMap(vertices(for:))
+        let vertices = makeVertices(for: commands)
         guard !vertices.isEmpty else {
+            return .empty
+        }
+        guard let vertexBuffer = makeVertexBuffer(containing: vertices) else {
             return .empty
         }
 
@@ -54,17 +68,7 @@ final class UIMetalRenderer {
             length: MemoryLayout<UIViewportUniforms>.stride,
             index: 1
         )
-        vertices.withUnsafeBufferPointer { buffer in
-            guard let baseAddress = buffer.baseAddress else {
-                return
-            }
-
-            renderEncoder.setVertexBytes(
-                UnsafeRawPointer(baseAddress),
-                length: MemoryLayout<UIQuadVertex>.stride * vertices.count,
-                index: 0
-            )
-        }
+        renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         renderEncoder.drawPrimitives(
             type: .triangle,
             vertexStart: 0,
@@ -204,6 +208,14 @@ final class UIMetalRenderer {
         return UIDrawCommandBatcher.sorted(commands)
     }
 
+    func makeVertices(for commands: [UIDrawCommand]) -> [UIQuadVertex] {
+        commands.flatMap(vertices(for:))
+    }
+
+    static func vertexByteCount(vertexCount: Int) -> Int {
+        MemoryLayout<UIQuadVertex>.stride * vertexCount
+    }
+
     private func appendPanel(
         _ rect: UIFrameRect,
         theme: UITheme,
@@ -315,6 +327,47 @@ final class UIMetalRenderer {
         }
 
         return String(filtered.prefix(maxLength))
+    }
+
+    private func makeVertexBuffer(containing vertices: [UIQuadVertex]) -> MTLBuffer? {
+        let byteCount = Self.vertexByteCount(vertexCount: vertices.count)
+        guard byteCount > 0 else {
+            return nil
+        }
+
+        let bufferIndex = vertexBufferCursor
+        vertexBufferCursor = (vertexBufferCursor + 1) % Self.vertexBufferRingCount
+
+        if vertexBuffers[bufferIndex] == nil || vertexBufferLengths[bufferIndex] < byteCount {
+            vertexBufferLengths[bufferIndex] = Self.alignedBufferLength(for: byteCount)
+            vertexBuffers[bufferIndex] = device?.makeBuffer(
+                length: vertexBufferLengths[bufferIndex],
+                options: .storageModeShared
+            )
+            vertexBuffers[bufferIndex]?.label = "IsoWorldHUDVertexBuffer.\(bufferIndex)"
+        }
+
+        guard let vertexBuffer = vertexBuffers[bufferIndex] else {
+            return nil
+        }
+
+        vertices.withUnsafeBufferPointer { buffer in
+            guard let baseAddress = buffer.baseAddress else {
+                return
+            }
+
+            vertexBuffer.contents().copyMemory(
+                from: UnsafeRawPointer(baseAddress),
+                byteCount: byteCount
+            )
+        }
+
+        return vertexBuffer
+    }
+
+    private static func alignedBufferLength(for byteCount: Int) -> Int {
+        let alignment = 256
+        return ((byteCount + alignment - 1) / alignment) * alignment
     }
 
     private static func makePipelineState(device: MTLDevice?) -> MTLRenderPipelineState? {

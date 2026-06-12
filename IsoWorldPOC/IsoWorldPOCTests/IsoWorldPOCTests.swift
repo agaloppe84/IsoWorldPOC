@@ -215,6 +215,19 @@ struct IsoWorldPOCTests {
         #expect(commands == UIDrawCommandBatcher.sorted(commands))
     }
 
+    @Test func uiMetalRendererHUDVertexPayloadExceedsInlineMetalLimit() {
+        let renderer = UIMetalRenderer(device: nil)
+        let commands = renderer.makeDrawCommands(
+            snapshot: sampleUIFrameSnapshot(),
+            drawableSize: SIMD2<Float>(1_280, 720)
+        )
+        let vertices = renderer.makeVertices(for: commands)
+        let byteCount = UIMetalRenderer.vertexByteCount(vertexCount: vertices.count)
+
+        #expect(vertices.count == commands.count * 6)
+        #expect(byteCount > UIMetalRenderer.maxInlineVertexBytes)
+    }
+
     @Test func audioEventQueuePrioritizesAndDropsOverCapacity() {
         let queue = AudioEventQueue(capacity: 2)
 
